@@ -153,31 +153,59 @@ export function drawBossAltar(ctx, altar, time) {
 export function drawCampfire(ctx, fire, time) {
   const x = Math.round(fire.x);
   const y = Math.round(fire.y);
-  const glow = 0.22 + Math.sin(time * 6) * 0.06;
+  const glow = 0.24 + Math.sin(time * 6) * 0.07;
+
+  // Halo radial cálido multicapa de la fogata
   ctx.save();
-  ctx.fillStyle = `rgba(249, 115, 22, ${glow})`;
+  const grad = ctx.createRadialGradient(x, y, 8, x, y, fire.radius);
+  grad.addColorStop(0, `rgba(251, 146, 60, ${glow * 1.4})`);
+  grad.addColorStop(0.55, `rgba(234, 88, 12, ${glow * 0.65})`);
+  grad.addColorStop(1, 'rgba(234, 88, 12, 0)');
+  ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(x, y, fire.radius, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(250, 204, 21, 0.35)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(253, 224, 71, 0.28)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
 
-  px(ctx, x - 14, y + 2, 28, 10, '#475569');
-  px(ctx, x - 11, y - 2, 22, 8, '#78350F');
+  drawShadow(ctx, x, y + 6, 20, 8);
+
+  // Anillo de 8 piedras de río sombreadas en 16-bit
+  const stones = [
+    [-16, 2], [-11, 6], [-3, 7], [6, 6], [13, 2], [11, -3], [2, -5], [-10, -3]
+  ];
+  for (const [sx, sy] of stones) {
+    px(ctx, x + sx - 1, y + sy - 1, 7, 6, '#0D0A14');
+    px(ctx, x + sx, y + sy, 5, 4, '#64748B');
+    px(ctx, x + sx, y + sy, 3, 2, '#94A3B8');
+  }
+
+  // Troncos cruzados con brasas incandescentes
+  px(ctx, x - 13, y - 1, 26, 6, '#3B1D0A');
+  px(ctx, x - 11, y - 3, 22, 5, '#78350F');
+  px(ctx, x - 6, y - 1, 12, 3, '#EA580C');
+
+  // Llamas pixeladas en 4 tonos
   const flicker = Math.sin(time * 18) * 3;
-  px(ctx, x - 8, y - 14 - flicker * 0.4, 16, 16, '#EA580C');
-  px(ctx, x - 5, y - 18 - flicker, 10, 14, '#FACC15');
-  px(ctx, x - 2, y - 12, 4, 8, '#FEF9C3');
-  // Chispas subiendo
-  const sp1 = (time * 32) % 24;
-  const sp2 = ((time * 32) + 12) % 24;
-  px(ctx, x - 5 + Math.sin(time * 5) * 4, y - 16 - sp1, 2, 2, '#FEF08A');
-  px(ctx, x + 4 + Math.cos(time * 6) * 4, y - 14 - sp2, 2, 2, '#FB923C');
+  const f2 = Math.cos(time * 14) * 2;
+  px(ctx, x - 10, y - 14 - flicker * 0.3, 20, 14, '#DC2626');
+  px(ctx, x - 8, y - 18 - flicker * 0.5, 16, 15, '#EA580C');
+  px(ctx, x - 5 + f2 * 0.4, y - 22 - flicker, 10, 15, '#FACC15');
+  px(ctx, x - 2, y - 14 - flicker * 0.4, 5, 9, '#FEF9C3');
+
+  // Chispas ascendentes
+  for (let i = 0; i < 4; i++) {
+    const sp = ((time * 34) + i * 9) % 28;
+    const sx = x + Math.sin(time * 5 + i * 2) * 7;
+    px(ctx, sx, y - 14 - sp, 2, 2, i % 2 === 0 ? '#FEF08A' : '#FB923C');
+  }
 
   ctx.font = 'bold 11px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
+  ctx.fillStyle = '#0D0A14';
+  ctx.fillText('FOGATA', x + 1, y + 25);
   ctx.fillStyle = '#FEF08A';
   ctx.fillText('FOGATA', x, y + 24);
 }
@@ -189,16 +217,32 @@ export function drawPortal(ctx, portal, time, playerLevel) {
   const mainColor = locked ? '#64748B' : portal.color || '#38BDF8';
   const pulse = Math.sin(time * 5) * 4;
 
+  drawShadow(ctx, x, y + 12, 38, 12);
+
+  // Vórtice de energía rúnica multicapa
   ctx.save();
-  ctx.fillStyle = locked ? 'rgba(100,116,139,0.22)' : 'rgba(56, 189, 248, 0.22)';
+  ctx.fillStyle = locked ? 'rgba(100,116,139,0.25)' : 'rgba(56, 189, 248, 0.25)';
   ctx.beginPath();
-  ctx.ellipse(x, y, 36 + pulse * 0.4, 22 + pulse * 0.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, 36 + pulse * 0.4, 20 + pulse * 0.2, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = mainColor;
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.ellipse(x, y, 28, 16, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, 28, 15, 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.strokeStyle = locked ? '#94A3B8' : '#E0F2FE';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 18 - pulse * 0.2, 9, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Obeliscos rúnicos de piedra a izquierda y derecha del portal
+  [-34, 24].forEach((ox) => {
+    px(ctx, x + ox - 1, y - 22, 12, 32, '#0D0A14');
+    px(ctx, x + ox, y - 20, 10, 28, '#475569');
+    px(ctx, x + ox + 1, y - 20, 4, 26, '#94A3B8');
+    px(ctx, x + ox + 3, y - 12, 4, 8, mainColor);
+  });
 
   // Partículas orbitando el portal
   for (let i = 0; i < 4; i++) {
@@ -209,26 +253,34 @@ export function drawPortal(ctx, portal, time, playerLevel) {
 
   ctx.font = 'bold 12px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
+  const labelText = locked ? `${portal.label} (Nv.${portal.reqLevel})` : portal.label;
+  const tw = Math.ceil(ctx.measureText(labelText).width) + 12;
+  px(ctx, x - tw / 2, y - 38, tw, 16, 'rgba(10, 13, 18, 0.82)');
+  px(ctx, x - tw / 2, y - 38, tw, 2, mainColor);
   ctx.fillStyle = '#0D0A14';
-  ctx.fillText(portal.label, x + 1, y - 24 + 1);
+  ctx.fillText(labelText, x + 1, y - 25);
   ctx.fillStyle = locked ? '#FCA5A5' : '#F8FAFC';
-  ctx.fillText(locked ? `${portal.label} (Nv.${portal.reqLevel})` : portal.label, x, y - 24);
+  ctx.fillText(labelText, x, y - 26);
 }
 
 export function drawChest(ctx, chest, time) {
   const x = Math.round(chest.x);
   const y = Math.round(chest.y);
-  drawShadow(ctx, x, y + 12, 16, 6);
-  px(ctx, x - 14, y - 10, 28, 20, '#0D0A14');
-  px(ctx, x - 12, y - 8, 24, 16, chest.opened ? '#451A03' : '#92400E');
-  if (chest.opened) {
-    px(ctx, x - 12, y - 8, 24, 6, '#1C1917');
-  } else {
-    px(ctx, x - 12, y - 2, 24, 3, '#D9A441');
-    px(ctx, x - 3, y - 4, 6, 7, '#FDE047');
-    if (Math.sin(time * 6 + x) > 0.25) {
-      px(ctx, x + 10, y - 14, 3, 3, '#FDE047');
-      px(ctx, x - 13, y - 12, 2, 2, '#FEF9C3');
+  drawShadow(ctx, x, y + 12, 18, 7);
+  // Base de madera con herrajes de hierro y bandas doradas
+  px(ctx, x - 15, y - 11, 30, 22, '#0D0A14');
+  px(ctx, x - 13, y - 9, 26, 18, chest.opened ? '#3B1D0A' : '#92400E');
+  px(ctx, x - 13, y - 9, 26, 6, chest.opened ? '#1C1917' : '#B45309');
+  // Bandas metálicas doradas laterales
+  px(ctx, x - 11, y - 9, 3, 18, '#D9A441');
+  px(ctx, x + 8, y - 9, 3, 18, '#D9A441');
+  if (!chest.opened) {
+    px(ctx, x - 13, y - 3, 26, 3, '#D9A441');
+    px(ctx, x - 3, y - 5, 6, 7, '#FDE047');
+    px(ctx, x - 1, y - 3, 2, 3, '#0D0A14');
+    if (Math.sin(time * 6 + x) > 0.15) {
+      px(ctx, x + 11, y - 15, 3, 3, '#FDE047');
+      px(ctx, x - 14, y - 13, 2, 2, '#FEF9C3');
     }
   }
 }
@@ -583,9 +635,13 @@ export function drawEnemy(ctx, e, time) {
   }
 
   if (!e.isBoss && e.hp < e.maxHp) {
-    const bw = 34;
-    px(ctx, x - bw / 2, y - 26, bw, 5, '#0D0A14');
-    px(ctx, x - bw / 2 + 1, y - 25, Math.max(0, ((bw - 2) * e.hp) / e.maxHp), 3, '#D9383A');
+    const bw = 38;
+    const by = Math.round(footY - (e.kind === 'golem_hielo' ? 58 : 50));
+    px(ctx, x - bw / 2 - 1, by - 1, bw + 2, 7, '#0A0D12');
+    px(ctx, x - bw / 2, by, bw, 5, '#1E293B');
+    const fillW = Math.max(0, Math.round(((bw - 2) * e.hp) / e.maxHp));
+    px(ctx, x - bw / 2 + 1, by + 1, fillW, 3, '#EF4444');
+    px(ctx, x - bw / 2 + 1, by + 1, fillW, 1, '#FCA5A5');
   }
 }
 
@@ -604,33 +660,137 @@ export function drawCrystal(ctx, c, time) {
 }
 
 export function drawBuilding(ctx, b, time) {
-  px(ctx, b.x + 8, b.y + 10, b.w, b.h, 'rgba(0,0,0,0.3)');
-  px(ctx, b.x, b.y + 28, b.w, b.h - 28, '#0D0A14');
-  px(ctx, b.x + 3, b.y + 30, b.w - 6, b.h - 33, b.wallColor);
-  px(ctx, b.x - 6, b.y, b.w + 12, 34, '#0D0A14');
-  px(ctx, b.x - 3, b.y + 3, b.w + 6, 28, b.roofColor);
-  px(ctx, b.x - 3, b.y + 3, b.w + 6, 6, b.roofHighlight);
-  px(ctx, b.x + b.w / 2 - 14, b.y + b.h - 32, 28, 32, '#3B2314');
-  px(ctx, b.x + b.w / 2 - 11, b.y + b.h - 29, 22, 29, '#5C3A21');
-  px(ctx, b.x + 18, b.y + 48, 20, 18, '#FACC15');
-  px(ctx, b.x + b.w - 38, b.y + 48, 20, 18, '#FACC15');
+  // Sombra proyectada profunda del edificio
+  px(ctx, b.x + 8, b.y + 12, b.w, b.h, 'rgba(8, 10, 16, 0.42)');
 
-  // Chimenea con humo animado
+  // Chimenea de ladrillo con humo animado en varias volutas
   if (b.chimney) {
-    const cx = b.x + b.w - 28;
-    const cy = b.y - 12;
-    px(ctx, cx, cy, 14, 16, '#475569');
-    const puff = (time * 18) % 24;
-    ctx.fillStyle = `rgba(226, 232, 240, ${0.55 - puff / 45})`;
-    ctx.beginPath();
-    ctx.arc(cx + 7 + Math.sin(time * 2) * 3, cy - puff, 6 + puff * 0.2, 0, Math.PI * 2);
-    ctx.fill();
+    const cx = b.x + b.w - 34;
+    const cy = b.y - 16;
+    px(ctx, cx - 2, cy - 2, 18, 20, '#0D0A14');
+    px(ctx, cx, cy, 14, 18, '#475569');
+    px(ctx, cx + 2, cy + 4, 10, 3, '#334155');
+    px(ctx, cx - 1, cy - 2, 16, 4, '#64748B');
+    for (let i = 0; i < 2; i++) {
+      const puff = ((time * 18) + i * 12) % 26;
+      ctx.fillStyle = `rgba(226, 232, 240, ${Math.max(0, 0.52 - puff / 48)})`;
+      ctx.beginPath();
+      ctx.arc(cx + 7 + Math.sin(time * 2 + i) * 4, cy - 4 - puff, 5 + puff * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  ctx.font = 'bold 14px "Pixelify Sans", monospace';
+  // Cuerpo de fachada con contorno oscuro #0D0A14
+  const wallY = b.y + 30;
+  const wallH = b.h - 30;
+  px(ctx, b.x, wallY, b.w, wallH, '#0D0A14');
+  px(ctx, b.x + 3, wallY + 2, b.w - 6, wallH - 5, b.wallColor);
+
+  // Sombra bajo el alero del tejado
+  px(ctx, b.x + 3, wallY + 4, b.w - 6, 7, 'rgba(13, 10, 20, 0.35)');
+
+  // Zócalo inferior de bloques de piedra tallada
+  const plinthY = b.y + b.h - 18;
+  px(ctx, b.x + 3, plinthY, b.w - 6, 15, '#475569');
+  for (let sx = b.x + 5; sx < b.x + b.w - 16; sx += 18) {
+    px(ctx, sx, plinthY + 2, 15, 6, '#64748B');
+    px(ctx, sx, plinthY + 2, 15, 2, '#94A3B8');
+    px(ctx, sx + 4, plinthY + 9, 13, 5, '#526071');
+  }
+
+  // Entramado medieval de vigas de roble (verticales y horizontal intermedia)
+  const timberCol = '#3B2314';
+  const timberHi = '#5C3A21';
+  px(ctx, b.x + 3, wallY + 4, 6, wallH - 7, timberCol);
+  px(ctx, b.x + b.w - 9, wallY + 4, 6, wallH - 7, timberCol);
+  px(ctx, b.x + 3, wallY + Math.floor(wallH * 0.48), b.w - 6, 5, timberCol);
+  px(ctx, b.x + 3, wallY + Math.floor(wallH * 0.48), b.w - 6, 2, timberHi);
+  px(ctx, b.x + 52, wallY + 4, 5, wallH - 20, timberCol);
+  px(ctx, b.x + b.w - 57, wallY + 4, 5, wallH - 20, timberCol);
+
+  // Tejado escalonado de tejas 16-bit con cumbrera y alero
+  px(ctx, b.x - 8, b.y, b.w + 16, 36, '#0D0A14');
+  px(ctx, b.x - 5, b.y + 3, b.w + 10, 30, b.roofColor);
+  px(ctx, b.x - 5, b.y + 3, b.w + 10, 6, b.roofHighlight);
+  // Filas de tejas pixeladas
+  for (let ry = b.y + 11; ry < b.y + 30; ry += 7) {
+    px(ctx, b.x - 4, ry, b.w + 8, 2, 'rgba(13, 10, 20, 0.32)');
+    for (let rx = b.x - 2 + ((ry % 2) * 8); rx < b.x + b.w - 4; rx += 16) {
+      px(ctx, rx, ry - 4, 2, 5, 'rgba(13, 10, 20, 0.22)');
+    }
+  }
+  // Bordes laterales de madera en el tejado
+  px(ctx, b.x - 5, b.y + 3, 4, 30, '#D9A441');
+  px(ctx, b.x + b.w + 1, b.y + 3, 4, 30, '#D9A441');
+
+  // Puerta arqueada de madera con herrajes y escalón de piedra
+  const doorX = Math.round(b.x + b.w / 2 - 16);
+  const doorY = b.y + b.h - 38;
+  px(ctx, doorX - 4, b.y + b.h - 4, 40, 6, '#94A3B8'); // escalón
+  px(ctx, doorX - 2, doorY - 2, 36, 38, '#0D0A14');
+  px(ctx, doorX, doorY, 32, 36, '#3B2314');
+  px(ctx, doorX + 3, doorY + 3, 12, 32, '#5C3A21');
+  px(ctx, doorX + 17, doorY + 3, 12, 32, '#5C3A21');
+  // Herrajes y aldaba dorada
+  px(ctx, doorX + 2, doorY + 9, 28, 3, '#1E293B');
+  px(ctx, doorX + 2, doorY + 24, 28, 3, '#1E293B');
+  px(ctx, doorX + 22, doorY + 16, 4, 4, '#FDE047');
+
+  // Faroles encendidos a ambos lados de la puerta con halo cálido
+  const lanternGlow = 0.26 + Math.sin(time * 7 + b.x) * 0.08;
+  [doorX - 10, doorX + 38].forEach((lx) => {
+    const ly = doorY + 10;
+    ctx.save();
+    ctx.fillStyle = `rgba(250, 204, 21, ${lanternGlow})`;
+    ctx.beginPath();
+    ctx.arc(lx + 2, ly + 3, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    px(ctx, lx, ly, 5, 7, '#0D0A14');
+    px(ctx, lx + 1, ly + 1, 3, 5, '#FEF08A');
+  });
+
+  // Ventanas con marco de madera, 4 cristales iluminados y alféizar
+  [b.x + 16, b.x + b.w - 42].forEach((wx) => {
+    const wy = b.y + 46;
+    px(ctx, wx - 2, wy - 2, 28, 24, '#3B2314');
+    px(ctx, wx, wy, 24, 20, '#F59E0B');
+    px(ctx, wx + 2, wy + 2, 9, 7, '#FEF08A');
+    px(ctx, wx + 13, wy + 2, 9, 7, '#FEF08A');
+    px(ctx, wx + 11, wy, 2, 20, '#3B2314');
+    px(ctx, wx, wy + 9, 24, 2, '#3B2314');
+    px(ctx, wx - 3, wy + 20, 30, 4, '#64748B'); // alféizar
+  });
+
+  // Detalles temáticos específicos por edificio
+  if (b.id === 'forja') {
+    // Horno de forja exterior con brasas encendidas a la derecha
+    const fx = b.x + b.w - 36;
+    const fy = b.y + b.h - 26;
+    px(ctx, fx, fy, 24, 20, '#1E293B');
+    px(ctx, fx + 4, fy + 6, 16, 12, '#EA580C');
+    px(ctx, fx + 7, fy + 9, 10, 7, '#FEF08A');
+  } else if (b.id === 'taberna') {
+    // Letrero colgante con jarra dorada a la izquierda
+    px(ctx, b.x - 12, b.y + 44, 14, 3, '#1E293B');
+    px(ctx, b.x - 11, b.y + 47, 12, 12, '#78350F');
+    px(ctx, b.x - 8, b.y + 50, 6, 7, '#FDE047');
+  }
+
+  // Placa de madera/hierro biselada con el nombre del edificio
+  ctx.font = 'bold 13px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(b.label, b.x + b.w / 2, b.y + 22);
+  const tw = Math.ceil(ctx.measureText(b.label).width) + 20;
+  const bx = Math.round(b.x + b.w / 2 - tw / 2);
+  const by = b.y + 8;
+  px(ctx, bx - 2, by - 2, tw + 4, 22, '#0D0A14');
+  px(ctx, bx, by, tw, 18, '#3B2314');
+  px(ctx, bx, by, tw, 2, '#F2B63D');
+  px(ctx, bx, by + 16, tw, 2, '#92400E');
+  ctx.fillStyle = '#0D0A14';
+  ctx.fillText(b.label, b.x + b.w / 2 + 1, by + 14);
+  ctx.fillStyle = '#FEF08A';
+  ctx.fillText(b.label, b.x + b.w / 2, by + 13);
 }
 
 export function drawTree(ctx, t) {
@@ -689,18 +849,43 @@ export function drawProp(ctx, prop, time) {
   const y = Math.round(prop.y);
 
   if (prop.kind === 'fountain') {
-    drawShadow(ctx, x, y + 18, 32, 14);
+    drawShadow(ctx, x, y + 18, 36, 15);
+    // Borde exterior de piedra tallada octogonal/elíptica
+    ctx.fillStyle = '#0D0A14';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 6, 33, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#64748B';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 6, 31, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = '#94A3B8';
     ctx.beginPath();
-    ctx.ellipse(x, y + 6, 30, 18, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + 4, 29, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Estanque de agua cristalina con ondas animadas
+    ctx.fillStyle = '#0284C7';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 5, 24, 13, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#38BDF8';
     ctx.beginPath();
-    ctx.ellipse(x, y + 4, 23, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + 4, 21, 11, 0, 0, Math.PI * 2);
     ctx.fill();
+    const ripple = 8 + ((time * 16) % 13);
+    ctx.strokeStyle = 'rgba(224, 242, 254, 0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 4, ripple, ripple * 0.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    // Columna central escalonada y chorros de agua en cascada
+    px(ctx, x - 7, y - 6, 14, 12, '#475569');
+    px(ctx, x - 5, y - 14, 10, 12, '#94A3B8');
+    px(ctx, x - 9, y - 12, 18, 4, '#CBD5E1');
     const spray = Math.sin(time * 12) * 3;
-    px(ctx, x - 3, y - 16 - spray, 6, 20 + spray, '#BAE6FD');
-    px(ctx, x - 9, y - 12, 18, 3, '#E0F2FE');
+    px(ctx, x - 3, y - 22 - spray, 6, 10 + spray, '#E0F2FE');
+    px(ctx, x - 11, y - 10, 3, 12, '#BAE6FD');
+    px(ctx, x + 8, y - 10, 3, 12, '#BAE6FD');
   } else if (prop.kind === 'banner_alba' || prop.kind === 'banner_hierro') {
     const wave = Math.sin(time * 6 + x) * 2;
     px(ctx, x - 2, y - 26, 4, 34, '#78350F');

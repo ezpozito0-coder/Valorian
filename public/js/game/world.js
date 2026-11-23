@@ -449,29 +449,114 @@ export function drawMapGround(ctx, map, faction, time) {
   const W = map.width;
   const H = map.height;
 
+  // Helper para dibujar bordillos de piedra y mechones orgánicos de césped en los bordes de caminos/plazas
+  const drawStoneCurbRect = (rx, ry, rw, rh, isAlbaStyle = true) => {
+    const curbBase = isAlbaStyle ? '#475569' : '#451A03';
+    const curbStone = isAlbaStyle ? '#94A3B8' : '#78350F';
+    const curbHi = isAlbaStyle ? '#CBD5E1' : '#9A5B3A';
+    // Sombra exterior del bordillo sobre el césped
+    ctx.fillStyle = 'rgba(10, 13, 18, 0.35)';
+    ctx.fillRect(rx - 8, ry - 8, rw + 16, rh + 16);
+
+    // Bloques de bordillo superior e inferior
+    for (let x = rx - 6; x < rx + rw + 6; x += 24) {
+      const bw = Math.min(22, rx + rw + 6 - x);
+      ctx.fillStyle = curbBase;
+      ctx.fillRect(x, ry - 6, bw, 8);
+      ctx.fillRect(x, ry + rh - 2, bw, 8);
+      ctx.fillStyle = curbStone;
+      ctx.fillRect(x + 1, ry - 5, bw - 2, 5);
+      ctx.fillRect(x + 1, ry + rh - 1, bw - 2, 5);
+      ctx.fillStyle = curbHi;
+      ctx.fillRect(x + 1, ry - 5, bw - 2, 2);
+      ctx.fillRect(x + 1, ry + rh - 1, bw - 2, 2);
+    }
+    // Bloques de bordillo izquierdo y derecho
+    for (let y = ry + 4; y < ry + rh - 6; y += 24) {
+      const bh = Math.min(22, ry + rh - 4 - y);
+      ctx.fillStyle = curbBase;
+      ctx.fillRect(rx - 6, y, 8, bh);
+      ctx.fillRect(rx + rw - 2, y, 8, bh);
+      ctx.fillStyle = curbStone;
+      ctx.fillRect(rx - 5, y + 1, 5, bh - 2);
+      ctx.fillRect(rx + rw - 1, y + 1, 5, bh - 2);
+      ctx.fillStyle = curbHi;
+      ctx.fillRect(rx - 5, y + 1, 2, bh - 2);
+    }
+    // Mechones orgánicos de pasto invadiendo suavemente las orillas (si es Villa Alba)
+    if (isAlbaStyle) {
+      ctx.fillStyle = '#22C55E';
+      for (let x = rx + 12; x < rx + rw - 12; x += 48) {
+        ctx.fillRect(x, ry - 3, 6, 4);
+        ctx.fillRect(x + 20, ry + rh - 1, 6, 4);
+      }
+      for (let y = ry + 18; y < ry + rh - 18; y += 52) {
+        ctx.fillRect(rx - 3, y, 4, 6);
+        ctx.fillRect(rx + rw - 1, y + 16, 4, 6);
+      }
+    }
+  };
+
+  // Helper para cercas de madera con postes, travesaños y sombra 16-bit
+  const drawWoodenFenceRect = (fx, fy, fw, fh) => {
+    ctx.fillStyle = 'rgba(10, 13, 18, 0.32)';
+    ctx.fillRect(fx - 2, fy + 4, fw + 4, 6);
+    ctx.fillRect(fx - 2, fy + fh + 2, fw + 4, 6);
+
+    // Travesaños horizontales dobles
+    ctx.fillStyle = '#451A03';
+    ctx.fillRect(fx, fy - 4, fw, 4);
+    ctx.fillRect(fx, fy + 2, fw, 3);
+    ctx.fillRect(fx, fy + fh - 4, fw, 4);
+    ctx.fillRect(fx, fy + fh + 2, fw, 3);
+    ctx.fillStyle = '#92400E';
+    ctx.fillRect(fx, fy - 3, fw, 2);
+    ctx.fillRect(fx, fy + fh - 3, fw, 2);
+
+    // Travesaños laterales
+    ctx.fillStyle = '#451A03';
+    ctx.fillRect(fx - 2, fy, 4, fh);
+    ctx.fillRect(fx + fw - 2, fy, 4, fh);
+    ctx.fillStyle = '#78350F';
+    ctx.fillRect(fx - 1, fy, 2, fh);
+    ctx.fillRect(fx + fw - 1, fy, 2, fh);
+
+    // Postes verticales de madera cada 38px
+    for (let px = fx; px <= fx + fw; px += 38) {
+      ctx.fillStyle = '#0D0A14';
+      ctx.fillRect(px - 4, fy - 10, 8, 16);
+      ctx.fillRect(px - 4, fy + fh - 10, 8, 16);
+      ctx.fillStyle = '#78350F';
+      ctx.fillRect(px - 3, fy - 9, 6, 14);
+      ctx.fillRect(px - 3, fy + fh - 9, 6, 14);
+      ctx.fillStyle = '#B45309';
+      ctx.fillRect(px - 3, fy - 9, 6, 3);
+      ctx.fillRect(px - 3, fy + fh - 9, 6, 3);
+    }
+  };
+
   if (map.id === 'aldea') {
     const isAlba = faction === 'alba';
     ctx.fillStyle = getTexturePattern(ctx, isAlba ? 'grass_lush' : 'dirt_hierro') || (isAlba ? '#3B6E3A' : '#6B4226');
     ctx.fillRect(0, 0, W, H);
 
-    // Borde de transición suave hacia la plaza
-    ctx.fillStyle = isAlba ? 'rgba(71, 85, 105, 0.45)' : 'rgba(69, 26, 3, 0.45)';
-    ctx.fillRect(334, 414, 932, 492);
-
-    // Plaza central con adoquín o tierra apisonada
+    // Plaza central con adoquín o tierra apisonada + bordillos de piedra tallada
     ctx.fillStyle = getTexturePattern(ctx, isAlba ? 'cobble_alba' : 'dirt_road') || '#94A3B8';
     ctx.fillRect(340, 420, 920, 480);
+    drawStoneCurbRect(340, 420, 920, 480, isAlba);
 
-    // Camino norte al portal con bordes
-    ctx.fillStyle = isAlba ? 'rgba(71, 85, 105, 0.45)' : 'rgba(69, 26, 3, 0.45)';
-    ctx.fillRect(729, 100, 142, 330);
+    // Camino norte al portal con bordillos
     ctx.fillStyle = getTexturePattern(ctx, isAlba ? 'cobble_alba' : 'dirt_road') || '#CBD5E1';
     ctx.fillRect(735, 100, 130, 330);
+    drawStoneCurbRect(735, 100, 130, 322, isAlba);
+    // Empalme limpio entre camino norte y plaza
+    ctx.fillStyle = getTexturePattern(ctx, isAlba ? 'cobble_alba' : 'dirt_road') || '#94A3B8';
+    ctx.fillRect(738, 412, 124, 18);
 
-    // Zona de entrenamiento cercada
-    ctx.strokeStyle = '#78350F';
-    ctx.lineWidth = 5;
-    ctx.strokeRect(1080, 740, 190, 115);
+    // Suelo de arena de combate y cerca de postes de madera en la Zona de Entrenamiento
+    ctx.fillStyle = 'rgba(120, 83, 48, 0.38)';
+    ctx.fillRect(1082, 742, 186, 111);
+    drawWoodenFenceRect(1080, 740, 190, 115);
 
     if (!isAlba) {
       ctx.fillStyle = '#451A03';
@@ -484,44 +569,84 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillRect(0, 540, W, H - 540);
     ctx.fillStyle = getTexturePattern(ctx, 'grass_corrupt') || '#312E3F';
     ctx.fillRect(0, 0, W, 560);
-    // Transición suave entre ambos biomas
+    // Transición orgánica entre ambos biomas
     const trans = ctx.createLinearGradient(0, 480, 0, 660);
-    trans.addColorStop(0, 'rgba(46, 43, 58, 0.85)');
+    trans.addColorStop(0, 'rgba(46, 43, 58, 0.88)');
     trans.addColorStop(1, 'rgba(52, 105, 54, 0)');
     ctx.fillStyle = trans;
     ctx.fillRect(0, 480, W, 180);
 
-    // Camino de tierra texturizado
-    ctx.fillStyle = 'rgba(69, 45, 25, 0.45)';
-    ctx.fillRect(739, 160, 122, 1080);
+    // Camino de tierra texturizado con piedras en las orillas
+    ctx.fillStyle = 'rgba(45, 28, 14, 0.45)';
+    ctx.fillRect(737, 160, 126, 1080);
     ctx.fillStyle = getTexturePattern(ctx, 'dirt_road') || '#8C6D49';
     ctx.fillRect(745, 160, 110, 1080);
-
-    // Río animado con orillas de piedra
-    ctx.fillStyle = '#526072';
-    ctx.fillRect(30, 784, 1540, 102);
-    ctx.fillStyle = '#1D4ED8';
-    ctx.fillRect(30, 790, 1540, 90);
-    ctx.fillStyle = 'rgba(147, 197, 253, 0.38)';
-    const waveShift = (time * 45) % 90;
-    for (let rx = 30; rx < 1540; rx += 90) {
-      ctx.fillRect(rx + waveShift, 815, 36, 5);
-      ctx.fillRect(rx + ((waveShift + 45) % 90), 850, 28, 5);
+    for (let py = 180; py < 1220; py += 36) {
+      ctx.fillStyle = '#57534E';
+      ctx.fillRect(739, py, 6, 8);
+      ctx.fillRect(855, py + 16, 6, 8);
     }
 
-    // Puente de madera vieja con tablones
-    ctx.fillStyle = '#5C3A21';
-    ctx.fillRect(720, 785, 160, 100);
-    ctx.fillStyle = '#92400E';
-    for (let by = 793; by < 880; by += 14) ctx.fillRect(726, by, 148, 8);
+    // Río animado con orillas de roca y espuma blanca en los bordes
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(30, 780, 1540, 110);
+    ctx.fillStyle = '#64748B';
+    ctx.fillRect(30, 784, 1540, 102);
+    ctx.fillStyle = '#1E40AF';
+    ctx.fillRect(30, 790, 1540, 90);
+    ctx.fillStyle = '#2563EB';
+    ctx.fillRect(30, 796, 1540, 78);
+    ctx.fillStyle = 'rgba(224, 242, 254, 0.55)';
+    ctx.fillRect(30, 790, 1540, 3);
+    ctx.fillRect(30, 877, 1540, 3);
+    const waveShift = (time * 45) % 90;
+    for (let rx = 30; rx < 1540; rx += 90) {
+      ctx.fillRect(rx + waveShift, 815, 36, 4);
+      ctx.fillRect(rx + ((waveShift + 45) % 90), 850, 28, 4);
+    }
 
-    // Grietas moradas al norte y pared de montaña
-    ctx.fillStyle = 'rgba(147, 51, 234, 0.45)';
-    ctx.fillRect(540, 320, 110, 8);
-    ctx.fillRect(980, 280, 120, 8);
+    // Puente de madera vieja con tablones, barandillas laterales y postes
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(724, 788, 164, 102);
+    ctx.fillStyle = '#3B2314';
+    ctx.fillRect(718, 783, 164, 104);
+    ctx.fillStyle = '#78350F';
+    ctx.fillRect(722, 785, 156, 100);
+    ctx.fillStyle = '#92400E';
+    for (let by = 791; by < 880; by += 12) {
+      ctx.fillRect(728, by, 144, 8);
+      ctx.fillStyle = '#B45309';
+      ctx.fillRect(728, by, 144, 2);
+      ctx.fillStyle = '#92400E';
+    }
+    // Barandillas y postes del puente
+    ctx.fillStyle = '#3B2314';
+    ctx.fillRect(718, 783, 8, 104);
+    ctx.fillRect(874, 783, 8, 104);
+    for (let py = 785; py <= 875; py += 28) {
+      ctx.fillStyle = '#F2B63D';
+      ctx.fillRect(719, py, 6, 6);
+      ctx.fillRect(875, py, 6, 6);
+    }
+
+    // Grietas moradas luminosas del Vacío al norte y pared de montaña
+    const voidGlow = 0.55 + Math.sin(time * 4) * 0.25;
+    ctx.fillStyle = `rgba(147, 51, 234, ${voidGlow * 0.45})`;
+    ctx.fillRect(534, 316, 122, 16);
+    ctx.fillRect(974, 276, 132, 16);
+    ctx.fillStyle = '#A855F7';
+    ctx.fillRect(540, 320, 110, 6);
+    ctx.fillRect(980, 280, 120, 6);
+    ctx.fillStyle = '#F0ABFC';
+    ctx.fillRect(550, 322, 90, 2);
+    ctx.fillRect(990, 282, 100, 2);
+
     ctx.fillStyle = getTexturePattern(ctx, 'cave_stone') || '#334155';
     ctx.fillRect(30, 30, 670, 160);
     ctx.fillRect(900, 30, 670, 160);
+    ctx.fillStyle = '#1E293B';
+    ctx.fillRect(30, 182, 670, 8);
+    ctx.fillRect(900, 182, 670, 8);
   } else if (map.id === 'cueva') {
     ctx.fillStyle = getTexturePattern(ctx, 'cave_stone') || '#1B1628';
     ctx.fillRect(0, 0, W, H);
@@ -531,6 +656,7 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillRect(30, 730, 1540, 28);
     ctx.fillStyle = getTexturePattern(ctx, 'cobble_alba') || '#475569';
     ctx.fillRect(725, 660, 150, 170);
+    drawStoneCurbRect(725, 660, 150, 170, true);
     ctx.strokeStyle = '#64748B';
     ctx.lineWidth = 3;
     ctx.strokeRect(430, 990, 220, 14);
@@ -544,9 +670,13 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillRect(0, 0, W, H);
     const lavaPulse = 0.65 + Math.sin(time * 4) * 0.25;
     ctx.fillStyle = `rgba(234, 88, 12, ${lavaPulse})`;
-    ctx.fillRect(340, 840, 180, 10);
-    ctx.fillRect(1090, 790, 210, 10);
-    ctx.fillRect(520, 410, 120, 8);
+    ctx.fillRect(340, 840, 180, 12);
+    ctx.fillRect(1090, 790, 210, 12);
+    ctx.fillRect(520, 410, 120, 10);
+    ctx.fillStyle = '#FEF08A';
+    ctx.fillRect(350, 844, 160, 4);
+    ctx.fillRect(1100, 794, 190, 4);
+    ctx.fillRect(530, 413, 100, 3);
     ctx.strokeStyle = `rgba(249, 115, 22, ${lavaPulse})`;
     ctx.lineWidth = 10;
     ctx.beginPath();
@@ -555,10 +685,15 @@ export function drawMapGround(ctx, map, faction, time) {
   } else if (map.id === 'montanas') {
     ctx.fillStyle = getTexturePattern(ctx, 'snow_ground') || '#CBD5E1';
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#7DD3FC';
+    ctx.fillStyle = '#38BDF8';
     ctx.fillRect(280, 420, 1040, 310);
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    for (let ix = 310; ix < 1280; ix += 140) ctx.fillRect(ix, 460, 60, 6);
+    ctx.fillStyle = '#7DD3FC';
+    ctx.fillRect(288, 428, 1024, 294);
+    ctx.fillStyle = 'rgba(255,255,255,0.38)';
+    for (let ix = 310; ix < 1280; ix += 140) {
+      ctx.fillRect(ix, 460, 64, 6);
+      ctx.fillRect(ix + 35, 590, 48, 5);
+    }
     ctx.strokeStyle = '#E0F2FE';
     ctx.lineWidth = 4;
     ctx.strokeRect(280, 420, 1040, 310);
@@ -574,6 +709,12 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillRect(920, 895, 650, 375);
     ctx.fillStyle = getTexturePattern(ctx, 'obsidian_floor') || '#27203A';
     ctx.fillRect(680, 890, 240, 370);
+    // Alfombra imperial púrpura y dorada hacia el Trono de Vaelor
+    ctx.fillStyle = '#3B0764';
+    ctx.fillRect(746, 275, 108, 960);
+    ctx.fillStyle = '#F2B63D';
+    ctx.fillRect(746, 275, 4, 960);
+    ctx.fillRect(850, 275, 4, 960);
     ctx.strokeStyle = '#4C1D95';
     ctx.lineWidth = 3;
     ctx.strokeRect(680, 890, 240, 370);
@@ -646,26 +787,52 @@ export function drawMinimap(mmCanvas, map, player) {
 
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle =
-    map.id === 'aldea' ? '#2D5A2E' :
+    map.id === 'aldea' ? '#244C26' :
     map.id === 'bosque' ? '#1E3E29' :
     map.id === 'cueva' ? '#1A1326' :
     map.id === 'desierto' ? '#44403C' :
     map.id === 'montanas' ? '#94A3B8' : '#150E24';
   ctx.fillRect(0, 0, w, h);
 
-  // Agua / hielo / sólidos / puentes
+  // Caminos y plaza en el minimapa táctico
+  if (map.id === 'aldea') {
+    ctx.fillStyle = '#64748B';
+    ctx.fillRect(340 * sx, 420 * sy, 920 * sx, 480 * sy);
+    ctx.fillRect(735 * sx, 100 * sy, 130 * sx, 330 * sy);
+  } else if (map.id === 'bosque') {
+    ctx.fillStyle = '#312E3F';
+    ctx.fillRect(0, 0, w, 540 * sy);
+    ctx.fillStyle = '#8C6D49';
+    ctx.fillRect(745 * sx, 160 * sy, 110 * sx, 1080 * sy);
+  } else if (map.id === 'fortaleza') {
+    ctx.fillStyle = '#4C1D95';
+    ctx.fillRect(746 * sx, 275 * sy, 108 * sx, 960 * sy);
+  }
+
+  // Agua / hielo / sólidos / puentes / edificios
   ctx.fillStyle = '#1D4ED8';
   for (const r of map.waterRects) ctx.fillRect(r.x * sx, r.y * sy, r.w * sx, r.h * sy);
   ctx.fillStyle = '#7DD3FC';
   for (const r of map.iceZones) ctx.fillRect(r.x * sx, r.y * sy, r.w * sx, r.h * sy);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
   for (const r of map.solids) ctx.fillRect(r.x * sx, r.y * sy, r.w * sx, r.h * sy);
-  ctx.fillStyle = '#A16207';
+  ctx.fillStyle = '#B45309';
   for (const b of map.bridges) ctx.fillRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
-  ctx.fillStyle = '#64748B';
-  for (const b of map.buildings) ctx.fillRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+  for (const b of map.buildings) {
+    ctx.fillStyle = b.roofColor || '#3B82F6';
+    ctx.fillRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+    ctx.strokeStyle = '#F2B63D';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+  }
 
-  // Portales (azul)
+  // Fogatas (naranja cálido)
+  ctx.fillStyle = '#F97316';
+  for (const f of map.campfires || []) {
+    ctx.fillRect(f.x * sx - 2, f.y * sy - 2, 4, 4);
+  }
+
+  // Portales (azul celeste)
   ctx.fillStyle = '#38BDF8';
   for (const pt of map.portals) {
     ctx.beginPath();
@@ -691,12 +858,21 @@ export function drawMinimap(mmCanvas, map, player) {
   ctx.fillStyle = '#EF4444';
   for (const e of map.enemies) {
     if (!e.alive) continue;
-    ctx.fillRect(e.x * sx - (e.isBoss ? 3 : 1.8), e.y * sy - (e.isBoss ? 3 : 1.8), e.isBoss ? 6 : 3.6, e.isBoss ? 6 : 3.6);
+    ctx.fillRect(e.x * sx - (e.isBoss ? 3.2 : 1.8), e.y * sy - (e.isBoss ? 3.2 : 1.8), e.isBoss ? 6.4 : 3.6, e.isBoss ? 6.4 : 3.6);
   }
 
-  // Jugador (blanco)
+  // Jugador (blanco con borde dorado)
+  ctx.fillStyle = '#FDE047';
+  ctx.beginPath();
+  ctx.arc(player.x * sx, player.y * sy, 4.2, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
-  ctx.arc(player.x * sx, player.y * sy, 3.2, 0, Math.PI * 2);
+  ctx.arc(player.x * sx, player.y * sy, 2.8, 0, Math.PI * 2);
   ctx.fill();
+
+  // Marco interior táctico + indicador Norte "N"
+  ctx.strokeStyle = 'rgba(242, 182, 61, 0.45)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
 }

@@ -39,7 +39,7 @@ import {
   drawBossPortraitCard,
   drawPetPortraitBackdrop
 } from './pixelArt.js';
-import { onAssetsUpdated } from './assetLoader.js';
+import { onAssetsUpdated, getNpcAsset } from './assetLoader.js';
 
 let lastIconClass = null;
 let lastPetIconKey = null;
@@ -828,18 +828,45 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
   const actionsEl = document.getElementById('dialog-actions');
   actionsEl.innerHTML = '';
 
+  const setDialogWithPortrait = (msgText) => {
+    bodyEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px">
+        <canvas id="dialog-npc-portrait" width="68" height="68" style="flex-shrink:0;background:#10141d;border:2px solid #f2b63d;outline:1px solid #0a0d12;image-rendering:pixelated"></canvas>
+        <div id="dialog-msg-span" style="flex:1;line-height:1.45;white-space:pre-line"></div>
+      </div>
+    `;
+    const span = document.getElementById('dialog-msg-span');
+    if (span) span.textContent = msgText;
+    const cv = document.getElementById('dialog-npc-portrait');
+    const npcImg = getNpcAsset(npc.kind);
+    if (cv && npcImg) {
+      const pctx = cv.getContext('2d');
+      pctx.imageSmoothingEnabled = false;
+      pctx.fillStyle = '#151c28';
+      pctx.fillRect(0, 0, 68, 68);
+      const iw = npcImg.width || 64;
+      const ih = npcImg.height || 64;
+      const r = Math.min(60 / iw, 60 / ih);
+      const dw = Math.round(iw * r);
+      const dh = Math.round(ih * r);
+      pctx.drawImage(npcImg, Math.round((68 - dw) / 2), Math.round((68 - dh) / 2), dw, dh);
+    }
+  };
+
   if (npc.kind === 'tabernero') {
     if (q.currentId === 1) {
-      bodyEl.textContent = isFem
-        ? '¡Bienvenida a Valoria, aventurera! Toma estas pociones de PV y PM y ve a hablar con el Herrero.'
-        : '¡Bienvenido a Valoria, aventurero! Toma estas pociones de PV y PM y ve a hablar con el Herrero.';
+      setDialogWithPortrait(
+        isFem
+          ? '¡Bienvenida a Valoria, aventurera! Toma estas pociones de PV y PM y ve a hablar con el Herrero.'
+          : '¡Bienvenido a Valoria, aventurero! Toma estas pociones de PV y PM y ve a hablar con el Herrero.'
+      );
       const btn = document.createElement('button');
       btn.className = 'btn btn-gold';
       btn.textContent = 'Aceptar Pociones y Misión 2';
       btn.addEventListener('click', () => { engine.completeQuest(1); onSave(); onClose(); });
       actionsEl.appendChild(btn);
     } else if (q.currentId === 5 && q.malakorDefeated && !q.completedAll) {
-      bodyEl.textContent = '¡Derrotaste a Malakor! Reclama tu recompensa y prepárate para el Desierto de Ceniza (Nv. 30).';
+      setDialogWithPortrait('¡Derrotaste a Malakor! Reclama tu recompensa y prepárate para el Desierto de Ceniza (Nv. 30).');
       const btn = document.createElement('button');
       btn.className = 'btn btn-gold';
       btn.textContent = 'Reclamar Recompensa';
@@ -847,9 +874,11 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
       actionsEl.appendChild(btn);
     } else {
       const cur = QUESTS.find((x) => x.id === q.currentId);
-      bodyEl.textContent = q.completedAll
-        ? (isFem ? '¡Salud, Salvadora! Desafía a Ignis, Boreas y Vaelor para conquistar sus equipos exclusivos.' : '¡Salud, Salvador! Desafía a Ignis, Boreas y Vaelor para conquistar sus equipos exclusivos.')
-        : `Misión actual: ${cur?.title}\n${cur?.objective}`;
+      setDialogWithPortrait(
+        q.completedAll
+          ? (isFem ? '¡Salud, Salvadora! Desafía a Ignis, Boreas y Vaelor para conquistar sus equipos exclusivos.' : '¡Salud, Salvador! Desafía a Ignis, Boreas y Vaelor para conquistar sus equipos exclusivos.')
+          : `Misión actual: ${cur?.title}\n${cur?.objective}`
+      );
       const btn = document.createElement('button');
       btn.className = 'btn btn-secondary';
       btn.textContent = 'Cerrar';
@@ -864,11 +893,13 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
       q.talkedBlacksmith = true;
       engine.updateNpcMarkers();
       onSave();
-      bodyEl.textContent = isFem
-        ? '¡Bienvenida a la forja! Prueba tus golpes en los Muñecos de Entrenamiento (3 veces) y usa Gemas + Oro en Mejoras.'
-        : '¡Bienvenido a la forja! Prueba tus golpes en los Muñecos de Entrenamiento (3 veces) y usa Gemas + Oro en Mejoras.';
+      setDialogWithPortrait(
+        isFem
+          ? '¡Bienvenida a la forja! Prueba tus golpes en los Muñecos de Entrenamiento (3 veces) y usa Gemas + Oro en Mejoras.'
+          : '¡Bienvenido a la forja! Prueba tus golpes en los Muñecos de Entrenamiento (3 veces) y usa Gemas + Oro en Mejoras.'
+      );
     } else {
-      bodyEl.textContent = isFem ? '¿Lista para potenciar tu equipo con Gemas y Oro?' : '¿Listo para potenciar tu equipo con Gemas y Oro?';
+      setDialogWithPortrait(isFem ? '¿Lista para potenciar tu equipo con Gemas y Oro?' : '¿Listo para potenciar tu equipo con Gemas y Oro?');
     }
     const forgeBtn = document.createElement('button');
     forgeBtn.className = 'btn btn-gold';
