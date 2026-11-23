@@ -875,40 +875,47 @@ async function bootstrap() {
 
   // Instalación como App nativa (PWA / WebAPK en Android, iOS y PC)
   let deferredInstallPrompt = null;
-  const btnInstallHeader = document.getElementById('btn-install-app');
-  const btnInstallDrawer = document.getElementById('btn-drawer-install');
+  const installBtns = [
+    document.getElementById('btn-install-app'),
+    document.getElementById('btn-drawer-install'),
+    document.getElementById('btn-home-install'),
+    document.getElementById('btn-pause-install'),
+    document.getElementById('btn-opt-install')
+  ].filter(Boolean);
+  const modalInstall = document.getElementById('modal-install-app');
+  const btnModalTriggerInstall = document.getElementById('btn-modal-trigger-install');
+
   const isStandalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: fullscreen)').matches ||
     window.navigator.standalone === true;
 
   if (isStandalone) {
-    btnInstallHeader?.classList.add('hidden');
-    btnInstallDrawer?.classList.add('hidden');
+    installBtns.forEach((b) => b.classList.add('hidden'));
   }
 
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
     if (!isStandalone) {
-      btnInstallHeader?.classList.remove('hidden');
-      btnInstallDrawer?.classList.remove('hidden');
+      installBtns.forEach((b) => b.classList.remove('hidden'));
     }
   });
 
   window.addEventListener('appinstalled', () => {
     deferredInstallPrompt = null;
-    btnInstallHeader?.classList.add('hidden');
-    btnInstallDrawer?.classList.add('hidden');
+    installBtns.forEach((b) => b.classList.add('hidden'));
+    modalInstall?.classList.add('hidden');
     showToast('¡Crónicas de la Fractura se instaló como App en tu dispositivo!', 'success');
   });
 
-  const handleInstallClick = async () => {
+  const triggerNativeOrGuideInstall = async (fromModalButton = false) => {
     if (deferredInstallPrompt) {
       deferredInstallPrompt.prompt();
       const choice = await deferredInstallPrompt.userChoice.catch(() => null);
       if (choice?.outcome === 'accepted') {
-        btnInstallHeader?.classList.add('hidden');
+        installBtns.forEach((b) => b.classList.add('hidden'));
+        modalInstall?.classList.add('hidden');
       }
       deferredInstallPrompt = null;
       return;
@@ -917,19 +924,25 @@ async function bootstrap() {
       showToast('Ya estás jugando desde la App instalada.', 'success');
       return;
     }
+    if (!fromModalButton && modalInstall) {
+      modalInstall.classList.remove('hidden');
+      return;
+    }
     const ua = navigator.userAgent || '';
     if (/iPad|iPhone|iPod/i.test(ua)) {
       showToast('En iPhone/iPad: toca el botón Compartir de Safari y elige "Agregar a inicio".', 'info');
     } else {
-      showToast('Abre el menú del navegador (⋮) y selecciona "Instalar aplicación" o "Agregar a la pantalla principal".', 'info');
+      showToast('Usa el menú de 3 puntos del navegador (⋮) arriba a la derecha y toca "Instalar aplicación".', 'info');
     }
   };
 
-  btnInstallHeader?.addEventListener('click', handleInstallClick);
-  btnInstallDrawer?.addEventListener('click', () => {
-    closeDrawer();
-    handleInstallClick();
-  });
+  for (const btn of installBtns) {
+    btn.addEventListener('click', () => {
+      closeDrawer();
+      triggerNativeOrGuideInstall(false);
+    });
+  }
+  btnModalTriggerInstall?.addEventListener('click', () => triggerNativeOrGuideInstall(true));
 
   if (navigator.onLine && getSavedUser()?.token) {
     syncAllSlotsToCloud().then(async (res) => {

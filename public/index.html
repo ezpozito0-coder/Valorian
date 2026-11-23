@@ -32,8 +32,8 @@
     </a>
 
     <div class="header-actions">
-      <button type="button" id="btn-install-app" class="btn btn-gold btn-sm hidden" title="Instalar Crónicas de la Fractura como App en tu dispositivo">
-        Instalar App
+      <button type="button" id="btn-install-app" class="btn btn-gold btn-sm" title="Descargar e instalar Crónicas de la Fractura como App">
+        ⬇ Descargar App
       </button>
 
       <span id="sync-badge" class="sync-badge" title="Estado de conexión y guardado">
@@ -66,7 +66,7 @@
       <button type="button" id="btn-menu-close" class="icon-btn" aria-label="Cerrar menú">✕</button>
     </div>
     <nav class="drawer-nav">
-      <button type="button" id="btn-drawer-install" class="drawer-link" style="color:#FDE047;border-color:#F2B63D">Instalar App en Celular / PC</button>
+      <button type="button" id="btn-drawer-install" class="btn btn-gold" style="width:100%;margin-bottom:6px;justify-content:center">⬇ Descargar / Instalar App</button>
       <button type="button" class="drawer-link" data-nav="personajes">Selección de Personajes</button>
       <button type="button" class="drawer-link" data-nav="inicio">Portada de Valoria</button>
       <button type="button" class="drawer-link" data-nav="opciones">Opciones (Audio / Tema)</button>
@@ -93,6 +93,7 @@
         <p class="hero-subtitle">Modo Horizontal 16:9 · Continente de Valoria · Niveles 1 al 90</p>
         <div class="home-actions">
           <button type="button" id="btn-home-play" class="btn btn-gold btn-lg">Jugar</button>
+          <button type="button" id="btn-home-install" class="btn btn-gold">⬇ Descargar App</button>
           <button type="button" id="btn-home-options" class="btn btn-secondary">Opciones</button>
         </div>
       </div>
@@ -450,6 +451,7 @@
       <div class="modal-head"><h3 class="pixel-heading">Pausa</h3></div>
       <div class="pause-actions">
         <button type="button" id="btn-pause-resume" class="btn btn-gold">Reanudar</button>
+        <button type="button" id="btn-pause-install" class="btn btn-gold">⬇ Descargar / Instalar App</button>
         <button type="button" id="btn-pause-save" class="btn btn-secondary">Guardar y Sincronizar</button>
         <button type="button" id="btn-pause-audio" class="btn btn-secondary">Música y Sonidos: Activado</button>
         <button type="button" id="btn-pause-achievements" class="btn btn-secondary">Logros y Medallas</button>
@@ -468,6 +470,7 @@
         <button type="button" class="icon-btn modal-close" data-close="modal-options" aria-label="Cerrar">✕</button>
       </div>
       <div class="pause-actions">
+        <button type="button" id="btn-opt-install" class="btn btn-gold">⬇ Descargar / Instalar App</button>
         <button type="button" id="btn-opt-sfx" class="btn btn-secondary">Efectos de Sonido: Activado</button>
         <button type="button" id="btn-opt-music" class="btn btn-secondary">Música Ambiental: Activada</button>
         <button type="button" id="btn-opt-theme" class="btn btn-secondary">Tema de Menús: Modo Oscuro</button>
@@ -521,6 +524,33 @@
           <p id="auth-feedback" class="form-feedback"></p>
           <button type="submit" id="btn-auth-submit" class="btn btn-gold">Iniciar Sesión</button>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DESCARGAR / INSTALAR APP (PWA) -->
+  <div id="modal-install-app" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card metallic-frame">
+      <div class="modal-head">
+        <h3 class="pixel-heading" style="color:#FDE047">⬇ Descargar App (Celular / PC)</h3>
+        <button type="button" class="icon-btn modal-close" data-close="modal-install-app" aria-label="Cerrar">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;background:#10141d;border:1px solid #7c8da6;padding:10px">
+        <img src="./assets/icon-192.png" alt="Icono App" width="56" height="56" style="image-rendering:pixelated;border:2px solid #f2b63d" />
+        <div style="font-size:0.84rem;line-height:1.35">
+          <strong style="color:#fde047;font-family:var(--font-pixel);font-size:0.95rem">Crónicas de la Fractura (App 16:9)</strong><br/>
+          Juega a pantalla completa sin barras del navegador y sin conexión a internet (offline).
+        </div>
+      </div>
+      <div id="install-app-instructions" style="font-size:0.83rem;line-height:1.45;background:#10141d;border:1px solid #475569;padding:10px;color:#e2e8f0">
+        <strong>¿Cómo instalarla en 1 paso?</strong><br/>
+        • <strong>En Android (Chrome / Edge):</strong> Toca el botón dorado <em>"Instalar Ahora"</em> abajo, o abre el menú de 3 puntos del navegador (<strong>⋮</strong>) arriba a la derecha y selecciona <strong>"Instalar aplicación"</strong>.<br/>
+        • <strong>En iPhone / iPad (Safari):</strong> Toca el botón <strong>Compartir</strong> y elige <strong>"Agregar a inicio"</strong>.<br/>
+        • <strong>En PC (Chrome / Edge):</strong> Haz clic en el icono de descarga en la barra de direcciones o en el botón <em>"Instalar Ahora"</em>.
+      </div>
+      <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" id="btn-modal-trigger-install" class="btn btn-gold">⬇ Instalar Ahora</button>
+        <button type="button" class="btn btn-secondary modal-close" data-close="modal-install-app">Cerrar</button>
       </div>
     </div>
   </div>
