@@ -4,7 +4,7 @@
  */
 
 import { QUALITIES, TITLES } from './data.js';
-import { drawDetailedHeroSprite, drawPetSprite } from './preview.js';
+import { drawDetailedHeroSprite, drawPetSprite, computeAttackPhase } from './preview.js';
 import {
   getAsset,
   getBossAsset,
@@ -94,7 +94,9 @@ export function drawHero(ctx, p, time) {
       wings: p.gearSlots?.alas || null,
       dir,
       moving: Boolean(p.moving),
-      attackTimer: p.attackAnimTimer || 0
+      attackTimer: p.attackAnimTimer || 0,
+      atkDirX: p.atkDirX ?? p.dirX ?? 0,
+      atkDirY: p.atkDirY ?? p.dirY ?? 1
     },
     time
   );
@@ -118,7 +120,10 @@ export function drawHero(ctx, p, time) {
 export function drawPet(ctx, pet, time) {
   drawPetSprite(ctx, pet.id, pet.x, pet.y, 1.35, time, {
     dirX: pet.dirX,
-    moving: pet.moving
+    moving: pet.moving,
+    attackTimer: pet.attackAnimTimer || 0,
+    atkDirX: pet.atkDirX,
+    atkDirY: pet.atkDirY
   });
 }
 
@@ -347,30 +352,48 @@ export function drawNpc(ctx, npc, time) {
 }
 
 export function drawEnemy(ctx, e, time) {
-  const x = Math.round(e.x);
-  const y = Math.round(e.y);
+  const isMoving = Boolean(e.moving);
+  const attackAnimTimer = e.attackAnimTimer || 0;
+  const atkPhase = computeAttackPhase(attackAnimTimer);
+  const atkDirX = e.atkDirX !== undefined ? e.atkDirX : (e.facingRight ? 1 : -1);
+  const atkDirY = e.atkDirY !== undefined ? e.atkDirY : 0;
+  const lungeDist = e.isBoss ? 18 : 12;
+  const lungeX = atkPhase.offset * atkDirX * lungeDist;
+  const lungeY = atkPhase.offset * atkDirY * (lungeDist * 0.65);
+
+  const x = Math.round(e.x + lungeX);
+  const y = Math.round(e.y + lungeY);
   const footY = y + (e.isBoss ? 24 : 14);
 
-  drawShadow(ctx, e.x, footY, e.radius * 0.88, e.radius * 0.42);
+  drawShadow(ctx, e.x + lungeX * 0.4, e.y + (e.isBoss ? 24 : 14) + lungeY * 0.4, e.radius * 0.88, e.radius * 0.42);
 
   // Si es un enemigo común y su sprite PNG (enemigo_lobo, enemigo_trasgo, enemigo_esqueleto, enemigo_elemental) está cargado:
   const enemyImg = !e.isBoss ? getEnemyAsset(e.kind) : null;
   if (enemyImg) {
     const metrics = getSpriteFrameMetrics(enemyImg, 0);
-    const stepPhase = Math.sin(time * 10 + (e.id || 0));
-    const stepWave = Math.abs(stepPhase);
-    const frameIndex = Math.floor(time * 7 + (e.id || 0)) % 2 === 0 ? 1 : 2;
-    const bounceY = !metrics.isFourFrameSheet ? -stepWave * 2.2 : 0;
-    const tiltRad = stepPhase * 0.085;
-    const scaleY = 1 + (stepWave - 0.5) * 0.04;
-    const scaleX = 1 - (stepWave - 0.5) * 0.03;
+    const stepSin = Math.sin(time * 13 + (e.id || 0));
+    const stepWave = isMoving ? Math.abs(stepSin) : 0;
+    const frameIndex = attackAnimTimer > 0.15
+      ? 3
+      : isMoving
+      ? (Math.floor(time * 8 + (e.id || 0)) % 2 === 0 ? 1 : 2)
+      : 0;
+    const bounceY = (!metrics.isFourFrameSheet && isMoving) ? -stepWave * 2.8 : 0;
+    const idleBreathY = !isMoving ? Math.sin(time * 3.8 + (e.id || 0)) * 0.016 : 0;
+    let scaleY = isMoving ? 0.96 + stepWave * 0.08 : 1 + idleBreathY;
+    let scaleX = isMoving ? 1.03 - stepWave * 0.05 : 1 - idleBreathY * 0.5;
+    if (attackAnimTimer > 0) {
+      scaleX *= atkPhase.scaleX;
+      scaleY *= atkPhase.scaleY;
+    }
+
     const targetH = e.kind === 'golem_hielo' || e.kind === 'caballero_vacio' ? 54 : 46;
-    const facingRight = (e.homeX !== undefined && e.x > e.homeX + 2);
+    const facingRight = Boolean(e.facingRight);
 
     drawFootAnchoredSprite(ctx, enemyImg, x, footY + bounceY, targetH, {
       frameIndex,
       flipX: facingRight,
-      tiltRad,
+      tiltRad: 0, // CERO rotación lateral tipo "tronquito"
       scaleX,
       scaleY
     });
@@ -463,13 +486,22 @@ export function drawEnemy(ctx, e, time) {
     // Si el asset PNG del jefe (jefe_malakor, jefe_ignis, jefe_boreas, jefe_vaelor) está cargado y procesado con Flood-Fill:
     const bossImg = getBossAsset(e.kind);
     if (bossImg) {
-      const breathY = Math.sin(time * 4.2 + (e.id || 0)) * 3;
-      const bw = 96;
-      const bh = 96;
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(bossImg, Math.round(x - bw / 2), Math.round(y - bh * 0.72 + breathY), bw, bh);
-      ctx.restore();
+      const stepWave = isMoving ? Math.abs(Math.sin(time * 11 + (e.id || 0))) : 0;
+      const bounceY = isMoving ? -stepWave * 3.5 : 0;
+      const idleBreath = !isMoving ? Math.sin(time * 4.0 + (e.id || 0)) * 0.018 : 0;
+      let scaleY = isMoving ? 0.96 + stepWave * 0.07 : 1 + idleBreath;
+      let scaleX = isMoving ? 1.03 - stepWave * 0.05 : 1 - idleBreath * 0.5;
+      if (attackAnimTimer > 0) {
+        scaleX *= atkPhase.scaleX;
+        scaleY *= atkPhase.scaleY;
+      }
+      drawFootAnchoredSprite(ctx, bossImg, x, footY + bounceY, 96, {
+        frameIndex: attackAnimTimer > 0.15 ? 3 : isMoving ? (Math.floor(time * 7) % 2 === 0 ? 1 : 2) : 0,
+        flipX: Boolean(e.facingRight),
+        tiltRad: 0,
+        scaleX,
+        scaleY
+      });
     } else {
       // Fallback procedural: Alas de energía morada en Vaelor
       if (e.kind === 'vaelor') {
@@ -520,9 +552,34 @@ export function drawEnemy(ctx, e, time) {
     ctx.fillRect(x - 12, y - 16, 24, 28);
   }
 
+  // Efecto visual de zarpazo / tajo / impacto del enemigo o jefe frente a él durante su ataque
+  if (attackAnimTimer > 0 && atkPhase.progress > 0.18) {
+    const aimAngle = Math.atan2(atkDirY || 0, atkDirX || 1);
+    const reach = (e.isBoss ? 26 : 16);
+    const sx = x + Math.cos(aimAngle) * reach;
+    const sy = y - (e.isBoss ? 12 : 4) + Math.sin(aimAngle) * reach;
+    const p = atkPhase.progress;
+    ctx.save();
+    ctx.strokeStyle = e.isBoss ? '#EF4444' : '#F43F5E';
+    ctx.lineWidth = e.isBoss ? 4.5 : 3;
+    ctx.beginPath();
+    ctx.arc(sx, sy, e.isBoss ? 26 : 15, aimAngle - 0.95 + p * 0.3, aimAngle - 0.6 + p * 1.6);
+    ctx.stroke();
+    ctx.strokeStyle = '#FECDD3';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(sx, sy, e.isBoss ? 22 : 12, aimAngle - 0.8 + p * 0.3, aimAngle - 0.5 + p * 1.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   if (e.hitFlash > 0) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-    ctx.fillRect(x - e.radius, y - e.radius, e.radius * 2, e.radius * 2);
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.62)';
+    const flashW = e.isBoss ? 68 : 34;
+    const flashH = e.isBoss ? 78 : 42;
+    ctx.fillRect(Math.round(x - flashW / 2), Math.round(footY - flashH), flashW, flashH);
+    ctx.restore();
   }
 
   if (!e.isBoss && e.hp < e.maxHp) {

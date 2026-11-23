@@ -421,11 +421,26 @@ export class GameEngine {
       if (p.cooldowns[i] > 0) p.cooldowns[i] = Math.max(0, p.cooldowns[i] - dt);
     }
     if (p.shieldBuffTimer > 0) p.shieldBuffTimer = Math.max(0, p.shieldBuffTimer - dt);
-    if (p.attackAnimTimer > 0) p.attackAnimTimer = Math.max(0, p.attackAnimTimer - dt * 2.5);
+    if (p.attackAnimTimer > 0) p.attackAnimTimer = Math.max(0, p.attackAnimTimer - dt * 3.1);
+    if (this.petEntity.attackAnimTimer > 0) {
+      this.petEntity.attackAnimTimer = Math.max(0, this.petEntity.attackAnimTimer - dt * 3.1);
+    }
     if (p.speedBuffTimer > 0) p.speedBuffTimer = Math.max(0, p.speedBuffTimer - dt);
     if (p.slowedTimer > 0) p.slowedTimer = Math.max(0, p.slowedTimer - dt);
     if (p.invulnTimer > 0) p.invulnTimer = Math.max(0, p.invulnTimer - dt);
     if (p.hitFlash > 0) p.hitFlash = Math.max(0, p.hitFlash - dt);
+
+    // Retroceso corto (knockback) anclado al suelo al recibir daño
+    if (p.kbVx || p.kbVy) {
+      this.moveEntityWithCollisions(p, (p.kbVx || 0) * dt, (p.kbVy || 0) * dt);
+      const decay = Math.pow(0.0008, dt);
+      p.kbVx = (p.kbVx || 0) * decay;
+      p.kbVy = (p.kbVy || 0) * decay;
+      if (Math.hypot(p.kbVx, p.kbVy) < 6) {
+        p.kbVx = 0;
+        p.kbVy = 0;
+      }
+    }
     if (this.portalCooldown > 0) this.portalCooldown = Math.max(0, this.portalCooldown - dt);
     if (this.portalLockMsgCooldown > 0) this.portalLockMsgCooldown = Math.max(0, this.portalLockMsgCooldown - dt);
     if (this.camera.shake > 0) this.camera.shake = Math.max(0, this.camera.shake - dt * 18);
@@ -834,17 +849,23 @@ export class GameEngine {
     const cls = CLASSES[p.heroClass];
     const atk = this.getTotalAtk();
     const aim = this.getAimVector();
+    p.atkDirX = aim.x;
+    p.atkDirY = aim.y;
+    this.petEntity.attackAnimTimer = 1.0;
+    this.petEntity.atkDirX = aim.x;
+    this.petEntity.atkDirY = aim.y;
 
     if (slot === 0) {
       p.cooldowns[0] = cls.basicCooldown;
       p.attackAnimTimer = 1.0;
       sfx.playAttack(p.gender);
       if (cls.basicType === 'melee') {
-        this.performMeleeArc(p.x, p.y, aim.x, aim.y, cls.basicRange, atk, '#F4F6FA');
+        this.performMeleeArc(p.x, p.y, aim.x, aim.y, cls.basicRange, atk, '#FDE047');
       } else if (cls.basicType === 'ranged_arcane') {
-        this.spawnProjectile('player', p.x, p.y, aim.x * 380, aim.y * 380, atk, 8, '#38BDF8', 0.8);
+        this.addEffect('ring', p.x + aim.x * 16, p.y + aim.y * 16, 20, '#38BDF8', 0.2);
+        this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 380, aim.y * 380, atk, 8, '#38BDF8', 0.85, { style: 'orb' });
       } else {
-        this.spawnProjectile('player', p.x, p.y, aim.x * 460, aim.y * 460, atk, 6, '#D9A441', 0.75);
+        this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 470, aim.y * 470, atk, 6, '#FDE047', 0.78, { style: 'arrow' });
       }
       return;
     }
@@ -934,11 +955,12 @@ export class GameEngine {
   }
 
   performMeleeArc(x, y, ax, ay, range, dmg, color) {
-    const hitX = x + ax * (range * 0.65);
-    const hitY = y + ay * (range * 0.65);
-    this.addEffect('slash', hitX, hitY, range * 0.6, color, 0.18);
-    this.hitEnemiesInRadius(hitX, hitY, range * 0.72, dmg);
-    this.checkDummyHit(hitX, hitY, range * 0.72, dmg);
+    const hitX = x + ax * (range * 0.58);
+    const hitY = y + ay * (range * 0.58);
+    const angle = Math.atan2(ay, ax);
+    this.addEffect('slash', hitX, hitY, range * 0.68, color, 0.24, { angle });
+    this.hitEnemiesInRadius(hitX, hitY, range * 0.75, dmg);
+    this.checkDummyHit(hitX, hitY, range * 0.75, dmg);
   }
 
   checkDummyHit(x, y, radius, dmg) {
@@ -972,7 +994,18 @@ export class GameEngine {
     const baseDmg = Math.max(4, Math.round(rawDmg - e.def * 0.35));
     const dmg = isCrit ? Math.round(baseDmg * 1.6) : baseDmg;
     e.hp = Math.max(0, e.hp - dmg);
-    e.hitFlash = 0.14;
+    e.hitFlash = 0.18;
+
+    // Retroceso corto (knockback) anclado al suelo lejos del jugador + destello de impacto
+    if (this.player) {
+      const kdx = e.x - this.player.x;
+      const kdy = e.y - this.player.y;
+      const klen = Math.hypot(kdx, kdy) || 1;
+      const kbForce = e.isBoss ? 55 : 155;
+      e.kbVx = (kdx / klen) * kbForce;
+      e.kbVy = (kdy / klen) * kbForce;
+    }
+    this.addEffect('ring', e.x, e.y, e.isBoss ? 28 : 18, isCrit ? '#FDE047' : '#F8FAFC', 0.16);
     sfx.playHit();
     this.addFloatingText(e.x, e.y - 24, isCrit ? `¡-${dmg}!` : `-${dmg}`, isCrit ? '#FDE047' : color);
 
@@ -1187,7 +1220,25 @@ export class GameEngine {
       }
 
       if (e.hitFlash > 0) e.hitFlash = Math.max(0, e.hitFlash - dt);
-      if (e.stunTimer > 0) { e.stunTimer = Math.max(0, e.stunTimer - dt); continue; }
+      if (e.attackAnimTimer > 0) e.attackAnimTimer = Math.max(0, e.attackAnimTimer - dt * 2.8);
+
+      // Aplicar retroceso corto (knockback) anclado al suelo al recibir daño
+      if (e.kbVx || e.kbVy) {
+        this.moveEntityWithCollisions(e, (e.kbVx || 0) * dt, (e.kbVy || 0) * dt);
+        const decay = Math.pow(0.0006, dt);
+        e.kbVx = (e.kbVx || 0) * decay;
+        e.kbVy = (e.kbVy || 0) * decay;
+        if (Math.hypot(e.kbVx, e.kbVy) < 5) {
+          e.kbVx = 0;
+          e.kbVy = 0;
+        }
+      }
+
+      if (e.stunTimer > 0) {
+        e.stunTimer = Math.max(0, e.stunTimer - dt);
+        e.moving = false;
+        continue;
+      }
       if (e.slowTimer > 0) e.slowTimer = Math.max(0, e.slowTimer - dt);
       if (e.rootTimer > 0) e.rootTimer = Math.max(0, e.rootTimer - dt);
       if (e.attackTimer > 0) e.attackTimer -= dt;
@@ -1199,6 +1250,9 @@ export class GameEngine {
         e.specialTimer -= dt;
         if (e.specialTimer <= 0) {
           e.specialTimer = e.specialCd || 5.0;
+          e.attackAnimTimer = 1.0;
+          e.atkDirX = (p.x - e.x) / (distToPlayer || 1);
+          e.atkDirY = (p.y - e.y) / (distToPlayer || 1);
           if (e.kind === 'malakor' || (e.kind === 'vaelor' && e.phase2Triggered)) {
             this.hazards.push({ x: e.x, y: e.y, radius: 145, timer: 1.0, maxTimer: 1.0, dmg: Math.round(e.atk * 1.4), color: '#9333EA', slow: false });
             this.addFloatingText(e.x, e.y - 46, '¡ONDA DEL VACÍO!', '#E879F9');
@@ -1212,7 +1266,7 @@ export class GameEngine {
             // Fase 1: 3 rayos morados en abanico
             const baseAng = Math.atan2(p.y - e.y, p.x - e.x);
             [-0.25, 0, 0.25].forEach((off) => {
-              this.spawnProjectile('enemy', e.x, e.y, Math.cos(baseAng + off) * 320, Math.sin(baseAng + off) * 320, e.atk, 8, '#E879F9', 1.3);
+              this.spawnProjectile('enemy', e.x, e.y, Math.cos(baseAng + off) * 320, Math.sin(baseAng + off) * 320, e.atk, 8, '#E879F9', 1.3, { style: 'orb' });
             });
             this.addFloatingText(e.x, e.y - 46, '¡RAYOS DEL VACÍO!', '#E879F9');
           }
@@ -1223,35 +1277,61 @@ export class GameEngine {
         const dx = p.x - e.x;
         const dy = p.y - e.y;
         const len = distToPlayer || 1;
+        if (Math.abs(dx) > 2) e.facingRight = dx > 0;
 
         if (distToPlayer > e.attackRange - 6 && e.rootTimer <= 0) {
           const spd = e.speed * (e.slowTimer > 0 ? 0.5 : 1);
+          const prevX = e.x;
+          const prevY = e.y;
           this.moveEntityWithCollisions(e, (dx / len) * spd * dt, (dy / len) * spd * dt);
+          e.moving = Math.hypot(e.x - prevX, e.y - prevY) > 0.25;
+        } else {
+          e.moving = false;
         }
 
         if (distToPlayer <= e.attackRange && e.attackTimer <= 0) {
           e.attackTimer = e.attackCd;
+          e.attackAnimTimer = 1.0;
+          e.atkDirX = dx / len;
+          e.atkDirY = dy / len;
           if (e.ranged) {
-            this.spawnProjectile('enemy', e.x, e.y, (dx / len) * 270, (dy / len) * 270, e.atk, 6, e.projColor || '#C084FC', 1.15);
+            this.spawnProjectile('enemy', e.x, e.y, (dx / len) * 270, (dy / len) * 270, e.atk, 6, e.projColor || '#C084FC', 1.15, { style: 'orb' });
           } else {
-            this.damagePlayer(e.atk);
+            const angle = Math.atan2(dy, dx);
+            this.addEffect('slash', e.x + (dx / len) * 18, e.y + (dy / len) * 18, e.isBoss ? 34 : 22, '#F43F5E', 0.22, { angle });
+            this.damagePlayer(e.atk, e.x, e.y);
           }
         }
       } else {
         const hd = Math.hypot(e.homeX - e.x, e.homeY - e.y);
         if (hd > 12 && e.rootTimer <= 0) {
-          this.moveEntityWithCollisions(e, ((e.homeX - e.x) / hd) * e.speed * 0.6 * dt, ((e.homeY - e.y) / hd) * e.speed * 0.6 * dt);
+          const hx = e.homeX - e.x;
+          const hy = e.homeY - e.y;
+          if (Math.abs(hx) > 2) e.facingRight = hx > 0;
+          const prevX = e.x;
+          const prevY = e.y;
+          this.moveEntityWithCollisions(e, (hx / hd) * e.speed * 0.6 * dt, (hy / hd) * e.speed * 0.6 * dt);
+          e.moving = Math.hypot(e.x - prevX, e.y - prevY) > 0.25;
+        } else {
+          e.moving = false;
         }
       }
     }
   }
 
-  damagePlayer(rawDmg) {
+  damagePlayer(rawDmg, srcX = null, srcY = null) {
     const p = this.player;
     if (p.invulnTimer > 0) return;
     const dmg = Math.max(2, Math.round(rawDmg - this.getTotalDef() * 0.45));
     p.hp = Math.max(0, p.hp - dmg);
     p.hitFlash = 0.2;
+    if (srcX !== null && srcY !== null) {
+      const kdx = p.x - srcX;
+      const kdy = p.y - srcY;
+      const klen = Math.hypot(kdx, kdy) || 1;
+      p.kbVx = (kdx / klen) * 135;
+      p.kbVy = (kdy / klen) * 135;
+    }
     this.camera.shake = 5;
     sfx.playHit(p.gender);
     this.addFloatingText(p.x, p.y - 26, `-${dmg}`, '#F87171');
@@ -1426,8 +1506,8 @@ export class GameEngine {
     return false;
   }
 
-  addEffect(kind, x, y, radius, color, life) {
-    this.effects.push({ kind, x, y, radius, color, life, maxLife: life });
+  addEffect(kind, x, y, radius, color, life, extra = {}) {
+    this.effects.push({ kind, x, y, radius, color, life, maxLife: life, ...extra });
   }
 
   addFloatingText(x, y, text, color) {
@@ -1546,7 +1626,10 @@ export class GameEngine {
               x: this.petEntity.x,
               y: this.petEntity.y,
               dirX: this.petEntity.dirX,
-              moving: this.petEntity.moving
+              moving: this.petEntity.moving,
+              attackAnimTimer: this.petEntity.attackAnimTimer,
+              atkDirX: this.petEntity.atkDirX,
+              atkDirY: this.petEntity.atkDirY
             },
             this.elapsed
           )
@@ -1557,22 +1640,64 @@ export class GameEngine {
     renderables.sort((a, b) => a.y - b.y);
     for (const r of renderables) r.draw();
 
+    // Proyectiles con estela direccional clara (flechas, bolas de fuego, orbes arcanos)
     for (const pr of this.projectiles) {
-      ctx.fillStyle = pr.color;
-      ctx.beginPath();
-      ctx.arc(pr.x, pr.y, pr.radius, 0, Math.PI * 2);
-      ctx.fill();
+      const ang = Math.atan2(pr.vy || 0, pr.vx || 1);
+      ctx.save();
+      ctx.translate(pr.x, pr.y);
+      ctx.rotate(ang);
+      if (pr.style === 'arrow') {
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.42)';
+        ctx.fillRect(-20, -1.5, 16, 3);
+        ctx.fillStyle = pr.color;
+        ctx.fillRect(-6, -2, 12, 4);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(4, -3, 4, 6);
+      } else {
+        ctx.fillStyle = pr.color + '55';
+        ctx.beginPath();
+        ctx.ellipse(-pr.radius * 1.1, 0, pr.radius * 1.8, pr.radius * 0.85, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = pr.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, pr.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(pr.radius * 0.2, 0, pr.radius * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
 
     for (const ef of this.effects) {
-      const alpha = ef.life / ef.maxLife;
+      const alpha = Math.max(0, ef.life / ef.maxLife);
+      const prog = 1 - alpha;
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.strokeStyle = ef.color;
-      ctx.lineWidth = ef.kind === 'slash' ? 5 : 3;
-      ctx.beginPath();
-      ctx.arc(ef.x, ef.y, ef.radius * (1.2 - alpha * 0.35), 0, Math.PI * 2);
-      ctx.stroke();
+      if (ef.kind === 'slash') {
+        // Tajo direccional creciente en forma de media luna con filo blanco
+        const baseAng = ef.angle !== undefined ? ef.angle : 0;
+        const startA = baseAng - 1.15 + prog * 0.4;
+        const endA = baseAng - 0.55 + prog * 1.95;
+        const rad = ef.radius * (0.85 + prog * 0.35);
+        ctx.strokeStyle = ef.color;
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(ef.x, ef.y, rad, startA, endA);
+        ctx.stroke();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(ef.x, ef.y, rad * 0.88, startA + 0.08, endA - 0.05);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = ef.color;
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(ef.x, ef.y, ef.radius * (1.2 - alpha * 0.35), 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 

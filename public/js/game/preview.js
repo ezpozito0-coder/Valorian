@@ -20,6 +20,48 @@ function px(ctx, x, y, w, h, color) {
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 
+/**
+ * Curva de ataque en 3 fases (anticipación 60-90ms -> estocada/embate rápido -> retorno suave):
+ * attackTimer va de 1.0 (inicio) a 0.0 (fin).
+ */
+export function computeAttackPhase(attackTimer) {
+  if (!attackTimer || attackTimer <= 0) {
+    return { offset: 0, scaleX: 1, scaleY: 1, progress: 0 };
+  }
+  const p = 1 - Math.max(0, Math.min(1, attackTimer)); // 0 -> 1
+  if (p < 0.22) {
+    // Fase 1: Anticipación / carga breve (retroceso ligero)
+    const t = p / 0.22;
+    const pull = -Math.sin(t * (Math.PI / 2)) * 0.35;
+    return {
+      offset: pull,
+      scaleX: 1 + t * 0.05,
+      scaleY: 1 - t * 0.06,
+      progress: p
+    };
+  }
+  if (p < 0.58) {
+    // Fase 2: Embate / estocada rápida hacia el objetivo
+    const t = (p - 0.22) / 0.36;
+    const lunge = -0.35 + Math.sin(t * (Math.PI / 2)) * 1.35; // llega a +1.0
+    return {
+      offset: lunge,
+      scaleX: 1.06,
+      scaleY: 0.95,
+      progress: p
+    };
+  }
+  // Fase 3: Retorno suave a la posición base
+  const t = (p - 0.58) / 0.42;
+  const easeOut = 1 - t * t;
+  return {
+    offset: easeOut,
+    scaleX: 1 + easeOut * 0.03,
+    scaleY: 1 - easeOut * 0.02,
+    progress: p
+  };
+}
+
 export function drawHomeValoriaBg(ctx, w, h, time) {
   ctx.clearRect(0, 0, w, h);
   const mid = Math.floor(w / 2);
@@ -465,68 +507,122 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
     // Detectar si es spritesheet de 4 cuadros (0=idle, 1=paso A, 2=paso B, 3=ataque) o cuadro único
     const metrics = getSpriteFrameMetrics(heroImg, 0);
     let frameIndex = 0;
-    if (attackTimer > 0.15) {
+    if (attackTimer > 0.12) {
       frameIndex = 3;
     } else if (isMoving) {
       frameIndex = Math.floor(time * 9) % 2 === 0 ? 1 : 2;
     }
 
-    // Dinámica anclada a la base de los pies (footY):
-    // - Si es cuadro único, aplicar rebote corto de paso, inclinación ~6°-8° y squash-and-stretch pegado al suelo
-    // - Si está quieto (idle), micro-respiración sutil (1-2 px) anclada al suelo
-    const stepWave = isMoving ? Math.abs(Math.sin(time * 13.5)) : 0;
-    const stepBounceY = (!metrics.isFourFrameSheet && isMoving) ? -stepWave * 2.4 * s : 0;
-    const tiltRad = isMoving ? (facingLeft ? -1 : 1) * 0.115 * Math.sin(time * 13.5) : 0;
-    const idleBreathScaleY = !isMoving ? 1 + Math.sin(time * 3.8) * 0.018 : 1;
-    const walkScaleY = isMoving ? 1 + (stepWave - 0.5) * 0.045 : idleBreathScaleY;
-    const walkScaleX = isMoving ? 1 - (stepWave - 0.5) * 0.035 : 1 - (idleBreathScaleY - 1) * 0.5;
-    const atkLunge = attackTimer > 0 ? Math.sin(attackTimer * Math.PI) * 5.5 * s : 0;
+    // Movimiento al caminar anclado en footY SIN rotación ni bamboleo lateral ("tronquito"):
+    // Rebote vertical corto y rítmico de paso (2-4 px) + squash & stretch vertical sutil (0.96 a 1.04)
+    const stepSin = Math.sin(time * 15);
+    const stepBounce = isMoving ? Math.abs(stepSin) : 0;
+    const stepBounceY = (!metrics.isFourFrameSheet && isMoving) ? -stepBounce * 2.8 * s : 0;
+    const idleBreathY = !isMoving ? Math.sin(time * 3.8) * 0.016 : 0;
+
+    let scaleY = isMoving ? 0.96 + stepBounce * 0.08 : 1 + idleBreathY;
+    let scaleX = isMoving ? 1.03 - stepBounce * 0.06 : 1 - idleBreathY * 0.5;
+
+    // Animación de ataque en 3 fases (anticipación -> estocada/lunge -> retorno suave)
+    const atkPhase = computeAttackPhase(attackTimer);
+    const aimX = state.atkDirX !== undefined ? state.atkDirX : (facingLeft ? -1 : 1);
+    const aimY = state.atkDirY !== undefined ? state.atkDirY : 0;
+    const lungeDist = 9.5 * s;
+    const lungeX = atkPhase.offset * aimX * lungeDist;
+    const lungeY = atkPhase.offset * aimY * (lungeDist * 0.55);
+    if (attackTimer > 0) {
+      scaleX *= atkPhase.scaleX;
+      scaleY *= atkPhase.scaleY;
+    }
 
     // Sombra ovalada siempre anclada en el suelo bajo los pies (footY)
     ctx.save();
     ctx.fillStyle = 'rgba(13, 10, 20, 0.42)';
     ctx.beginPath();
-    ctx.ellipse(cx, footY, 11 * s, 4.5 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 11 * s * (1 - stepBounce * 0.08), 4.5 * s, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
     drawFootAnchoredSprite(
       ctx,
       heroImg,
-      cx + (facingLeft ? -atkLunge : atkLunge),
-      footY + stepBounceY,
+      cx + lungeX,
+      footY + stepBounceY + lungeY,
       38 * s,
       {
         frameIndex,
         flipX: facingLeft,
-        tiltRad,
-        scaleX: walkScaleX,
-        scaleY: walkScaleY
+        tiltRad: 0, // CERO bamboleo lateral tipo "tronquito"
+        scaleX,
+        scaleY
       }
     );
 
-    // Efecto visual de ataque ("Probar Ataque" o combate en tiempo real)
+    // Efecto visual de ataque contundente y animado frente al personaje ("Probar Ataque" y combate)
     if (attackTimer > 0) {
       const weaponSide = facingLeft ? -1 : 1;
+      const p = atkPhase.progress;
+      const aimAngle = state.atkDirX !== undefined
+        ? Math.atan2(state.atkDirY || 0, state.atkDirX || weaponSide)
+        : (facingLeft ? Math.PI : 0);
+
       ctx.save();
       if (state.heroClass === 'mago') {
-        const dist = (1 - attackTimer) * 28 * s;
+        // Destello de báculo + orbe arcano con estela y anillo mágico
+        const castX = cx + lungeX + Math.cos(aimAngle) * (10 * s);
+        const castY = cy - 4 * s + lungeY + Math.sin(aimAngle) * (10 * s);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.lineWidth = Math.max(2, 2.2 * s);
+        ctx.beginPath();
+        ctx.arc(castX, castY, (6 + p * 8) * s, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const orbDist = p * 32 * s;
+        const ox = castX + Math.cos(aimAngle) * orbDist;
+        const oy = castY + Math.sin(aimAngle) * orbDist;
         ctx.fillStyle = '#38BDF8';
         ctx.beginPath();
-        ctx.arc(cx + weaponSide * (12 * s + dist), cy - 2 * s, 5.5 * s, 0, Math.PI * 2);
+        ctx.arc(ox, oy, 5.5 * s, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#E0F2FE';
         ctx.beginPath();
-        ctx.arc(cx + weaponSide * (12 * s + dist), cy - 2 * s, 2.8 * s, 0, Math.PI * 2);
+        ctx.arc(ox, oy, 2.8 * s, 0, Math.PI * 2);
         ctx.fill();
       } else if (state.heroClass === 'arquero') {
-        const dist = (1 - attackTimer) * 34 * s;
-        px(ctx, cx + weaponSide * (6 * s + dist), cy - 2 * s, 8 * s, 2 * s, '#FDE047');
+        // Cuerda tensándose + flecha veloz con estela dorada
+        const bowX = cx + lungeX + Math.cos(aimAngle) * (9 * s);
+        const bowY = cy - 3 * s + lungeY + Math.sin(aimAngle) * (9 * s);
+        const arrowDist = Math.max(0, (p - 0.18) / 0.82) * 38 * s;
+        const ax = bowX + Math.cos(aimAngle) * arrowDist;
+        const ay = bowY + Math.sin(aimAngle) * arrowDist;
+
+        ctx.translate(ax, ay);
+        ctx.rotate(aimAngle);
+        // Estela de velocidad
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.45)';
+        ctx.fillRect(Math.round(-16 * s), Math.round(-1.2 * s), Math.round(14 * s), Math.round(2.4 * s));
+        // Cuerpo y punta de la flecha
+        ctx.fillStyle = '#FDE047';
+        ctx.fillRect(Math.round(-5 * s), Math.round(-1.3 * s), Math.round(10 * s), Math.round(2.6 * s));
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(Math.round(4 * s), Math.round(-2 * s), Math.round(3 * s), Math.round(4 * s));
       } else {
+        // Guerrero: Arco de tajo de espada barrido dinámicamente con doble filo brillante
+        const slashCenterX = cx + lungeX + Math.cos(aimAngle) * (8 * s);
+        const slashCenterY = cy - 2 * s + lungeY + Math.sin(aimAngle) * (8 * s);
+        const sweepStart = aimAngle - 1.15 + p * 0.45;
+        const sweepEnd = aimAngle - 0.8 + p * 2.1;
+
         ctx.strokeStyle = '#FDE047';
-        ctx.lineWidth = Math.max(2, 3 * (s / 2));
+        ctx.lineWidth = Math.max(3, 4.2 * (s / 1.5));
         ctx.beginPath();
-        ctx.arc(cx + weaponSide * 10 * s, cy, 15 * s, -0.9, 0.9);
+        ctx.arc(slashCenterX, slashCenterY, 17 * s, sweepStart, sweepEnd);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = Math.max(2, 2.2 * (s / 1.5));
+        ctx.beginPath();
+        ctx.arc(slashCenterX, slashCenterY, 14.5 * s, sweepStart + 0.1, sweepEnd);
         ctx.stroke();
       }
       ctx.restore();
@@ -1004,34 +1100,47 @@ export function drawPetSprite(ctx, petId, cx, cy, scale, time, opts = {}) {
   const isAerial = petId === 'fantasma_hoz' || petId === 'gato_volador';
   const isMoving = Boolean(opts.moving);
   const facingLeft = opts.dirX !== undefined && opts.dirX < 0;
+  const attackTimer = opts.attackTimer || 0;
   const footY = cy + 8 * s;
+  const stepBounce = isMoving ? Math.abs(Math.sin(time * 15)) : 0;
   const bob = isAerial
     ? Math.sin(time * 5.8) * 1.9 * s - 2 * s
     : isMoving
-    ? -Math.abs(Math.sin(time * 14)) * 1.6 * s
+    ? -stepBounce * 2.2 * s
     : 0;
-  const x = cx;
-  const y = cy + bob;
+
+  const atkPhase = computeAttackPhase(attackTimer);
+  const atkDirX = opts.atkDirX !== undefined ? opts.atkDirX : (facingLeft ? -1 : 1);
+  const atkDirY = opts.atkDirY !== undefined ? opts.atkDirY : 0;
+  const lungeX = atkPhase.offset * atkDirX * 7 * s;
+  const lungeY = atkPhase.offset * atkDirY * 4 * s;
+
+  const x = cx + lungeX;
+  const y = cy + bob + lungeY;
   const p = (ox, oy, ow, oh, col) => px(ctx, x + ox * s, y + oy * s, ow * s, oh * s, col);
 
   ctx.save();
   ctx.fillStyle = 'rgba(13, 10, 20, 0.38)';
   ctx.beginPath();
-  ctx.ellipse(cx, footY, 9 * s, 3.4 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 9 * s, 3.4 * s, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
   // Si el asset PNG de la mascota (mascota_lobo, mascota_fantasma, mascota_gato, mascota_dragon) está cargado y procesado con Flood-Fill:
   const petImg = getPetAsset(petId);
   if (petImg) {
-    const frameIndex = isMoving ? (Math.floor(time * 9) % 2 === 0 ? 1 : 2) : 0;
-    const tiltRad = (!isAerial && isMoving) ? (facingLeft ? -1 : 1) * 0.09 * Math.sin(time * 14) : 0;
-    const scaleY = isAerial ? 1 : isMoving ? 1 + (Math.abs(Math.sin(time * 14)) - 0.5) * 0.04 : 1 + Math.sin(time * 4) * 0.015;
-    drawFootAnchoredSprite(ctx, petImg, x, footY + bob, 22 * s, {
+    const frameIndex = attackTimer > 0.15 ? 3 : isMoving ? (Math.floor(time * 9) % 2 === 0 ? 1 : 2) : 0;
+    let scaleY = isAerial ? 1 : isMoving ? 0.96 + stepBounce * 0.08 : 1 + Math.sin(time * 4) * 0.015;
+    let scaleX = isAerial ? 1 : isMoving ? 1.03 - stepBounce * 0.05 : 1;
+    if (attackTimer > 0) {
+      scaleX *= atkPhase.scaleX;
+      scaleY *= atkPhase.scaleY;
+    }
+    drawFootAnchoredSprite(ctx, petImg, x, footY + bob + lungeY, 22 * s, {
       frameIndex,
       flipX: facingLeft,
-      tiltRad,
-      scaleX: 1,
+      tiltRad: 0, // CERO rotación de péndulo al caminar
+      scaleX,
       scaleY
     });
     return;
