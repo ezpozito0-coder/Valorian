@@ -2824,7 +2824,7 @@ body.in-game .app-main {
 /* Ajuste compacto para celulares en modo horizontal 16:9 (ej. 844x390, 800x360) */
 @media (max-height: 500px) and (orientation: landscape) {
   .app-header {
-    height: 36px;
+    height: 34px;
     padding: 0 10px;
   }
   .screen-camp,
@@ -2838,24 +2838,78 @@ body.in-game .app-main {
   .camp-bottom-bar {
     padding: 4px 10px !important;
   }
+  .modal {
+    padding: 4px 8px !important;
+  }
   .modal-card {
-    max-height: 96vh !important;
-    padding: 6px 10px !important;
-    gap: 6px !important;
+    max-height: 97vh !important;
+    padding: 5px 10px !important;
+    gap: 4px !important;
+  }
+  .modal-head {
+    padding-bottom: 3px;
+  }
+  .equip-doll-panel,
+  .bag-panel {
+    padding: 5px 8px !important;
+    gap: 4px !important;
+  }
+  .panel-subhead {
+    padding: 1px 6px;
+    font-size: 0.78rem;
+  }
+  .equip-col {
+    gap: 2px;
   }
   .gear-slot-btn {
-    width: 34px;
-    height: 28px;
+    width: 30px;
+    height: 24px;
+  }
+  .gear-slot-btn img,
+  .gear-slot-btn svg {
+    width: 17px !important;
+    height: 17px !important;
   }
   #char-doll-canvas {
-    height: 124px;
-    max-width: 150px;
+    height: 112px;
+    max-width: 138px;
+  }
+  .slot-hover-banner {
+    padding: 1px 4px;
+    font-size: 0.7rem;
+  }
+  .title-picker-row {
+    font-size: 0.7rem;
+  }
+  .title-picker-row select {
+    padding: 1px 6px;
+    font-size: 0.7rem;
+  }
+  .stats-And-upg-row {
+    padding: 3px 6px;
+  }
+  .stats-box {
+    font-size: 0.68rem;
+    gap: 1px 8px;
+  }
+  .backpack-grid {
+    gap: 4px;
   }
   .bag-slot {
-    height: 38px;
+    height: 31px;
+  }
+  .bag-slot img,
+  .bag-slot svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+  .backpack-detail {
+    min-height: 28px;
+    padding: 3px 6px !important;
+    font-size: 0.68rem !important;
   }
   .rpg-portrait-stage {
-    height: 104px !important;
+    height: 100px !important;
   }
   #worldmap-canvas {
     max-height: 195px;
