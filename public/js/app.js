@@ -253,9 +253,27 @@ function executeGmCommand(rawText) {
     return;
   }
 
-  // 7. Ayuda GM: /ayuda, /gm, ayuda
+  // 7. Montura de Guerra (/montura o tecla Z)
+  if (cmd === 'montura' || cmd === 'mount' || cmd === 'caballo') {
+    engine.toggleMount();
+    return;
+  }
+
+  // 8. Ciclo Día / Noche (/noche, /dia, /atardecer)
+  if (cmd === 'noche' || cmd === 'night') {
+    engine.lockedTimeOfDay = 0.85;
+    appendChatMessage('Ciclo ambiental fijado en Noche Estrellada de Valoria.', 'gm', 'GM');
+    return;
+  }
+  if (cmd === 'dia' || cmd === 'day') {
+    engine.lockedTimeOfDay = 0.25;
+    appendChatMessage('Ciclo ambiental fijado en Día Soleado.', 'gm', 'GM');
+    return;
+  }
+
+  // 9. Ayuda GM: /ayuda, /gm, ayuda
   if (cmd === 'ayuda' || cmd === 'help' || cmd === 'gm' || cmd === 'codigos') {
-    appendChatMessage('Códigos GM: /oro 5000 | /nivel 50 | /gemas | /curar | /max | /mascotas | /titulos', 'gm', 'GM');
+    appendChatMessage('Códigos GM: /oro 5000 | /nivel 50 | /gemas | /curar | /max | /montura | /noche | /dia', 'gm', 'GM');
     return;
   }
 

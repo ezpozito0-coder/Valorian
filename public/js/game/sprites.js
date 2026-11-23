@@ -55,13 +55,13 @@ export function drawHero(ctx, p, time) {
     ctx.restore();
   }
 
-  if (p.speedBuffTimer > 0) {
+  if (p.speedBuffTimer > 0 || p.mounted) {
     ctx.save();
-    ctx.strokeStyle = '#38BDF8';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = p.mounted ? '#FDE047' : '#38BDF8';
+    ctx.lineWidth = p.mounted ? 3 : 2;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.arc(p.x, p.y + 10, 18, 0, Math.PI * 2);
+    ctx.ellipse(p.x, p.y + 13, p.mounted ? 22 : 18, p.mounted ? 9 : 7, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }

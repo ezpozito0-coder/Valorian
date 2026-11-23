@@ -71,8 +71,10 @@ export class GameEngine {
     this.floatingTexts = [];
     this.dustParticles = [];
     this.dustSpawnTimer = 0;
+    this.timeOfDay = 0.25; // 0.0-0.55 Día, 0.55-0.72 Atardecer, 0.72-1.0 Noche
+    this.lockedTimeOfDay = null; // Permite fijar /dia o /noche desde Consola GM
 
-    this.petEntity = { x: 760, y: 720, vx: 0, vy: 0, dirX: 1, moving: false, healTimer: 0 };
+    this.petEntity = { x: 760, y: 720, vx: 0, vy: 0, dirX: 1, moving: false, healTimer: 0, combatTimer: 1.5 };
     this.campfireTick = 0;
     this.portalCooldown = 0;
     this.portalLockMsgCooldown = 0;
@@ -375,6 +377,7 @@ export class GameEngine {
     else if (code === 'Digit1' || code === 'KeyK') this.triggerAbility(1);
     else if (code === 'Digit2' || code === 'KeyL') this.triggerAbility(2);
     else if (code === 'Digit3' || code === 'KeyU') this.triggerAbility(3);
+    else if (code === 'KeyZ') this.toggleMount();
     else if (code === 'KeyE') this.interactNearest();
     else if (code === 'KeyQ') this.useBestHealPotion();
     else if (code === 'KeyI' || code === 'KeyB' || code === 'KeyC') this.callbacks.onOpenCharacter?.();
@@ -474,8 +477,16 @@ export class GameEngine {
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) mx += 1;
 
     const len = Math.hypot(mx, my);
-    const spd = p.speed * (p.speedBuffTimer > 0 ? 1.45 : 1) * (p.slowedTimer > 0 ? 0.55 : 1);
+    const mountMult = p.mounted ? 1.65 : 1;
+    const spd = p.speed * mountMult * (p.speedBuffTimer > 0 ? 1.45 : 1) * (p.slowedTimer > 0 ? 0.55 : 1);
     const onIce = this.isOnIce(p.x, p.y);
+
+    // Avance suave del Ciclo Día / Noche (ciclo completo cada 180s salvo que GM lo fije)
+    if (this.lockedTimeOfDay !== null) {
+      this.timeOfDay = this.lockedTimeOfDay;
+    } else {
+      this.timeOfDay = (this.timeOfDay + dt / 180) % 1;
+    }
 
     if (len > 0.1) {
       const nx = mx / len;
@@ -729,6 +740,101 @@ export class GameEngine {
     } else if (targetMapGem && Math.hypot(pet.x - targetMapGem.x, pet.y - targetMapGem.y) < 18) {
       this.collectMapGem(targetMapGem);
     }
+
+    // Combate Activo de la Mascota: ataca o asiste automáticamente cada ~3.0s
+    pet.combatTimer = (pet.combatTimer ?? 1.5) - dt;
+    if (pet.combatTimer <= 0 && !this.isInSafeArea(p.x, p.y)) {
+      let nearestEnemy = null;
+      let nearestDist = 220;
+      for (const e of this.map.enemies) {
+        if (!e.alive) continue;
+        const d = Math.hypot(e.x - pet.x, e.y - pet.y);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestEnemy = e;
+        }
+      }
+      if (nearestEnemy) {
+        pet.combatTimer = 2.9;
+        const edx = nearestEnemy.x - pet.x;
+        const edy = nearestEnemy.y - pet.y;
+        const elen = Math.hypot(edx, edy) || 1;
+        pet.attackAnimTimer = 1.0;
+        pet.atkDirX = edx / elen;
+        pet.atkDirY = edy / elen;
+        pet.dirX = edx >= 0 ? 1 : -1;
+        const baseAtk = this.getTotalAtk();
+
+        if (p.activePet === 'dragon_negro') {
+          // Dragón Rojo y Negro: Aliento de Magma explosivo
+          this.spawnProjectile(
+            'player',
+            pet.x,
+            pet.y - 6,
+            (edx / elen) * 340,
+            (edy / elen) * 340,
+            Math.round(baseAtk * 0.72),
+            8,
+            '#EA580C',
+            0.85,
+            { aoeRadius: 48, style: 'orb' }
+          );
+        } else if (p.activePet === 'fantasma_hoz') {
+          // Fantasma con Hoz: Guadaña Espectral que drena vida
+          this.spawnProjectile(
+            'player',
+            pet.x,
+            pet.y - 6,
+            (edx / elen) * 360,
+            (edy / elen) * 360,
+            Math.round(baseAtk * 0.58),
+            7,
+            '#C084FC',
+            0.8,
+            { style: 'orb' }
+          );
+          if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 8);
+        } else if (p.activePet === 'gato_volador') {
+          // Gato Gigante Volador: Bendición Celestial (cura + rayo de luz)
+          if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 14);
+          if (p.mp < p.maxMp) p.mp = Math.min(p.maxMp, p.mp + 10);
+          this.addEffect('ring', p.x, p.y, 34, '#FDE047', 0.28);
+          this.spawnProjectile(
+            'player',
+            pet.x,
+            pet.y - 6,
+            (edx / elen) * 360,
+            (edy / elen) * 360,
+            Math.round(baseAtk * 0.48),
+            6,
+            '#FDE047',
+            0.75,
+            { style: 'orb' }
+          );
+        } else {
+          // Lobo Blanco: Mordisco Invernal que ralentiza
+          const ang = Math.atan2(edy, edx);
+          this.addEffect('slash', pet.x + (edx / elen) * 20, pet.y + (edy / elen) * 20, 22, '#BAE6FD', 0.22, { angle: ang });
+          if (nearestDist <= 95) {
+            nearestEnemy.slowTimer = Math.max(nearestEnemy.slowTimer || 0, 1.8);
+            this.damageEnemy(nearestEnemy, Math.round(baseAtk * 0.5), '#BAE6FD');
+          } else {
+            this.spawnProjectile(
+              'player',
+              pet.x,
+              pet.y - 4,
+              (edx / elen) * 340,
+              (edy / elen) * 340,
+              Math.round(baseAtk * 0.45),
+              5,
+              '#BAE6FD',
+              0.65,
+              { style: 'orb' }
+            );
+          }
+        }
+      }
+    }
   }
 
   collectMapGem(g) {
@@ -846,14 +952,38 @@ export class GameEngine {
     return false;
   }
 
+  toggleMount() {
+    if (!this.player || this.paused) return;
+    const p = this.player;
+    p.mounted = !p.mounted;
+    sfx.playSkill(p.gender);
+    this.addEffect('ring', p.x, p.y + 8, 38, p.mounted ? '#FDE047' : '#94A3B8', 0.3);
+    this.callbacks.onToast?.(
+      p.mounted ? 'Montura de Guerra invocada (+65% Velocidad). Pulsa Z o ataca para desmontar.' : 'Desmontaste de tu corcel.',
+      'info'
+    );
+  }
+
   triggerAbility(slot) {
     if (!this.player || this.paused) return;
     const p = this.player;
     if (p.cooldowns[slot] > 0) return;
 
+    // Si estaba en Montura de Guerra, desmontar con onda de impacto adicional
+    if (p.mounted) {
+      p.mounted = false;
+      this.addEffect('ring', p.x, p.y, 52, '#FDE047', 0.28);
+    }
+
     const cls = CLASSES[p.heroClass];
     const atk = this.getTotalAtk();
     const aim = this.getAimVector();
+    const enchant = p.equipment?.weapon?.enchant || null;
+    const enchantColor =
+      enchant === 'fire' ? '#F97316' :
+      enchant === 'ice' ? '#38BDF8' :
+      enchant === 'nature' ? '#22C55E' : null;
+
     p.atkDirX = aim.x;
     p.atkDirY = aim.y;
     this.petEntity.attackAnimTimer = 1.0;
@@ -865,12 +995,12 @@ export class GameEngine {
       p.attackAnimTimer = 1.0;
       sfx.playAttack(p.gender);
       if (cls.basicType === 'melee') {
-        this.performMeleeArc(p.x, p.y, aim.x, aim.y, cls.basicRange, atk, '#FDE047');
+        this.performMeleeArc(p.x, p.y, aim.x, aim.y, cls.basicRange, atk, enchantColor || '#FDE047');
       } else if (cls.basicType === 'ranged_arcane') {
-        this.addEffect('ring', p.x + aim.x * 16, p.y + aim.y * 16, 20, '#38BDF8', 0.2);
-        this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 380, aim.y * 380, atk, 8, '#38BDF8', 0.85, { style: 'orb' });
+        this.addEffect('ring', p.x + aim.x * 16, p.y + aim.y * 16, 20, enchantColor || '#38BDF8', 0.2);
+        this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 380, aim.y * 380, atk, 8, enchantColor || '#38BDF8', 0.85, { style: 'orb' });
       } else {
-        this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 470, aim.y * 470, atk, 6, '#FDE047', 0.78, { style: 'arrow' });
+        this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 470, aim.y * 470, atk, 6, enchantColor || '#FDE047', 0.78, { style: 'arrow' });
       }
       return;
     }
@@ -996,10 +1126,20 @@ export class GameEngine {
 
   damageEnemy(e, rawDmg, color = '#FFFFFF') {
     const isCrit = Math.random() * 100 < this.getComputedStats().crit;
-    const baseDmg = Math.max(4, Math.round(rawDmg - e.def * 0.35));
+    const enchant = this.player?.equipment?.weapon?.enchant || null;
+    const enchantMult = enchant === 'fire' ? 1.15 : 1;
+    const baseDmg = Math.max(4, Math.round((rawDmg * enchantMult) - e.def * 0.35));
     const dmg = isCrit ? Math.round(baseDmg * 1.6) : baseDmg;
     e.hp = Math.max(0, e.hp - dmg);
     e.hitFlash = 0.18;
+
+    // Efectos pasivos del Encantamiento Elemental del Arma
+    if (enchant === 'ice') {
+      e.slowTimer = Math.max(e.slowTimer || 0, 2.2);
+    } else if (enchant === 'nature' && this.player && this.player.hp < this.player.maxHp) {
+      const healAmt = Math.max(2, Math.round(dmg * 0.1));
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + healAmt);
+    }
 
     // Retroceso corto (knockback) anclado al suelo lejos del jugador + destello de impacto
     if (this.player) {
@@ -1724,6 +1864,20 @@ export class GameEngine {
       const grad = ctx.createRadialGradient(px, py, 95, px, py, 340);
       grad.addColorStop(0, 'rgba(9, 5, 18, 0)');
       grad.addColorStop(1, 'rgba(9, 5, 18, 0.72)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, vw, vh);
+    } else if (this.timeOfDay > 0.55) {
+      // Ciclo Atardecer / Noche Dinámico en exteriores con halo de luz alrededor del jugador
+      const px = this.player.x - this.camera.x;
+      const py = this.player.y - this.camera.y;
+      const isNight = this.timeOfDay > 0.72;
+      const intensity = isNight
+        ? Math.min(0.46, (this.timeOfDay - 0.72) * 2.2)
+        : Math.min(0.22, (this.timeOfDay - 0.55) * 1.3);
+      const tint = isNight ? `rgba(10, 15, 36, ${intensity.toFixed(2)})` : `rgba(124, 45, 18, ${intensity.toFixed(2)})`;
+      const grad = ctx.createRadialGradient(px, py, 75, px, py, 380);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      grad.addColorStop(1, tint);
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, vw, vh);
     }

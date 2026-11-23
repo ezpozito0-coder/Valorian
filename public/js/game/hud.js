@@ -745,6 +745,39 @@ export function renderUpgradesModal(engine, pieceKey, onToast, onSave) {
     engine.recalcDerivedStats(true); sfx.playUpgrade(); engine.checkAchievements(); onToast(`¡${pieceName} ahora es ${nq.name}!`, 'success');
     onSave(); renderUpgradesModal(engine, pieceKey, onToast, onSave);
   });
+
+  // Encantamientos Elementales de Arma (Fuego / Escarcha / Robo de Vida)
+  if (pieceKey === 'weapon') {
+    const curEnch = piece.enchant || null;
+    const enchNames = { fire: '🔥 Fuego (+15% Daño)', ice: '❄️ Escarcha (Ralentiza)', nature: '💚 Vida (+10% Robo PV)' };
+    const enchRow = document.createElement('div');
+    enchRow.className = 'forge-item';
+    enchRow.innerHTML = `
+      <div>
+        <strong>Encantamiento Elemental ${curEnch ? `<span style="color:#FDE047">(${enchNames[curEnch]})</span>` : ''}</strong><br/>
+        <small>1 Gema + 150 Oro: Fuego (Rubí), Escarcha (Zafiro) o Robo de Vida (Esmeralda)</small>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button type="button" class="btn btn-gold btn-sm" data-ench="fire" ${p.gold < 150 || rubies < 1 || curEnch === 'fire' ? 'disabled' : ''}>Fuego</button>
+        <button type="button" class="btn btn-gold btn-sm" data-ench="ice" ${p.gold < 150 || sapphires < 1 || curEnch === 'ice' ? 'disabled' : ''}>Hielo</button>
+        <button type="button" class="btn btn-gold btn-sm" data-ench="nature" ${p.gold < 150 || emeralds < 1 || curEnch === 'nature' ? 'disabled' : ''}>Vida</button>
+      </div>
+    `;
+    enchRow.querySelectorAll('[data-ench]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const kind = b.dataset.ench;
+        const gemMap = { fire: 'gema_rubi', ice: 'gema_zafiro', nature: 'gema_esmeralda' };
+        if (p.gold < 150 || !engine.consumeItem(gemMap[kind], 1)) return;
+        p.gold -= 150;
+        piece.enchant = kind;
+        sfx.playUpgrade();
+        onToast(`¡Arma encantada con ${enchNames[kind]}!`, 'success');
+        onSave();
+        renderUpgradesModal(engine, pieceKey, onToast, onSave);
+      });
+    });
+    container.appendChild(enchRow);
+  }
 }
 
 export function renderShopModal(engine, shopTab, onToast, onSave, onOpenPets) {
