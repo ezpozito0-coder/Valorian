@@ -421,6 +421,30 @@ function drawDetailedFemaleSprite(ctx, cx, cy, scale, { faction, race, heroClass
    DIBUJO DETALLADO DEL HÉROE (MASCULINO O FEMENINO)
    ========================================================= */
 export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
+  // Alas equipadas (Alas del Vacío moradas o alas de luz)
+  if (state.wings) {
+    const flap = Math.sin(time * 5) * 2.2 * scale;
+    const isVoid = state.wings === 'alas_vacio';
+    const outer = isVoid ? '#4C1D95' : '#CBD5E1';
+    const mid = isVoid ? '#9333EA' : '#F8FAFC';
+    const glow = isVoid ? '#F0ABFC' : '#FEF08A';
+    ctx.save();
+    if (isVoid) {
+      ctx.fillStyle = 'rgba(147, 51, 234, 0.28)';
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2 * scale, 18 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Ala izquierda y derecha
+    px(ctx, cx - 17 * scale, cy - 12 * scale - flap, 11 * scale, 14 * scale, outer);
+    px(ctx, cx - 15 * scale, cy - 10 * scale - flap, 8 * scale, 10 * scale, mid);
+    px(ctx, cx - 13 * scale, cy - 8 * scale - flap, 4 * scale, 6 * scale, glow);
+    px(ctx, cx + 6 * scale, cy - 12 * scale - flap, 11 * scale, 14 * scale, outer);
+    px(ctx, cx + 7 * scale, cy - 10 * scale - flap, 8 * scale, 10 * scale, mid);
+    px(ctx, cx + 9 * scale, cy - 8 * scale - flap, 4 * scale, 6 * scale, glow);
+    ctx.restore();
+  }
+
   if (state.gender === 'female') {
     drawDetailedFemaleSprite(ctx, cx, cy, scale, state, time);
     return;
@@ -554,7 +578,25 @@ export function drawCreatorPreviewCanvas(canvas, state, time) {
   const h = canvas.height;
   ctx.imageSmoothingEnabled = false;
   drawCreatorBackdrop(ctx, w, h, state.faction, time);
-  drawDetailedHeroSprite(ctx, w / 2, h * 0.62, 4.4, state, time);
+
+  // Pedestal de piedra tallada al centro
+  const pedX = w * 0.44;
+  const pedY = h * 0.77;
+  ctx.fillStyle = '#475569';
+  ctx.beginPath();
+  ctx.ellipse(pedX, pedY + 12, 118, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#94A3B8';
+  ctx.beginPath();
+  ctx.ellipse(pedX, pedY, 112, 24, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#D9A441';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Personaje ampliado sobre el pedestal + Mascota acompañante (Lobo Blanco)
+  drawDetailedHeroSprite(ctx, pedX - 18, pedY - 62, 4.3, state, time);
+  drawPetSprite(ctx, 'lobo_blanco', pedX + 56, pedY - 14, 2.3, time);
 }
 
 export function drawSlotCardCanvas(canvas, save, time) {
@@ -794,4 +836,312 @@ export function getSkillIconSvg(heroClass, slot) {
   }
   // Lluvia de Flechas
   return wrap('<rect x="3" y="2" width="2" height="8" fill="#EAB308"/><rect x="7" y="4" width="2" height="8" fill="#FDE047"/><rect x="11" y="2" width="2" height="8" fill="#EAB308"/><rect x="2" y="10" width="4" height="2" fill="#FFFFFF"/><rect x="6" y="12" width="4" height="2" fill="#FFFFFF"/><rect x="10" y="10" width="4" height="2" fill="#FFFFFF"/>');
+}
+
+/* =========================================================
+   4 MASCOTAS ICÓNICAS 16-BIT (Lobo Blanco, Fantasma, Gato, Dragón)
+   ========================================================= */
+export function drawPetSprite(ctx, petId, cx, cy, scale, time) {
+  const s = scale;
+  const bob = Math.sin(time * 7) * 1.4 * s;
+  const x = cx;
+  const y = cy + bob;
+  const p = (ox, oy, ow, oh, col) => px(ctx, x + ox * s, y + oy * s, ow * s, oh * s, col);
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(13, 10, 20, 0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 7 * s, 8 * s, 3.2 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  if (petId === 'fantasma_hoz') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(147, 51, 234, 0.25)';
+    ctx.beginPath();
+    ctx.arc(x, y - 2 * s, 10 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    p(-5, -8, 10, 13, '#1E1B4B');
+    p(-4, -7, 8, 10, '#312E81');
+    p(-2, -5, 1.5, 1.5, '#E879F9');
+    p(1, -5, 1.5, 1.5, '#E879F9');
+    // Hoz
+    p(5, -9, 1.5, 15, '#78350F');
+    p(2, -10, 6, 2.5, '#CBD5E1');
+  } else if (petId === 'gato_volador') {
+    const flap = Math.sin(time * 14) * 2;
+    p(-12, -5 + flap, 7, 4, '#FFFFFF');
+    p(5, -5 - flap, 7, 4, '#FFFFFF');
+    p(-5, -6, 10, 10, '#D6B898');
+    p(-5, -9, 3, 3, '#A68362');
+    p(2, -9, 3, 3, '#A68362');
+    p(-3, -3, 1.5, 1.5, '#16A34A');
+    p(1.5, -3, 1.5, 1.5, '#16A34A');
+    p(-1, -1, 2, 1, '#F472B6');
+  } else if (petId === 'dragon_negro') {
+    const flap = Math.sin(time * 10) * 2;
+    p(-13, -7 + flap, 8, 6, '#1C1917');
+    p(-12, -6 + flap, 6, 4, '#991B1B');
+    p(5, -7 - flap, 8, 6, '#1C1917');
+    p(6, -6 - flap, 6, 4, '#991B1B');
+    p(-5, -6, 10, 11, '#DC2626');
+    p(-4, -10, 8, 5, '#991B1B');
+    p(-5, -12, 2, 3, '#475569');
+    p(3, -12, 2, 3, '#475569');
+    p(-2, -8, 1.5, 1.5, '#FACC15');
+    p(1, -8, 1.5, 1.5, '#FACC15');
+  } else {
+    // Lobo Blanco
+    p(-7, -3, 14, 8, '#0D0A14');
+    p(-6, -2, 12, 6, '#F1F5F9');
+    p(-7, -7, 7, 6, '#FFFFFF');
+    p(-7, -9, 2, 3, '#CBD5E1');
+    p(-2, -9, 2, 3, '#CBD5E1');
+    p(-5, -5, 1.5, 1.5, '#0284C7');
+    p(5, -4, 4, 3, '#E2E8F0'); // cola
+  }
+}
+
+/* =========================================================
+   ESCENARIO DE SELECCIÓN DE PERSONAJES EN SEMICÍRCULO (16:9)
+   ========================================================= */
+export function drawCampScene(canvas, slotsMap, selectedKey, time) {
+  if (!canvas) return [];
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.imageSmoothingEnabled = false;
+
+  // Cielo nocturno estrellado de Valoria
+  const sky = ctx.createLinearGradient(0, 0, 0, h * 0.56);
+  sky.addColorStop(0, '#0B132B');
+  sky.addColorStop(1, '#1E3A5F');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h * 0.56);
+
+  // Estrellas
+  ctx.fillStyle = '#F8FAFC';
+  for (let i = 0; i < 28; i++) {
+    const sx = (i * 97) % w;
+    const sy = 16 + ((i * 53) % Math.floor(h * 0.35));
+    if (Math.sin(time * 2 + i) > -0.3) ctx.fillRect(sx, sy, 2, 2);
+  }
+
+  // Montañas y pinos al fondo
+  ctx.fillStyle = '#172A45';
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.56);
+  ctx.lineTo(w * 0.25, h * 0.34);
+  ctx.lineTo(w * 0.5, h * 0.48);
+  ctx.lineTo(w * 0.78, h * 0.32);
+  ctx.lineTo(w, h * 0.56);
+  ctx.closePath();
+  ctx.fill();
+
+  // Suelo de campamento texturizado
+  ctx.fillStyle = '#254C2E';
+  ctx.fillRect(0, h * 0.54, w, h * 0.46);
+  // Claro de tierra alrededor de la fogata
+  ctx.fillStyle = '#7A5434';
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, h * 0.78, w * 0.38, h * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tronco a la izquierda para personaje sentado
+  px(ctx, w * 0.14, h * 0.67, 130, 24, '#5C3A21');
+  px(ctx, w * 0.14, h * 0.67, 130, 6, '#78350F');
+
+  // Fogata central animada
+  const fx = w * 0.5;
+  const fy = h * 0.73;
+  const glow = 0.26 + Math.sin(time * 7) * 0.07;
+  ctx.fillStyle = `rgba(249, 115, 22, ${glow})`;
+  ctx.beginPath();
+  ctx.arc(fx, fy, 95, 0, Math.PI * 2);
+  ctx.fill();
+  px(ctx, fx - 24, fy + 8, 48, 12, '#475569');
+  const fl = Math.sin(time * 18) * 5;
+  px(ctx, fx - 14, fy - 24 - fl * 0.4, 28, 34, '#EA580C');
+  px(ctx, fx - 8, fy - 34 - fl, 16, 30, '#FACC15');
+  px(ctx, fx - 4, fy - 20, 8, 16, '#FEF9C3');
+
+  // Posiciones en semicírculo (3 espacios + ranura "+")
+  const spots = [
+    { key: 'slot_1', x: w * 0.24, y: h * 0.63, anim: 'sit' },
+    { key: 'slot_2', x: w * 0.37, y: h * 0.72, anim: 'idle' },
+    { key: 'slot_3', x: w * 0.67, y: h * 0.70, anim: 'jump' }
+  ];
+
+  const hitboxes = [];
+
+  for (const sp of spots) {
+    const rec = slotsMap[sp.key];
+    const isSel = selectedKey === sp.key;
+
+    if (rec?.saveData) {
+      const s = rec.saveData;
+      // Aro dorado bajo el personaje seleccionado
+      if (isSel) {
+        ctx.save();
+        ctx.strokeStyle = '#FDE047';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.ellipse(sp.x, sp.y + 52, 46, 15, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.2)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      const jumpOff = sp.anim === 'jump' ? -Math.abs(Math.sin(time * 4.5)) * 18 : 0;
+      drawDetailedHeroSprite(
+        ctx,
+        sp.x,
+        sp.y + jumpOff,
+        3.2,
+        {
+          faction: s.faction,
+          gender: s.gender || 'male',
+          race: s.race,
+          heroClass: s.heroClass,
+          wings: s.gearSlots?.alas || null,
+          dir: 0,
+          attackTimer: 0
+        },
+        time
+      );
+
+      if (s.activePet) {
+        drawPetSprite(ctx, s.activePet, sp.x + 42, sp.y + 34, 1.8, time);
+      }
+
+      // Nombre flotante
+      ctx.font = 'bold 14px "Pixelify Sans", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0D0A14';
+      ctx.fillText(s.name, sp.x + 1, sp.y - 54);
+      ctx.fillStyle = isSel ? '#FDE047' : '#F8FAFC';
+      ctx.fillText(s.name, sp.x, sp.y - 55);
+
+      hitboxes.push({ type: 'select', key: sp.key, x: sp.x - 52, y: sp.y - 68, w: 104, h: 132 });
+    } else {
+      // Ranura vacía con símbolo "+" brillante
+      const pulse = 0.65 + Math.sin(time * 4) * 0.25;
+      ctx.save();
+      ctx.fillStyle = `rgba(253, 224, 71, ${pulse * 0.22})`;
+      ctx.beginPath();
+      ctx.ellipse(sp.x, sp.y + 42, 42, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FDE047';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.font = 'bold 30px "Pixelify Sans", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FDE047';
+      ctx.fillText('+', sp.x, sp.y + 50);
+      ctx.restore();
+
+      hitboxes.push({ type: 'create', key: sp.key, x: sp.x - 46, y: sp.y, w: 92, h: 74 });
+    }
+  }
+
+  return hitboxes;
+}
+
+/* =========================================================
+   MAPA ILUSTRADO DE VALORIA (VIAJE RÁPIDO + CALAVERAS/CORONAS)
+   ========================================================= */
+export function drawIllustratedWorldMap(canvas, mapsMeta, player, selectedMapId, time) {
+  if (!canvas) return [];
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.imageSmoothingEnabled = false;
+
+  // Océano azul 16-bit
+  ctx.fillStyle = '#0B4A8B';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(147, 197, 253, 0.22)';
+  for (let i = 0; i < 18; i++) {
+    px(ctx, ((i * 89 + time * 10) % w), (i * 41) % h, 26, 3, 'rgba(147,197,253,0.22)');
+  }
+
+  // Continente de Valoria
+  ctx.fillStyle = '#2E7D32';
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, h * 0.52, w * 0.4, h * 0.36, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#D9B382';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  // Biomas distintivos sobre el continente
+  ctx.fillStyle = '#57534E'; // Desierto
+  ctx.beginPath(); ctx.ellipse(w * 0.74, h * 0.64, 95, 58, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#EA580C'; // Lava
+  ctx.fillRect(w * 0.71, h * 0.62, 42, 14);
+  ctx.fillStyle = '#E2E8F0'; // Montañas Heladas
+  ctx.beginPath(); ctx.ellipse(w * 0.75, h * 0.33, 90, 52, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2E1065'; // Fortaleza del Vacío
+  ctx.beginPath(); ctx.ellipse(w * 0.52, h * 0.24, 78, 42, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Caminos conectando los 6 mapas
+  const ordered = Object.values(mapsMeta).sort((a, b) => a.order - b.order);
+  ctx.strokeStyle = '#D6B88D';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ordered.forEach((m, idx) => {
+    const mx = m.mapX * w;
+    const my = m.mapY * h;
+    if (idx === 0) ctx.moveTo(mx, my);
+    else ctx.lineTo(mx, my);
+  });
+  ctx.stroke();
+
+  const nodes = [];
+  for (const m of ordered) {
+    const mx = m.mapX * w;
+    const my = m.mapY * h;
+    const visited = player.visitedMaps.includes(m.id);
+    const isCurrent = player.currentMap === m.id;
+    const isSel = selectedMapId === m.id;
+    const locked = player.level < m.reqLevel;
+
+    // Nodo interactivo
+    ctx.save();
+    ctx.fillStyle = isSel ? '#FDE047' : visited ? m.color : '#475569';
+    ctx.beginPath();
+    ctx.arc(mx, my, isSel ? 17 : 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = isCurrent ? '#FFFFFF' : '#0D0A14';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+
+    // Calavera 💀 si jefe pendiente, Corona dorada 👑 si derrotado
+    if (m.bossId) {
+      const defeated = player.defeatedBosses.includes(m.bossId);
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(defeated ? '👑' : '💀', mx + 18, my - 10);
+    }
+    if (locked) {
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🔒', mx - 18, my - 10);
+    }
+
+    // Etiqueta del mapa
+    ctx.font = 'bold 12px "Pixelify Sans", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#0D0A14';
+    ctx.fillText(`${m.order}. ${m.name}`, mx + 1, my + 31);
+    ctx.fillStyle = isSel ? '#FDE047' : '#FFFFFF';
+    ctx.fillText(`${m.order}. ${m.name}`, mx, my + 30);
+
+    nodes.push({ id: m.id, x: mx - 45, y: my - 24, w: 90, h: 60 });
+  }
+
+  return nodes;
 }

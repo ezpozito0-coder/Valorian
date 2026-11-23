@@ -58,7 +58,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     iceZones: [],
     portals: [],
     enemies: [],
-    safeBoxes: []
+    safeBoxes: [],
+    bossAltar: null
   };
 
   // Muros perimetrales externos
@@ -257,6 +258,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       spawnEnemy('esqueleto', 640, 520),
       spawnEnemy('esqueleto', 960, 520)
     );
+    base.bossAltar = { bossKind: 'malakor', x: 800, y: 265, label: 'Invocar a Malakor (Revancha)' };
     if (!defeatedBosses.includes('malakor')) {
       base.enemies.push(spawnEnemy('malakor', 800, 265));
     }
@@ -307,6 +309,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       spawnEnemy('nomada', 960, 620),
       spawnEnemy('escorpion', 800, 500)
     );
+    base.bossAltar = { bossKind: 'ignis', x: 800, y: 260, label: 'Invocar a Ignis (Revancha)' };
     if (!defeatedBosses.includes('ignis')) {
       base.enemies.push(spawnEnemy('ignis', 800, 260));
     }
@@ -369,6 +372,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       spawnEnemy('golem_hielo', 660, 480),
       spawnEnemy('golem_hielo', 940, 480)
     );
+    base.bossAltar = { bossKind: 'boreas', x: 800, y: 255, label: 'Invocar a Boreas (Revancha)' };
     if (!defeatedBosses.includes('boreas')) {
       base.enemies.push(spawnEnemy('boreas', 800, 255));
     }
@@ -420,6 +424,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       spawnEnemy('mago_sombrio', 560, 560),
       spawnEnemy('mago_sombrio', 1040, 560)
     );
+    base.bossAltar = { bossKind: 'vaelor', x: 800, y: 275, label: 'Invocar a Vaelor (Revancha)' };
     if (!defeatedBosses.includes('vaelor')) {
       base.enemies.push(spawnEnemy('vaelor', 800, 275));
     }

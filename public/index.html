@@ -4,26 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Crónicas de la Fractura — RPG 2D Pixel Art | TG Legacy S.A.S.</title>
-  <meta name="description" content="Explora el continente de Valoria en Crónicas de la Fractura: RPG 2D Pixel Art 16 bits para móvil, tablet y PC. Juega sin conexión y sincroniza en la nube." />
+  <meta name="description" content="Explora el continente de Valoria en Crónicas de la Fractura: RPG 2D Pixel Art 16 bits en modo horizontal 16:9 con guardado offline y MySQL." />
   <meta name="theme-color" content="#10131C" />
-  <!-- OpenGraph / Compartir enlaces -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Crónicas de la Fractura — RPG 2D Pixel Art" />
-  <meta property="og:description" content="Elige entre la Guardia del Alba o los Clanes de Hierro y enfrenta al Vacío en Valoria." />
-  <meta property="og:image" content="/assets/logo-espada-grieta.svg" />
-  <meta name="twitter:card" content="summary" />
-  <link rel="icon" type="image/svg+xml" href="/assets/logo-espada-grieta.svg" />
-  <link rel="manifest" href="/manifest.json" />
+  <meta property="og:description" content="Elige tu bando, derrota a los 4 Jefes de Valoria y conquista las Alas del Vacío." />
+  <meta property="og:image" content="./assets/logo-espada-grieta.svg" />
+  <link rel="icon" type="image/svg+xml" href="./assets/logo-espada-grieta.svg" />
+  <link rel="manifest" href="./manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="./css/styles.css" />
 </head>
 <body>
-  <!-- Barra superior limpia para menús (oculta durante el juego) -->
-  <header id="app-header" class="app-header">
-    <a href="#inicio" class="brand" id="brand-home" aria-label="Inicio Crónicas de la Fractura">
-      <img src="/assets/logo-espada-grieta.svg" alt="Logo La Espada en la Grieta" class="brand-logo" width="38" height="38" />
+  <!-- Barra superior metálica para pantallas fuera del mapa -->
+  <header id="app-header" class="app-header metallic-bar">
+    <a href="#personajes" class="brand" id="brand-home" aria-label="Crónicas de la Fractura">
+      <img src="./assets/logo-espada-grieta.svg" alt="Logo La Espada en la Grieta" class="brand-logo" width="34" height="34" />
       <span class="brand-text">Crónicas de la Fractura</span>
     </a>
 
@@ -34,14 +32,14 @@
       </span>
 
       <button type="button" id="btn-theme-toggle" class="icon-btn" aria-label="Cambiar modo claro u oscuro" title="Modo Claro / Oscuro">
-        <svg id="icon-theme" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
           <circle cx="12" cy="12" r="4"></circle>
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
         </svg>
       </button>
 
       <button type="button" id="btn-menu-open" class="icon-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="nav-drawer">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
           <line x1="3" y1="6" x2="21" y2="6"></line>
           <line x1="3" y1="12" x2="21" y2="12"></line>
           <line x1="3" y1="18" x2="21" y2="18"></line>
@@ -50,137 +48,102 @@
     </div>
   </header>
 
-  <!-- Panel lateral hamburguesa (desde la derecha, nunca tapa el logo) -->
+  <!-- Panel lateral hamburguesa -->
   <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
   <aside id="nav-drawer" class="nav-drawer" aria-label="Menú principal" aria-hidden="true">
     <div class="drawer-header">
       <span class="drawer-title">Menú</span>
-      <button type="button" id="btn-menu-close" class="icon-btn" aria-label="Cerrar menú">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
-          <line x1="5" y1="5" x2="19" y2="19"></line>
-          <line x1="19" y1="5" x2="5" y2="19"></line>
-        </svg>
-      </button>
+      <button type="button" id="btn-menu-close" class="icon-btn" aria-label="Cerrar menú">✕</button>
     </div>
-
     <nav class="drawer-nav">
-      <button type="button" class="drawer-link" data-nav="inicio">Inicio</button>
-      <button type="button" class="drawer-link" data-nav="personajes">Jugar (3 Personajes)</button>
-      <button type="button" class="drawer-link" data-nav="opciones">Opciones</button>
+      <button type="button" class="drawer-link" data-nav="personajes">Selección de Personajes</button>
+      <button type="button" class="drawer-link" data-nav="inicio">Portada de Valoria</button>
+      <button type="button" class="drawer-link" data-nav="opciones">Opciones (Audio / Tema)</button>
       <button type="button" class="drawer-link" data-nav="logros">Logros y Medallas</button>
       <button type="button" class="drawer-link" data-nav="cuenta">Cuenta y Nube (MySQL)</button>
       <hr class="drawer-sep" />
       <button type="button" class="drawer-link muted" data-legal="privacy">Política de Privacidad</button>
       <button type="button" class="drawer-link muted" data-legal="cookies">Política de Cookies</button>
       <button type="button" class="drawer-link muted" data-legal="terms">Términos y Condiciones</button>
-      <button type="button" class="drawer-link muted" data-legal="legal">Ciberseguridad y normas ISO</button>
+      <button type="button" class="drawer-link muted" data-legal="legal">Ciberseguridad e ISO</button>
     </nav>
-
-    <div class="drawer-footer">
-      <small>© 2026 TG Legacy S.A.S.</small>
-    </div>
+    <div class="drawer-footer"><small>© 2026 TG Legacy S.A.S.</small></div>
   </aside>
 
-  <!-- CONTENIDO PRINCIPAL -->
   <main id="app-main" class="app-main">
-    <!-- PANTALLA 1: INICIO CON FONDO ANIMADO 16-BIT DE VALORIA -->
-    <section id="screen-home" class="screen screen-home">
+    <!-- PORTADA OPCIONAL -->
+    <section id="screen-home" class="screen screen-home hidden">
       <canvas id="home-bg-canvas" class="home-bg-canvas" aria-hidden="true"></canvas>
-
-      <div class="home-card">
+      <div class="home-card metallic-frame">
         <div class="hero-emblem">
-          <img src="/assets/logo-espada-grieta.svg" alt="Crónicas de la Fractura" width="84" height="84" class="pixel-img" />
+          <img src="./assets/logo-espada-grieta.svg" alt="Crónicas de la Fractura" width="76" height="76" class="pixel-img" />
         </div>
         <h1 class="pixel-title">Crónicas de la Fractura</h1>
-        <p class="hero-subtitle">
-          El continente de <strong>Valoria</strong> está dividido entre la luz de la Guardia del Alba, el fuego de los Clanes de Hierro y las grietas del Vacío.
-        </p>
-
+        <p class="hero-subtitle">Modo Horizontal 16:9 · Continente de Valoria · Niveles 1 al 90</p>
         <div class="home-actions">
-          <button type="button" id="btn-home-play" class="btn btn-primary btn-lg">Jugar</button>
-          <button type="button" id="btn-home-options" class="btn btn-secondary btn-lg">Opciones</button>
-        </div>
-
-        <div class="faction-strip">
-          <div class="faction-pill alba">
-            <strong>Guardia del Alba</strong>
-            <span>Humanos · Elfos · Enanos</span>
-          </div>
-          <div class="faction-pill hierro">
-            <strong>Clanes de Hierro</strong>
-            <span>Orcos · Lobos Guerreros · Nómadas</span>
-          </div>
-          <div class="faction-pill void">
-            <strong>El Vacío</strong>
-            <span>Amenaza de la Fractura</span>
-          </div>
+          <button type="button" id="btn-home-play" class="btn btn-gold btn-lg">Jugar</button>
+          <button type="button" id="btn-home-options" class="btn btn-secondary">Opciones</button>
         </div>
       </div>
-
       <footer class="legal-footer home-footer">
-        <p>© 2026 <strong>TG Legacy S.A.S.</strong> Todos los derechos reservados.</p>
-        <div class="legal-links">
-          <button type="button" class="link-btn" data-legal="privacy">Política de Privacidad</button>
-          <span>·</span>
-          <button type="button" class="link-btn" data-legal="cookies">Cookies</button>
-          <span>·</span>
-          <button type="button" class="link-btn" data-legal="terms">Términos y Condiciones</button>
-          <span>·</span>
-          <button type="button" class="link-btn" data-legal="legal">Ciberseguridad e ISO</button>
-        </div>
+        <small>© 2026 <strong>TG Legacy S.A.S.</strong> · <button type="button" class="link-btn" data-legal="privacy">Privacidad</button> · <button type="button" class="link-btn" data-legal="cookies">Cookies</button> · <button type="button" class="link-btn" data-legal="terms">Términos</button> · <button type="button" class="link-btn" data-legal="legal">ISO</button></small>
       </footer>
     </section>
 
-    <!-- PANTALLA 2: SELECTOR DE PERSONAJES (HASTA 3 ESPACIOS INDEPENDIENTES) -->
-    <section id="screen-slots" class="screen screen-slots hidden">
-      <div class="slots-container">
-        <div class="screen-top-row">
-          <button type="button" id="btn-slots-back" class="btn btn-ghost">← Volver</button>
-          <h2 class="pixel-heading">Tus Héroes (3 Espacios)</h2>
-          <button type="button" id="btn-slots-sync" class="btn btn-secondary btn-sm">Sincronizar</button>
+    <!-- PANTALLA DE SELECCIÓN DE PERSONAJES EN SEMICÍRCULO (CAMPAMENTO 16:9) -->
+    <section id="screen-slots" class="screen screen-camp hidden">
+      <div class="camp-stage metallic-frame">
+        <div class="camp-banner-title">
+          <span class="pixel-heading">Selección de Personaje</span>
         </div>
-
-        <div id="slots-grid" class="slots-grid"></div>
+        <canvas id="camp-canvas" width="960" height="440" aria-label="Campamento de personajes en semicírculo"></canvas>
       </div>
 
-      <footer class="legal-footer">
-        <p>© 2026 <strong>TG Legacy S.A.S.</strong></p>
-        <div class="legal-links">
-          <button type="button" class="link-btn" data-legal="privacy">Privacidad</button>
-          <span>·</span>
-          <button type="button" class="link-btn" data-legal="terms">Términos</button>
-          <span>·</span>
-          <button type="button" class="link-btn" data-legal="legal">Ciberseguridad e ISO</button>
+      <div class="camp-bottom-bar metallic-frame">
+        <div id="camp-selected-info" class="camp-selected-info">
+          <strong id="camp-hero-summary">Selecciona un personaje del campamento</strong>
+          <span id="camp-hero-title" class="gold-title"></span>
         </div>
+        <div class="camp-actions">
+          <button type="button" id="btn-camp-play" class="btn btn-gold btn-lg">Jugar</button>
+          <button type="button" id="btn-camp-create" class="btn btn-secondary">+ Crear Personaje</button>
+          <button type="button" id="btn-camp-delete" class="btn btn-danger btn-sm">Eliminar</button>
+        </div>
+      </div>
+
+      <footer class="legal-footer mini-footer">
+        <small>© 2026 TG Legacy S.A.S. · <button type="button" class="link-btn" data-legal="privacy">Privacidad</button> · <button type="button" class="link-btn" data-legal="terms">Términos</button> · <button type="button" class="link-btn" data-legal="legal">ISO</button></small>
       </footer>
     </section>
 
-    <!-- PANTALLA 3: CREACIÓN DE PERSONAJE (INTERFAZ VISUAL COMPACTA PIXEL ART) -->
+    <!-- PANTALLA DE CREACIÓN DE PERSONAJE 16:9 (PEDESTAL + MASCOTA + PANEL LATERAL) -->
     <section id="screen-create" class="screen screen-create hidden">
-      <div class="create-container create-compact">
-        <div class="screen-top-row compact-top">
-          <button type="button" id="btn-create-back" class="btn btn-ghost btn-sm">← Volver</button>
-          <h2 class="pixel-heading">Crear Héroe (<span id="create-slot-label">1</span>)</h2>
-          <span></span>
-        </div>
-
-        <form id="form-create-hero" class="creator-split">
-          <!-- ZONA SUPERIOR / IZQUIERDA: Vista previa grande animada -->
-          <div class="creator-stage-panel">
-            <div class="creator-canvas-frame">
-              <canvas id="creator-canvas" width="320" height="250" aria-label="Vista previa del personaje"></canvas>
+      <div class="create-container create-landscape metallic-frame">
+        <form id="form-create-hero" class="creator-split-169">
+          <!-- Escenario central en pedestal con mascota acompañante -->
+          <div class="creator-pedestal-stage">
+            <div class="creator-canvas-frame landscape-stage">
+              <canvas id="creator-canvas" width="520" height="360" aria-label="Vista previa en pedestal"></canvas>
             </div>
-
-            <div class="preview-controls">
-              <button type="button" id="btn-rot-left" class="btn btn-secondary btn-sm" aria-label="Girar izquierda">◀</button>
-              <span id="preview-dir-label" class="preview-dir-label">Frente</span>
-              <button type="button" id="btn-rot-right" class="btn btn-secondary btn-sm" aria-label="Girar derecha">▶</button>
-              <button type="button" id="btn-test-attack" class="btn btn-primary btn-sm">⚔️ Probar Ataque</button>
+            <div class="pedestal-bar">
+              <button type="button" id="btn-create-back" class="btn btn-secondary btn-sm">← Volver</button>
+              <div class="rot-group">
+                <button type="button" id="btn-rot-left" class="btn btn-secondary btn-sm" aria-label="Girar izquierda">◀</button>
+                <span id="preview-dir-label" class="preview-dir-label">Frente</span>
+                <button type="button" id="btn-rot-right" class="btn btn-secondary btn-sm" aria-label="Girar derecha">▶</button>
+                <button type="button" id="btn-test-attack" class="btn btn-secondary btn-sm">⚔️ Probar</button>
+              </div>
+              <button type="submit" class="btn btn-gold">Comenzar</button>
             </div>
           </div>
 
-          <!-- ZONA INFERIOR / DERECHA: Grilla compacta de iconos Pixel Art -->
-          <div class="creator-options-panel">
+          <!-- Panel lateral metálico -->
+          <div class="creator-side-panel">
+            <div class="form-group">
+              <label for="hero-name" class="mini-label">Nombre del Personaje (<span id="create-slot-label">Espacio 1</span>)</label>
+              <input type="text" id="hero-name" class="compact-name-input" minlength="3" maxlength="15" required placeholder="Nombre del Héroe" autocomplete="off" />
+            </div>
+
             <div class="icon-row-group">
               <div class="icon-pair-block">
                 <span class="mini-label">Bando</span>
@@ -201,89 +164,104 @@
               <span class="mini-label">Clase</span>
               <div class="icon-row cols-3" id="class-picker"></div>
             </div>
-
-            <div class="confirm-block">
-              <input type="text" id="hero-name" class="compact-name-input" minlength="3" maxlength="15" required placeholder="Nombre del Héroe" autocomplete="off" aria-label="Nombre del Héroe" />
-              <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Comenzar Aventura</button>
-            </div>
           </div>
         </form>
       </div>
-
-      <footer class="legal-footer mini-footer">
-        <small>© 2026 TG Legacy S.A.S. · <button type="button" class="link-btn" data-legal="privacy">Privacidad</button> · <button type="button" class="link-btn" data-legal="terms">Términos</button></small>
-      </footer>
     </section>
 
-    <!-- PANTALLA 3: MAPA PRINCIPAL Y HUD LIMPIO -->
+    <!-- PANTALLA DE JUEGO PRINCIPAL (HUD HORIZONTAL 16:9) -->
     <section id="screen-game" class="screen screen-game hidden" aria-label="Mapa de Valoria">
       <canvas id="game-canvas"></canvas>
 
       <!-- HUD Superior -->
       <div class="hud-top">
-        <!-- Info del héroe -->
-        <div class="hud-hero-card">
-          <div class="hud-hero-head">
-            <span id="hud-hero-name" class="hud-name">Héroe</span>
-            <span id="hud-hero-meta" class="hud-meta">Guerrero · +0</span>
+        <!-- Arriba Izquierda: Tarjeta metálica de Héroe (PV, PM, EXP) + Recuadro de Mascota -->
+        <div class="hud-left-col">
+          <div class="hud-hero-card metallic-frame" id="btn-hud-char-open" title="Abrir Características (C)">
+            <div class="hud-class-emblem" id="hud-class-emblem">
+              <span id="hud-class-icon">⚔️</span>
+              <span id="hud-level-badge" class="hud-lvl-pill">Nv.1</span>
+            </div>
+            <div class="hud-bars-col">
+              <div class="hud-hero-head">
+                <span id="hud-hero-name" class="hud-name">Héroe</span>
+                <span id="hud-gold" class="hud-stat gold">0 Oro</span>
+              </div>
+              <div class="hud-bar-wrap">
+                <div id="hud-hp-fill" class="hud-bar-fill hp" style="width: 100%"></div>
+                <span id="hud-hp-text" class="hud-bar-text">PV 165/165</span>
+              </div>
+              <div class="hud-bar-wrap mp-wrap">
+                <div id="hud-mp-fill" class="hud-bar-fill mp" style="width: 100%"></div>
+                <span id="hud-mp-text" class="hud-bar-text">PM 100/100</span>
+              </div>
+              <div class="hud-xp-wrap" title="Experiencia">
+                <div id="hud-xp-fill" class="hud-xp-fill" style="width: 0%"></div>
+              </div>
+            </div>
           </div>
-          <div class="hud-bar-wrap">
-            <div id="hud-hp-fill" class="hud-bar-fill hp" style="width: 100%"></div>
-            <span id="hud-hp-text" class="hud-bar-text">150 / 150</span>
-          </div>
-          <div class="hud-xp-wrap" title="Experiencia de Nivel (máx. 90)">
-            <div id="hud-xp-fill" class="hud-xp-fill" style="width: 0%"></div>
-          </div>
-          <div class="hud-stats-row">
-            <span id="hud-gold" class="hud-stat gold">0 Oro</span>
-            <span id="hud-atk" class="hud-stat">ATQ 18</span>
-            <span id="hud-def" class="hud-stat">DEF 15</span>
-          </div>
+
+          <!-- Recuadro interactivo de Mascota activa -->
+          <button type="button" id="btn-hud-pet" class="hud-pet-card metallic-frame" title="Gestionar Mascotas de Valoria">
+            <span id="hud-pet-icon" class="hud-pet-ico">🐺</span>
+            <div class="hud-pet-info">
+              <div class="hud-pet-top">
+                <strong id="hud-pet-name">Lobo Blanco</strong>
+                <span id="hud-pet-lvl">Nv.1</span>
+              </div>
+              <div class="hud-xp-wrap pet-xp"><div id="hud-pet-xp" class="hud-xp-fill gold" style="width: 0%"></div></div>
+            </div>
+          </button>
+
+          <!-- Misión activa (visible sin tapar HUD) -->
+          <button type="button" id="hud-quest-box" class="hud-quest-strip" aria-expanded="true">
+            <span class="hud-quest-dot"></span>
+            <span id="hud-quest-text" class="hud-quest-text">1/5: Habla con el Tabernero</span>
+          </button>
         </div>
 
-        <!-- Zona actual y barra de Jefe Malakor -->
+        <!-- Centro Superior: Zona y Barra Metálica de Jefe con Calavera -->
         <div class="hud-center">
-          <div id="hud-zone" class="hud-zone-pill">Aldea Segura</div>
-          <div id="hud-boss-bar" class="hud-boss-bar hidden">
-            <span class="hud-boss-name">Malakor, el Guardián Caído</span>
+          <div id="hud-zone" class="hud-zone-pill metallic-frame">Villa Alba</div>
+          <div id="hud-boss-bar" class="hud-boss-bar metallic-frame hidden">
+            <div class="hud-boss-head">
+              <span class="boss-skull">💀</span>
+              <span id="hud-boss-name" class="hud-boss-name">Malakor · Nv. 25</span>
+              <span id="hud-boss-fury" class="boss-fury-tag hidden">¡FURIA!</span>
+            </div>
             <div class="hud-bar-wrap boss">
               <div id="hud-boss-fill" class="hud-bar-fill void" style="width: 100%"></div>
-              <span id="hud-boss-text" class="hud-bar-text">320 / 320</span>
+              <span id="hud-boss-text" class="hud-bar-text">520 / 520</span>
             </div>
           </div>
         </div>
 
-        <!-- Minimapa + Pausa (esquina superior derecha ordenada) -->
+        <!-- Arriba Derecha: Minimapa + Botón Mapa + Pausa y Jefes -->
         <div class="hud-right">
-          <button type="button" id="btn-hud-pause" class="hud-sq-btn pause" title="Pausa (Esc)" aria-label="Pausa">
-            ❚❚
-          </button>
-          <div class="minimap-wrap">
-            <canvas id="minimap-canvas" width="112" height="88" aria-label="Minimapa"></canvas>
-            <button type="button" id="btn-hud-worldmap" class="minimap-btn" title="Mapa del Mundo (N)">Mapa</button>
+          <div class="hud-top-mini-btns">
+            <button type="button" id="btn-hud-bosses" class="hud-sq-btn" title="Jefes de Valoria (J)" aria-label="Jefes de Valoria">💀</button>
+            <button type="button" id="btn-hud-pause" class="hud-sq-btn pause" title="Pausa (Esc)" aria-label="Pausa">❚❚</button>
+          </div>
+          <div class="minimap-wrap metallic-frame">
+            <canvas id="minimap-canvas" width="112" height="84" aria-label="Minimapa"></canvas>
+            <button type="button" id="btn-hud-worldmap" class="minimap-btn" title="Mapa de Valoria (N)">Mapa</button>
           </div>
         </div>
       </div>
 
-      <!-- Línea delgada y discreta de Misión activa (tocable para abrir/cerrar) -->
-      <button type="button" id="hud-quest-box" class="hud-quest-strip" aria-expanded="true" title="Tocar para ocultar o mostrar misión">
-        <span class="hud-quest-dot"></span>
-        <span id="hud-quest-text" class="hud-quest-text">1/5: Habla con el Tabernero</span>
-      </button>
-
-      <!-- Barra vertical derecha de accesos rápidos (cuadrados pequeños sin texto largo) -->
-      <div class="hud-side-dock" aria-label="Accesos rápidos">
-        <button type="button" id="btn-hud-potion" class="hud-sq-btn" title="Usar Poción (Q)" aria-label="Usar Poción">
+      <!-- Barra de accesos rápidos derecha 2x2 (Poción, Mejoras, Tienda, Mochila/Características) -->
+      <div class="hud-side-dock grid-2x2" aria-label="Accesos rápidos">
+        <button type="button" id="btn-hud-potion" class="hud-sq-btn metallic-frame" title="Poción de Vida (Q)">
           <span class="dock-ico">🧪</span>
           <span class="dock-badge" id="hud-potion-count">0</span>
         </button>
-        <button type="button" id="btn-hud-upgrades" class="hud-sq-btn" title="Mejoras de Equipo (M)" aria-label="Mejoras">
+        <button type="button" id="btn-hud-upgrades" class="hud-sq-btn metallic-frame" title="Mejoras de Equipo (M)">
           <span class="dock-ico">⚒️</span>
         </button>
-        <button type="button" id="btn-hud-shop" class="hud-sq-btn" title="Tienda de Oro y Mascotas (T)" aria-label="Tienda">
+        <button type="button" id="btn-hud-shop" class="hud-sq-btn metallic-frame" title="Tienda de Oro (T)">
           <span class="dock-ico">🪙</span>
         </button>
-        <button type="button" id="btn-hud-backpack" class="hud-sq-btn" title="Mochila (I)" aria-label="Mochila">
+        <button type="button" id="btn-hud-backpack" class="hud-sq-btn metallic-frame" title="Características y Mochila (I / C)">
           <span class="dock-ico">🎒</span>
           <span class="dock-badge" id="hud-bag-count">0/16</span>
         </button>
@@ -291,73 +269,99 @@
 
       <!-- Banner de transición de zona -->
       <div id="zone-banner" class="zone-banner hidden" aria-live="polite">
-        <strong id="zone-banner-title" class="pixel-heading">Aldea Inicial</strong>
+        <strong id="zone-banner-title" class="pixel-heading">Villa Alba</strong>
         <span id="zone-banner-sub">Zona Segura</span>
       </div>
 
-      <!-- Aviso de interacción contextual -->
-      <button type="button" id="btn-interact-prompt" class="interact-prompt hidden">
-        Hablar / Interactuar (E)
-      </button>
+      <button type="button" id="btn-interact-prompt" class="interact-prompt hidden">Interactuar (E)</button>
 
-      <!-- Controles Táctiles (Móvil / Tablet, opcional en PC) -->
+      <!-- Controles Táctiles / Pantalla -->
       <div id="touch-controls" class="touch-controls">
         <div id="joystick-zone" class="joystick-zone" aria-label="Palanca de movimiento">
-          <div class="joystick-base">
-            <div id="joystick-thumb" class="joystick-thumb"></div>
-          </div>
+          <div class="joystick-base"><div id="joystick-thumb" class="joystick-thumb"></div></div>
         </div>
-
         <div class="combat-pad">
           <button type="button" class="skill-btn skill-1" data-skill="1" aria-label="Habilidad 1">
-            <span class="skill-key">1</span>
-            <span class="skill-icon" id="ico-skill-1"></span>
-            <span class="skill-name" id="lbl-skill-1">Hab 1</span>
-            <span class="skill-cd" id="cd-skill-1"></span>
+            <span class="skill-key">1</span><span class="skill-icon" id="ico-skill-1"></span>
+            <span class="skill-name" id="lbl-skill-1">Hab 1</span><span class="skill-cd" id="cd-skill-1"></span>
           </button>
           <button type="button" class="skill-btn skill-2" data-skill="2" aria-label="Habilidad 2">
-            <span class="skill-key">2</span>
-            <span class="skill-icon" id="ico-skill-2"></span>
-            <span class="skill-name" id="lbl-skill-2">Hab 2</span>
-            <span class="skill-cd" id="cd-skill-2"></span>
+            <span class="skill-key">2</span><span class="skill-icon" id="ico-skill-2"></span>
+            <span class="skill-name" id="lbl-skill-2">Hab 2</span><span class="skill-cd" id="cd-skill-2"></span>
           </button>
           <button type="button" class="skill-btn skill-3" data-skill="3" aria-label="Habilidad 3">
-            <span class="skill-key">3</span>
-            <span class="skill-icon" id="ico-skill-3"></span>
-            <span class="skill-name" id="lbl-skill-3">Hab 3</span>
-            <span class="skill-cd" id="cd-skill-3"></span>
+            <span class="skill-key">3</span><span class="skill-icon" id="ico-skill-3"></span>
+            <span class="skill-name" id="lbl-skill-3">Hab 3</span><span class="skill-cd" id="cd-skill-3"></span>
           </button>
           <button type="button" class="skill-btn skill-basic" data-skill="0" aria-label="Ataque básico">
-            <span class="skill-key">ESP</span>
-            <span class="skill-icon" id="ico-skill-0"></span>
-            <span class="skill-name">Atacar</span>
-            <span class="skill-cd" id="cd-skill-0"></span>
+            <span class="skill-key">ESP</span><span class="skill-icon" id="ico-skill-0"></span>
+            <span class="skill-name">Atacar</span><span class="skill-cd" id="cd-skill-0"></span>
           </button>
         </div>
       </div>
 
-      <!-- Guía discreta PC -->
       <div class="pc-hints">
-        WASD Mover · Espacio Atacar · 1/2/3 Habilidades · E Interactuar · Q Poción · M Mejoras · T Tienda · N Mapa · I Mochila · Esc Pausa
+        WASD Mover · Espacio Atacar · 1/2/3 Habilidades · E Interactuar · Q Poción · I/C Características · M Mejoras · T Tienda · N Mapa · J Jefes · Esc Pausa
       </div>
     </section>
   </main>
 
-  <!-- MODAL: DIÁLOGO NPC / MISIONES -->
-  <div id="modal-dialog" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
+  <!-- MODAL UNIFICADO DE CARACTERÍSTICAS (EQUIPO 12 RANURAS + MOCHILA 4x4 | HABILIDADES | TALENTOS) -->
+  <div id="modal-character" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-xl metallic-frame">
       <div class="modal-head">
-        <h3 id="dialog-npc-name" class="pixel-heading">Tabernero</h3>
-        <button type="button" class="icon-btn modal-close" data-close="modal-dialog" aria-label="Cerrar">✕</button>
+        <h3 class="pixel-heading">Características</h3>
+        <div class="tabs-row compact-tabs">
+          <button type="button" class="tab-btn active" data-char-tab="equipo">Equipo</button>
+          <button type="button" class="tab-btn" data-char-tab="habilidades">Habilidades</button>
+          <button type="button" class="tab-btn" data-char-tab="talentos">Talentos</button>
+        </div>
+        <button type="button" class="icon-btn modal-close" data-close="modal-character" aria-label="Cerrar">✕</button>
       </div>
-      <p id="dialog-text" class="dialog-body"></p>
-      <div id="dialog-actions" class="modal-actions"></div>
+      <div id="character-tab-body" class="character-tab-body"></div>
     </div>
   </div>
 
-  <!-- MODAL: PANTALLA DE MEJORAS DIRECTA (GEMAS + ORO) -->
+  <!-- MODAL: MASCOTAS DE VALORIA (4 MASCOTAS CON NIVEL Y EXP) -->
+  <div id="modal-pets" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-xl metallic-frame">
+      <div class="modal-head">
+        <h3 class="pixel-heading">Mascotas de Valoria</h3>
+        <span id="pets-gold" class="hud-stat gold">0 Oro</span>
+        <button type="button" class="icon-btn modal-close" data-close="modal-pets" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="pets-grid" class="four-card-grid"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: JEFES DE VALORIA (4 JEFES, DROPS EXCLUSIVOS Y TÍTULOS) -->
+  <div id="modal-bosses" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-xl metallic-frame">
+      <div class="modal-head">
+        <h3 class="pixel-heading">Jefes de Valoria</h3>
+        <button type="button" class="icon-btn modal-close" data-close="modal-bosses" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="bosses-grid" class="four-card-grid"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: MAPA DE VALORIA ILUSTRADO (VIAJE RÁPIDO + CALAVERAS / CORONAS) -->
+  <div id="modal-worldmap" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-xl metallic-frame">
+      <div class="modal-head">
+        <h3 class="pixel-heading">Mapa de Valoria (Viaje Rápido)</h3>
+        <button type="button" class="icon-btn modal-close" data-close="modal-worldmap" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="worldmap-visual-wrap">
+        <canvas id="worldmap-canvas" width="760" height="340" aria-label="Mapa ilustrado de Valoria"></canvas>
+      </div>
+      <div id="worldmap-detail-bar" class="worldmap-detail-bar"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: MEJORAS DE EQUIPO (GEMAS + ORO) -->
   <div id="modal-upgrades" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-lg">
+    <div class="modal-card modal-lg metallic-frame">
       <div class="modal-head">
         <h3 class="pixel-heading">Mejoras de Equipo</h3>
         <span id="upgrades-gold" class="hud-stat gold">0 Oro</span>
@@ -371,55 +375,52 @@
     </div>
   </div>
 
-  <!-- MODAL: TIENDA DE ORO Y MASCOTAS -->
+  <!-- MODAL: TIENDA DE VALORIA -->
   <div id="modal-shop" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-lg">
+    <div class="modal-card modal-lg metallic-frame">
       <div class="modal-head">
         <h3 class="pixel-heading">Tienda de Valoria</h3>
         <span id="shop-gold" class="hud-stat gold">0 Oro</span>
         <button type="button" class="icon-btn modal-close" data-close="modal-shop" aria-label="Cerrar">✕</button>
       </div>
       <div class="tabs-row">
-        <button type="button" class="tab-btn active" data-shop-tab="pets">Mascotas</button>
-        <button type="button" class="tab-btn" data-shop-tab="consumables">Consumibles</button>
-        <button type="button" class="tab-btn" data-shop-tab="specials">Especiales</button>
+        <button type="button" class="tab-btn active" data-shop-tab="consumables">Consumibles</button>
+        <button type="button" class="tab-btn" data-shop-tab="specials">Gemas y Pergaminos</button>
+        <button type="button" class="tab-btn" data-shop-tab="pets">Mascotas</button>
       </div>
       <div id="shop-content" class="forge-content"></div>
     </div>
   </div>
 
-  <!-- MODAL: MAPA DEL MUNDO (VIAJE RÁPIDO) -->
-  <div id="modal-worldmap" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-lg">
+  <!-- MODAL: DIÁLOGO NPC -->
+  <div id="modal-dialog" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card metallic-frame">
       <div class="modal-head">
-        <h3 class="pixel-heading">Mapa de Valoria (Viaje Rápido)</h3>
-        <button type="button" class="icon-btn modal-close" data-close="modal-worldmap" aria-label="Cerrar">✕</button>
+        <h3 id="dialog-npc-name" class="pixel-heading">Tabernero</h3>
+        <button type="button" class="icon-btn modal-close" data-close="modal-dialog" aria-label="Cerrar">✕</button>
       </div>
-      <p class="modal-desc">Teletranspórtate al instante a cualquier mapa que ya hayas visitado.</p>
-      <div id="worldmap-list" class="worldmap-list"></div>
+      <p id="dialog-text" class="dialog-body"></p>
+      <div id="dialog-actions" class="modal-actions"></div>
     </div>
   </div>
 
-  <!-- MODAL: VICTORIA FINAL (VAELOR DERROTADO) -->
+  <!-- MODAL: VICTORIA FINAL -->
   <div id="modal-victory" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h3 class="pixel-heading" style="color:#FDE047">¡Victoria en Valoria!</h3>
-      </div>
+    <div class="modal-card metallic-frame">
+      <div class="modal-head"><h3 class="pixel-heading" style="color:#FDE047">¡Victoria en Valoria!</h3></div>
       <p class="dialog-body">
-        Has derrotado a <strong>Vaelor, el Arquitecto de la Fractura</strong> y salvado el continente de Valoria.<br/><br/>
-        <strong>Recompensa recibida:</strong><br/>
-        🏆 Cofre Legendario (Reliquia de Vaelor + 1000 Oro + 5 Rubíes, 5 Esmeraldas y 5 Zafiros).
+        Has derrotado a <strong>Vaelor, el Arquitecto de la Fractura</strong>.<br/><br/>
+        <strong>Recompensa:</strong> 🪽 <strong>Alas del Vacío</strong> (Legendarias), título dorado <strong>"Salvador de Valoria"</strong> (+5% a todas las estadísticas), 1200 Oro y Gemas.
       </p>
       <div class="modal-actions">
-        <button type="button" id="btn-victory-continue" class="btn btn-primary">Seguir Explorando Valoria</button>
+        <button type="button" id="btn-victory-continue" class="btn btn-gold">Seguir Explorando Valoria</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: LOGROS Y MEDALLAS -->
+  <!-- MODAL: LOGROS -->
   <div id="modal-achievements" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-lg">
+    <div class="modal-card modal-lg metallic-frame">
       <div class="modal-head">
         <h3 class="pixel-heading">Logros y Medallas</h3>
         <button type="button" class="icon-btn modal-close" data-close="modal-achievements" aria-label="Cerrar">✕</button>
@@ -428,40 +429,25 @@
     </div>
   </div>
 
-  <!-- MODAL: MOCHILA (16 ESPACIOS) -->
-  <div id="modal-backpack" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-lg">
-      <div class="modal-head">
-        <h3 class="pixel-heading">Mochila (<span id="bag-slots-label">0/16</span>)</h3>
-        <span id="bag-gold-label" class="hud-stat gold">0 Oro</span>
-        <button type="button" class="icon-btn modal-close" data-close="modal-backpack" aria-label="Cerrar">✕</button>
-      </div>
-      <div id="backpack-grid" class="backpack-grid"></div>
-      <div id="backpack-detail" class="backpack-detail">Selecciona un objeto para ver detalles o usarlo.</div>
-    </div>
-  </div>
-
   <!-- MODAL: PAUSA -->
   <div id="modal-pause" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h3 class="pixel-heading">Pausa</h3>
-      </div>
+    <div class="modal-card metallic-frame">
+      <div class="modal-head"><h3 class="pixel-heading">Pausa</h3></div>
       <div class="pause-actions">
-        <button type="button" id="btn-pause-resume" class="btn btn-primary">Reanudar</button>
+        <button type="button" id="btn-pause-resume" class="btn btn-gold">Reanudar</button>
         <button type="button" id="btn-pause-save" class="btn btn-secondary">Guardar y Sincronizar</button>
         <button type="button" id="btn-pause-audio" class="btn btn-secondary">Música y Sonidos: Activado</button>
         <button type="button" id="btn-pause-achievements" class="btn btn-secondary">Logros y Medallas</button>
         <button type="button" id="btn-pause-touch" class="btn btn-secondary">Controles Táctiles: Auto</button>
         <button type="button" id="btn-pause-theme" class="btn btn-secondary">Cambiar Tema Claro / Oscuro</button>
-        <button type="button" id="btn-pause-home" class="btn btn-danger">Volver al Inicio</button>
+        <button type="button" id="btn-pause-home" class="btn btn-danger">Selección de Personajes</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: OPCIONES (SONIDO, MÚSICA, TEMA Y CUENTA) -->
+  <!-- MODAL: OPCIONES -->
   <div id="modal-options" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
+    <div class="modal-card metallic-frame">
       <div class="modal-head">
         <h3 class="pixel-heading">Opciones</h3>
         <button type="button" class="icon-btn modal-close" data-close="modal-options" aria-label="Cerrar">✕</button>
@@ -470,36 +456,34 @@
         <button type="button" id="btn-opt-sfx" class="btn btn-secondary">Efectos de Sonido: Activado</button>
         <button type="button" id="btn-opt-music" class="btn btn-secondary">Música Ambiental: Activada</button>
         <button type="button" id="btn-opt-theme" class="btn btn-secondary">Tema de Menús: Modo Oscuro</button>
-        <button type="button" id="btn-opt-account" class="btn btn-primary">Cuenta y Nube (MySQL)</button>
+        <button type="button" id="btn-opt-account" class="btn btn-gold">Cuenta y Nube (MySQL)</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: CONFIRMAR BORRADO DE PERSONAJE -->
+  <!-- MODAL: CONFIRMAR ELIMINAR PERSONAJE -->
   <div id="modal-confirm-delete" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
+    <div class="modal-card metallic-frame">
       <div class="modal-head">
-        <h3 class="pixel-heading">¿Borrar Personaje?</h3>
+        <h3 class="pixel-heading">¿Eliminar Personaje?</h3>
         <button type="button" class="icon-btn modal-close" data-close="modal-confirm-delete" aria-label="Cerrar">✕</button>
       </div>
-      <p id="confirm-delete-text" class="dialog-body">Esta acción eliminará al héroe de este espacio de forma permanente.</p>
+      <p id="confirm-delete-text" class="dialog-body"></p>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary modal-close" data-close="modal-confirm-delete">Cancelar</button>
-        <button type="button" id="btn-confirm-delete-yes" class="btn btn-danger">Sí, Borrar</button>
+        <button type="button" id="btn-confirm-delete-yes" class="btn btn-danger">Sí, Eliminar</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: CUENTA Y SINCRONIZACIÓN MYSQL -->
+  <!-- MODAL: CUENTA MYSQL -->
   <div id="modal-account" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
+    <div class="modal-card metallic-frame">
       <div class="modal-head">
         <h3 class="pixel-heading">Cuenta en la Nube</h3>
         <button type="button" class="icon-btn modal-close" data-close="modal-account" aria-label="Cerrar">✕</button>
       </div>
-      <p class="modal-desc">
-        Tus partidas se guardan siempre en este dispositivo (Offline-First). Inicia sesión para sincronizarlas con MySQL al tener internet.
-      </p>
+      <p class="modal-desc">Guardado automático offline en este dispositivo y sincronización con MySQL al detectar internet.</p>
       <div id="account-status-box" class="account-status-box"></div>
       <div id="account-forms">
         <div class="tabs-row">
@@ -520,38 +504,31 @@
             <input type="password" id="auth-password" required minlength="8" placeholder="Mínimo 8 caracteres" />
           </div>
           <p id="auth-feedback" class="form-feedback"></p>
-          <button type="submit" id="btn-auth-submit" class="btn btn-primary">Iniciar Sesión</button>
+          <button type="submit" id="btn-auth-submit" class="btn btn-gold">Iniciar Sesión</button>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: DOCUMENTOS LEGALES (TG LEGACY S.A.S.) -->
+  <!-- MODAL: LEGAL -->
   <div id="modal-legal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-lg">
+    <div class="modal-card modal-lg metallic-frame">
       <div class="modal-head">
         <h3 id="legal-title" class="pixel-heading">Aviso Legal</h3>
         <button type="button" class="icon-btn modal-close" data-close="modal-legal" aria-label="Cerrar">✕</button>
       </div>
       <div id="legal-body" class="legal-body"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-primary modal-close" data-close="modal-legal">Entendido</button>
-      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-gold modal-close" data-close="modal-legal">Entendido</button></div>
     </div>
   </div>
 
-  <!-- BANNER DISCRETO DE COOKIES -->
   <div id="cookie-banner" class="cookie-banner hidden" role="region" aria-label="Aviso de cookies">
-    <p>
-      Usamos almacenamiento local y cookies técnicas esenciales para guardar tu progreso sin conexión y mantener tu sesión segura.
-      <button type="button" class="link-btn" data-legal="cookies">Ver Política de Cookies</button>
-    </p>
-    <button type="button" id="btn-cookie-accept" class="btn btn-primary btn-sm">Aceptar</button>
+    <p>Usamos almacenamiento local y cookies esenciales para tu progreso offline. <button type="button" class="link-btn" data-legal="cookies">Política de Cookies</button></p>
+    <button type="button" id="btn-cookie-accept" class="btn btn-gold btn-sm">Aceptar</button>
   </div>
 
-  <!-- NOTIFICACIONES TOAST -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script type="module" src="/js/app.js"></script>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>

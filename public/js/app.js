@@ -1,13 +1,13 @@
 /**
- * Punto de entrada principal — Crónicas de la Fractura (Fase 5)
- * Inicio animado, Selector de 3 Personajes, Creación detallada, 6 Mapas, Offline-First + MySQL.
- * TG Legacy S.A.S.
+ * Punto de entrada principal — Crónicas de la Fractura (Fases 8, 9 y 10 · 16:9)
+ * Flujo de inicio inteligente, Campamento en Semicírculo, Características (Equipo/Habilidades/Talentos),
+ * Mascotas con Niveles, Jefes del Mundo con Furia y Títulos. TG Legacy S.A.S.
  */
 
 import {
   FACTIONS,
   CLASSES,
-  MAPS_META,
+  TITLES,
   getRaceLabel,
   getClassLabel,
   createInitialSave,
@@ -17,14 +17,16 @@ import { GameEngine } from './game/engine.js';
 import {
   drawHomeValoriaBg,
   drawCreatorPreviewCanvas,
-  drawSlotCardCanvas,
+  drawCampScene,
   getPixelIconSvg
 } from './game/preview.js';
 import {
   updateHudDom,
+  renderCharacterModal,
+  renderPetsModal,
+  renderBossesModal,
   renderUpgradesModal,
   renderShopModal,
-  renderBackpackModal,
   renderAchievementsModal,
   renderWorldMapModal,
   showZoneBanner,
@@ -51,8 +53,8 @@ const settings = loadSettings();
 let slotsMap = { slot_1: null, slot_2: null, slot_3: null };
 let activeSlotKey = 'slot_1';
 let pendingDeleteSlot = null;
+let campHitboxes = [];
 
-// Estado de creación de personaje
 const DIR_LABELS = ['Frente', 'Derecha', 'Espalda', 'Izquierda'];
 const creatorState = {
   slotKey: 'slot_1',
@@ -64,10 +66,11 @@ const creatorState = {
   attackTimer: 0
 };
 
+let charTab = 'equipo';
 let upgradeTab = 'weapon';
-let shopTab = 'pets';
+let shopTab = 'consumables';
 let authMode = 'login';
-let achievementsReturnRoute = 'inicio';
+let achievementsReturnRoute = 'personajes';
 
 let menuRafId = null;
 let menuLastTime = 0;
@@ -78,10 +81,11 @@ const engine = new GameEngine(canvas, {
   onHudUpdate: (snap) => updateHudDom(snap),
   onToast: (msg, type) => showToast(msg, type),
   onAutoSave: (data) => persistActiveSlot(data, false),
-  onOpenBackpack: () => navigate('mochila'),
+  onOpenCharacter: () => navigate('caracteristicas'),
   onOpenUpgrades: () => navigate('mejoras'),
   onOpenShop: () => navigate('tienda'),
   onOpenWorldMap: () => navigate('mapa'),
+  onOpenBosses: () => navigate('jefes'),
   onZoneBanner: (title, sub) => showZoneBanner(title, sub),
   onVictory: () => {
     engine.setPaused(true);
@@ -92,7 +96,7 @@ const engine = new GameEngine(canvas, {
 });
 
 /* =========================================================
-   UTILIDADES UI (TOASTS, TEMA, AUDIO, DRAWER, SYNC)
+   UTILIDADES UI
    ========================================================= */
 function showToast(message, type = 'info') {
   const wrap = document.getElementById('toast-container');
@@ -119,10 +123,7 @@ function applyAudioSettings() {
   const optMusic = document.getElementById('btn-opt-music');
   if (optMusic) optMusic.textContent = `Música Ambiental: ${settings.music ? 'Activada' : 'Silenciada'}`;
   const pauseAudio = document.getElementById('btn-pause-audio');
-  if (pauseAudio) {
-    const anyOn = settings.sfx || settings.music;
-    pauseAudio.textContent = `Música y Sonidos: ${anyOn ? 'Activado' : 'Silenciado'}`;
-  }
+  if (pauseAudio) pauseAudio.textContent = `Música y Sonidos: ${(settings.sfx || settings.music) ? 'Activado' : 'Silenciado'}`;
   saveSettings(settings);
 }
 
@@ -150,6 +151,14 @@ function updateSyncBadge(statusText, mode = 'local') {
 
 function getActiveSave() {
   return slotsMap[activeSlotKey]?.saveData || null;
+}
+
+function hasAnyCharacter() {
+  return SLOT_KEYS.some((k) => Boolean(slotsMap[k]?.saveData));
+}
+
+function firstEmptySlot() {
+  return SLOT_KEYS.find((k) => !slotsMap[k]?.saveData) || null;
 }
 
 async function persistActiveSlot(saveData, notify = false) {
@@ -185,8 +194,36 @@ function closeDrawer() {
 }
 
 /* =========================================================
-   BUCLE ANIMADO DE MENÚS (INICIO, 3 PERSONAJES Y CREACIÓN)
+   CAMPAMENTO EN SEMICÍRCULO (SELECCIÓN DE PERSONAJES)
    ========================================================= */
+function updateCampBottomBar() {
+  if (!slotsMap[activeSlotKey]?.saveData) {
+    const first = SLOT_KEYS.find((k) => slotsMap[k]?.saveData);
+    if (first) activeSlotKey = first;
+  }
+  const s = getActiveSave();
+  const sumEl = document.getElementById('camp-hero-summary');
+  const titleEl = document.getElementById('camp-hero-title');
+  const playBtn = document.getElementById('btn-camp-play');
+  const delBtn = document.getElementById('btn-camp-delete');
+  const createBtn = document.getElementById('btn-camp-create');
+
+  if (s) {
+    const fac = FACTIONS[s.faction] || FACTIONS.alba;
+    sumEl.textContent = `${s.name} · Nv. ${s.level} · ${getClassLabel(s.heroClass, s.gender)} · ${getRaceLabel(s.race, s.gender)} · ${fac.name}`;
+    titleEl.textContent = s.activeTitle && TITLES[s.activeTitle] ? TITLES[s.activeTitle].name : 'Aventurero de Valoria';
+    playBtn.disabled = false;
+    delBtn.disabled = false;
+  } else {
+    sumEl.textContent = 'No hay personajes creados todavía';
+    titleEl.textContent = 'Pulsa + Crear Personaje para comenzar';
+    playBtn.disabled = true;
+    delBtn.disabled = true;
+  }
+
+  createBtn.disabled = !firstEmptySlot();
+}
+
 function startMenuAnimation() {
   if (menuRafId) return;
   menuLastTime = performance.now();
@@ -197,7 +234,7 @@ function startMenuAnimation() {
 
     const { route } = getCurrentRoute();
 
-    if (['inicio', 'opciones', 'logros', 'cuenta', 'legal'].includes(route)) {
+    if (route === 'inicio') {
       const bg = document.getElementById('home-bg-canvas');
       if (bg && !document.getElementById('screen-home').classList.contains('hidden')) {
         const w = bg.clientWidth || window.innerWidth;
@@ -208,16 +245,13 @@ function startMenuAnimation() {
         }
         drawHomeValoriaBg(bg.getContext('2d'), bg.width, bg.height, menuElapsed);
       }
-    } else if (route === 'personajes') {
-      for (const key of SLOT_KEYS) {
-        const rec = slotsMap[key];
-        const c = document.getElementById(`slot-canvas-${key}`);
-        if (rec?.saveData && c) drawSlotCardCanvas(c, rec.saveData, menuElapsed);
+    } else if (['personajes', 'opciones', 'logros', 'cuenta', 'legal'].includes(route)) {
+      const campCanvas = document.getElementById('camp-canvas');
+      if (campCanvas && !document.getElementById('screen-slots').classList.contains('hidden')) {
+        campHitboxes = drawCampScene(campCanvas, slotsMap, activeSlotKey, menuElapsed);
       }
     } else if (route === 'crear') {
-      if (creatorState.attackTimer > 0) {
-        creatorState.attackTimer = Math.max(0, creatorState.attackTimer - dt * 1.9);
-      }
+      if (creatorState.attackTimer > 0) creatorState.attackTimer = Math.max(0, creatorState.attackTimer - dt * 1.9);
       const c = document.getElementById('creator-canvas');
       if (c) drawCreatorPreviewCanvas(c, creatorState, menuElapsed);
     }
@@ -235,105 +269,28 @@ function stopMenuAnimation() {
 }
 
 /* =========================================================
-   SELECTOR DE 3 PERSONAJES (#personajes)
-   ========================================================= */
-function renderSlotsScreen() {
-  const grid = document.getElementById('slots-grid');
-  grid.innerHTML = '';
-
-  SLOT_KEYS.forEach((key, idx) => {
-    const rec = slotsMap[key];
-    const card = document.createElement('div');
-    const slotNum = idx + 1;
-
-    if (rec?.saveData) {
-      const s = normalizeSave(rec.saveData);
-      slotsMap[key].saveData = s;
-      const cls = CLASSES[s.heroClass] || CLASSES.guerrero;
-      const fac = FACTIONS[s.faction] || FACTIONS.alba;
-      const mapName = s.currentMap === 'aldea' ? fac.villageName : (MAPS_META[s.currentMap]?.name || 'Valoria');
-
-      card.className = 'slot-card occupied';
-      card.innerHTML = `
-        <div class="slot-canvas-wrap">
-          <canvas id="slot-canvas-${key}" width="240" height="150"></canvas>
-        </div>
-        <div class="slot-info">
-          <small style="color:var(--text-muted)">Espacio ${slotNum} · ${mapName}</small>
-          <h3>${s.name}</h3>
-          <p><strong>Nivel ${s.level}</strong> · ${getClassLabel(s.heroClass, s.gender)} · ${getRaceLabel(s.race, s.gender)}</p>
-          <p>${fac.name} · ${s.gold} Oro</p>
-        </div>
-        <div class="slot-actions">
-          <button type="button" class="btn btn-primary btn-sm" data-enter-slot="${key}">Entrar al Mundo</button>
-          <button type="button" class="btn btn-danger btn-sm" data-delete-slot="${key}">Borrar</button>
-        </div>
-      `;
-    } else {
-      card.className = 'slot-card empty';
-      card.innerHTML = `
-        <small style="color:var(--text-muted)">Espacio ${slotNum} · Vacío</small>
-        <p style="color:var(--text-muted);font-size:0.88rem">Crea un nuevo héroe independiente</p>
-        <button type="button" class="btn btn-primary" data-create-slot="${key}">+ Crear Nuevo Personaje</button>
-      `;
-    }
-
-    grid.appendChild(card);
-  });
-
-  grid.querySelectorAll('[data-enter-slot]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      activeSlotKey = btn.dataset.enterSlot;
-      if (engine.running) engine.stop();
-      navigate('jugar');
-    });
-  });
-
-  grid.querySelectorAll('[data-create-slot]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      navigate('crear', btn.dataset.createSlot);
-    });
-  });
-
-  grid.querySelectorAll('[data-delete-slot]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      pendingDeleteSlot = btn.dataset.deleteSlot;
-      const heroName = slotsMap[pendingDeleteSlot]?.saveData?.name || 'este personaje';
-      document.getElementById('confirm-delete-text').textContent =
-        `¿Seguro que deseas borrar a "${heroName}"? Se perderá su progreso local y en la nube.`;
-      document.getElementById('modal-confirm-delete').classList.remove('hidden');
-    });
-  });
-}
-
-/* =========================================================
-   CREACIÓN DE PERSONAJE DETALLADA (#crear/slot_X)
+   CREACIÓN DE PERSONAJE 16:9
    ========================================================= */
 function renderCreatePickers() {
   const idx = Math.max(0, SLOT_KEYS.indexOf(creatorState.slotKey)) + 1;
-  document.getElementById('create-slot-label').textContent = String(idx);
+  document.getElementById('create-slot-label').textContent = `Espacio ${idx}`;
   document.getElementById('preview-dir-label').textContent = DIR_LABELS[creatorState.dir];
 
-  // 1. Bando (2 escudos redondos en Pixel Art)
   const factionWrap = document.getElementById('faction-picker');
   factionWrap.innerHTML = '';
   [
-    { id: 'alba', label: 'Alba', title: 'La Guardia del Alba (Villa Alba)', icon: 'shield_alba' },
-    { id: 'hierro', label: 'Hierro', title: 'Los Clanes de Hierro (Campamento Hierro)', icon: 'shield_hierro' }
+    { id: 'alba', label: 'Alba', title: 'La Guardia del Alba', icon: 'shield_alba' },
+    { id: 'hierro', label: 'Hierro', title: 'Los Clanes de Hierro', icon: 'shield_hierro' }
   ].forEach((f) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.title = f.title;
     btn.className = `pixel-choice-tile ${creatorState.faction === f.id ? 'selected' : ''}`;
     btn.innerHTML = `${getPixelIconSvg(f.icon)}<span class="tile-caption">${f.label}</span>`;
-    btn.addEventListener('click', () => {
-      creatorState.faction = f.id;
-      renderCreatePickers();
-    });
+    btn.addEventListener('click', () => { creatorState.faction = f.id; renderCreatePickers(); });
     factionWrap.appendChild(btn);
   });
 
-  // 2. Sexo (2 siluetas Pixel Art)
   const genderWrap = document.getElementById('gender-picker');
   genderWrap.innerHTML = '';
   [
@@ -345,19 +302,13 @@ function renderCreatePickers() {
     btn.title = g.title;
     btn.className = `pixel-choice-tile ${creatorState.gender === g.id ? 'selected' : ''}`;
     btn.innerHTML = `${getPixelIconSvg(g.icon)}<span class="tile-caption">${g.label}</span>`;
-    btn.addEventListener('click', () => {
-      creatorState.gender = g.id;
-      renderCreatePickers();
-    });
+    btn.addEventListener('click', () => { creatorState.gender = g.id; renderCreatePickers(); });
     genderWrap.appendChild(btn);
   });
 
-  // 3. Raza (3 retratos de cabezas Pixel Art dinámicos según bando y sexo)
   const raceWrap = document.getElementById('race-picker');
   const races = FACTIONS[creatorState.faction].races;
-  if (!races.some((r) => r.id === creatorState.race)) {
-    creatorState.race = races[0].id;
-  }
+  if (!races.some((r) => r.id === creatorState.race)) creatorState.race = races[0].id;
   raceWrap.innerHTML = '';
   for (const r of races) {
     const label = getRaceLabel(r.id, creatorState.gender);
@@ -366,33 +317,26 @@ function renderCreatePickers() {
     btn.title = `${label}: ${r.desc}`;
     btn.className = `pixel-choice-tile ${r.id === creatorState.race ? 'selected' : ''}`;
     btn.innerHTML = `${getPixelIconSvg('portrait', { race: r.id, gender: creatorState.gender })}<span class="tile-caption">${label}</span>`;
-    btn.addEventListener('click', () => {
-      creatorState.race = r.id;
-      renderCreatePickers();
-    });
+    btn.addEventListener('click', () => { creatorState.race = r.id; renderCreatePickers(); });
     raceWrap.appendChild(btn);
   }
 
-  // 4. Clase (3 iconos de armas Pixel Art)
   const classWrap = document.getElementById('class-picker');
   classWrap.innerHTML = '';
   for (const cls of Object.values(CLASSES)) {
     const label = getClassLabel(cls.id, creatorState.gender);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.title = `${label} · ${cls.weapon} (Vida ${cls.hp}, ATQ ${cls.atk}, DEF ${cls.def})`;
+    btn.title = `${label} · ${cls.weapon}`;
     btn.className = `pixel-choice-tile ${cls.id === creatorState.heroClass ? 'selected' : ''}`;
     btn.innerHTML = `${getPixelIconSvg('class_' + cls.id)}<span class="tile-caption">${label}</span>`;
-    btn.addEventListener('click', () => {
-      creatorState.heroClass = cls.id;
-      renderCreatePickers();
-    });
+    btn.addEventListener('click', () => { creatorState.heroClass = cls.id; renderCreatePickers(); });
     classWrap.appendChild(btn);
   }
 }
 
 /* =========================================================
-   MODALES DEL JUEGO, CUENTA Y MARCO LEGAL
+   MODALES Y ENRUTADOR
    ========================================================= */
 function hideAllModals() {
   document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
@@ -410,10 +354,7 @@ function openNpcDialog(npc) {
   const modal = document.getElementById('modal-dialog');
   modal.classList.remove('hidden');
   buildNpcDialog(npc, engine, {
-    onClose: () => {
-      modal.classList.add('hidden');
-      engine.setPaused(false);
-    },
+    onClose: () => { modal.classList.add('hidden'); engine.setPaused(false); },
     onOpenUpgrades: () => navigate('mejoras'),
     onSave: () => persistActiveSlot(engine.exportSave(), false)
   });
@@ -427,12 +368,9 @@ function renderAccountModal() {
   if (user) {
     formsWrap.classList.add('hidden');
     statusBox.innerHTML = `
-      <div>
-        <strong>Sesión activa:</strong> ${user.username} (${user.email || 'Jugador'})<br/>
-        <small>Conexión: ${navigator.onLine ? 'En línea' : 'Sin conexión'}</small>
-      </div>
+      <div><strong>Sesión activa:</strong> ${user.username} (${user.email || 'Jugador'})</div>
       <div class="modal-actions" style="margin-top:10px">
-        <button type="button" id="btn-acc-sync" class="btn btn-primary btn-sm">Sincronizar 3 Espacios</button>
+        <button type="button" id="btn-acc-sync" class="btn btn-gold btn-sm">Sincronizar 3 Espacios</button>
         <button type="button" id="btn-acc-logout" class="btn btn-danger btn-sm">Cerrar Sesión</button>
       </div>
     `;
@@ -447,19 +385,16 @@ function renderAccountModal() {
       setSavedUser(null);
       updateSyncBadge('Local', 'local');
       renderAccountModal();
-      showToast('Sesión cerrada. Tus 3 espacios locales siguen en el dispositivo.');
+      showToast('Sesión cerrada.');
     });
   } else {
     formsWrap.classList.remove('hidden');
     statusBox.textContent = navigator.onLine
-      ? 'Modo invitado local. Inicia sesión o regístrate para sincronizar tus 3 espacios con MySQL.'
-      : 'Estás sin conexión. Tus 3 espacios se guardan localmente; sincroniza al volver internet.';
+      ? 'Modo local activo. Inicia sesión para sincronizar tus personajes y logros con MySQL.'
+      : 'Sin conexión. Todo se guarda localmente y sincronizará al volver internet.';
   }
 }
 
-/* =========================================================
-   ENRUTADOR CON HISTORIAL REAL DEL NAVEGADOR
-   ========================================================= */
 function handleRoute({ route, param }) {
   closeDrawer();
   hideAllModals();
@@ -469,17 +404,12 @@ function handleRoute({ route, param }) {
   const createEl = document.getElementById('screen-create');
   const gameEl = document.getElementById('screen-game');
 
-  const isGameRoute = ['jugar', 'pausa', 'mejoras', 'tienda', 'mochila', 'mapa'].includes(route);
+  const isGameRoute = ['jugar', 'pausa', 'caracteristicas', 'mascotas', 'jefes', 'mejoras', 'tienda', 'mapa'].includes(route);
 
   if (isGameRoute && !getActiveSave()) {
-    // Si hay algún espacio ocupado, usar el primero; si no, ir al selector
-    const firstOccupied = SLOT_KEYS.find((k) => slotsMap[k]?.saveData);
-    if (firstOccupied) {
-      activeSlotKey = firstOccupied;
-    } else {
-      navigate('personajes', null, { replace: true });
-      return;
-    }
+    const first = SLOT_KEYS.find((k) => slotsMap[k]?.saveData);
+    if (first) activeSlotKey = first;
+    else { navigate('crear', 'slot_1', { replace: true }); return; }
   }
 
   if (route === 'logros' && engine.running && achievementsReturnRoute === 'pausa') {
@@ -489,9 +419,8 @@ function handleRoute({ route, param }) {
     return;
   }
 
-  const showHome = !isGameRoute && route !== 'personajes' && route !== 'crear';
-  homeEl.classList.toggle('hidden', !showHome);
-  slotsEl.classList.toggle('hidden', route !== 'personajes');
+  homeEl.classList.toggle('hidden', route !== 'inicio');
+  slotsEl.classList.toggle('hidden', isGameRoute || route === 'inicio' || route === 'crear');
   createEl.classList.toggle('hidden', route !== 'crear');
   gameEl.classList.toggle('hidden', !isGameRoute);
   document.body.classList.toggle('in-game', isGameRoute);
@@ -509,35 +438,40 @@ function handleRoute({ route, param }) {
     } else if (route === 'pausa') {
       engine.setPaused(true);
       document.getElementById('modal-pause').classList.remove('hidden');
+    } else if (route === 'caracteristicas') {
+      engine.setPaused(true);
+      renderCharacterModal(engine, charTab, {
+        onToast: showToast,
+        onSave: () => persistActiveSlot(engine.exportSave(), false),
+        onOpenUpgrades: () => navigate('mejoras'),
+        onOpenPets: () => navigate('mascotas'),
+        onClose: () => navigate('jugar')
+      });
+      document.getElementById('modal-character').classList.remove('hidden');
+    } else if (route === 'mascotas') {
+      engine.setPaused(true);
+      renderPetsModal(engine, showToast, () => persistActiveSlot(engine.exportSave(), false));
+      document.getElementById('modal-pets').classList.remove('hidden');
+    } else if (route === 'jefes') {
+      engine.setPaused(true);
+      renderBossesModal(engine);
+      document.getElementById('modal-bosses').classList.remove('hidden');
     } else if (route === 'mejoras') {
       engine.setPaused(true);
-      renderUpgradesModal(engine, upgradeTab, showToast, () =>
-        persistActiveSlot(engine.exportSave(), false)
-      );
+      renderUpgradesModal(engine, upgradeTab, showToast, () => persistActiveSlot(engine.exportSave(), false));
       document.getElementById('modal-upgrades').classList.remove('hidden');
     } else if (route === 'tienda') {
       engine.setPaused(true);
-      renderShopModal(engine, shopTab, showToast, () =>
-        persistActiveSlot(engine.exportSave(), false)
-      );
+      renderShopModal(engine, shopTab, showToast, () => persistActiveSlot(engine.exportSave(), false), () => navigate('mascotas'));
       document.getElementById('modal-shop').classList.remove('hidden');
     } else if (route === 'mapa') {
       engine.setPaused(true);
       renderWorldMapModal(engine, () => navigate('jugar'));
       document.getElementById('modal-worldmap').classList.remove('hidden');
-    } else if (route === 'mochila') {
-      engine.setPaused(true);
-      renderBackpackModal(
-        engine,
-        () => persistActiveSlot(engine.exportSave(), false),
-        () => navigate('jugar')
-      );
-      document.getElementById('modal-backpack').classList.remove('hidden');
     }
     return;
   }
 
-  // Fuera del juego: guardar progreso y activar animaciones de menú
   if (engine.running) {
     persistActiveSlot(engine.exportSave(), false);
     engine.stop();
@@ -545,26 +479,30 @@ function handleRoute({ route, param }) {
   startMenuAnimation();
 
   if (route === 'personajes') {
-    renderSlotsScreen();
+    updateCampBottomBar();
   } else if (route === 'crear') {
-    creatorState.slotKey = SLOT_KEYS.includes(param) ? param : 'slot_1';
+    creatorState.slotKey = SLOT_KEYS.includes(param) ? param : (firstEmptySlot() || 'slot_1');
     creatorState.dir = 0;
     creatorState.attackTimer = 0;
     document.getElementById('hero-name').value = '';
     renderCreatePickers();
   } else if (route === 'opciones') {
+    updateCampBottomBar();
     applyTheme(settings.theme);
     applyAudioSettings();
     document.getElementById('modal-options').classList.remove('hidden');
   } else if (route === 'logros') {
-    achievementsReturnRoute = 'inicio';
+    achievementsReturnRoute = 'personajes';
+    updateCampBottomBar();
     const anySave = getActiveSave() || SLOT_KEYS.map((k) => slotsMap[k]?.saveData).find(Boolean) || null;
     renderAchievementsModal(anySave);
     document.getElementById('modal-achievements').classList.remove('hidden');
   } else if (route === 'cuenta') {
+    updateCampBottomBar();
     renderAccountModal();
     document.getElementById('modal-account').classList.remove('hidden');
   } else if (route === 'legal') {
+    updateCampBottomBar();
     const doc = LEGAL_DOCS[param] || LEGAL_DOCS.legal;
     document.getElementById('legal-title').textContent = doc.title;
     document.getElementById('legal-body').innerHTML = doc.html;
@@ -573,7 +511,7 @@ function handleRoute({ route, param }) {
 }
 
 /* =========================================================
-   CONTROLES TÁCTILES (PALANCA VIRTUAL + 4 BOTONES)
+   CONTROLES TÁCTILES Y EVENTOS
    ========================================================= */
 function initTouchControls() {
   const zone = document.getElementById('joystick-zone');
@@ -597,28 +535,17 @@ function initTouchControls() {
     center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     moveJoy(e.clientX, e.clientY);
   });
-
-  zone.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== activePointer) return;
-    e.preventDefault();
-    moveJoy(e.clientX, e.clientY);
-  });
-
-  zone.addEventListener('pointerup', (e) => {
-    if (e.pointerId === activePointer) resetJoy();
-  });
+  zone.addEventListener('pointermove', (e) => { if (e.pointerId === activePointer) { e.preventDefault(); moveJoy(e.clientX, e.clientY); } });
+  zone.addEventListener('pointerup', (e) => { if (e.pointerId === activePointer) resetJoy(); });
   zone.addEventListener('pointercancel', resetJoy);
 
   function moveJoy(cx, cy) {
     const dx = cx - center.x;
     const dy = cy - center.y;
-    const dist = Math.hypot(dx, dy);
-    const clamped = Math.min(dist, maxDist);
+    const clamped = Math.min(Math.hypot(dx, dy), maxDist);
     const angle = Math.atan2(dy, dx);
-    const tx = Math.cos(angle) * clamped;
-    const ty = Math.sin(angle) * clamped;
-    thumb.style.transform = `translate(${tx}px, ${ty}px)`;
-    engine.setJoystick(tx / maxDist, ty / maxDist);
+    thumb.style.transform = `translate(${Math.cos(angle) * clamped}px, ${Math.sin(angle) * clamped}px)`;
+    engine.setJoystick((Math.cos(angle) * clamped) / maxDist, (Math.sin(angle) * clamped) / maxDist);
   }
 
   document.querySelectorAll('.skill-btn').forEach((btn) => {
@@ -630,9 +557,6 @@ function initTouchControls() {
   });
 }
 
-/* =========================================================
-   EVENTOS GLOBALES E INICIALIZACIÓN
-   ========================================================= */
 function bindEvents() {
   window.addEventListener('pointerdown', () => sfx.ensureCtx(), { once: true });
   window.addEventListener('keydown', () => sfx.ensureCtx(), { once: true });
@@ -640,53 +564,73 @@ function bindEvents() {
   document.getElementById('btn-menu-open').addEventListener('click', openDrawer);
   document.getElementById('btn-menu-close').addEventListener('click', closeDrawer);
   document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
-
-  document.getElementById('brand-home').addEventListener('click', (e) => {
-    e.preventDefault();
-    navigate('inicio');
-  });
-
-  document.getElementById('btn-theme-toggle').addEventListener('click', () => {
-    applyTheme(settings.theme === 'dark' ? 'light' : 'dark');
-  });
+  document.getElementById('brand-home').addEventListener('click', (e) => { e.preventDefault(); navigate('personajes'); });
+  document.getElementById('btn-theme-toggle').addEventListener('click', () => applyTheme(settings.theme === 'dark' ? 'light' : 'dark'));
 
   document.querySelectorAll('[data-nav]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.nav === 'logros') achievementsReturnRoute = 'inicio';
+      if (btn.dataset.nav === 'logros') achievementsReturnRoute = 'personajes';
       navigate(btn.dataset.nav);
     });
   });
-
   document.querySelectorAll('[data-legal]').forEach((btn) => {
     btn.addEventListener('click', () => navigate('legal', btn.dataset.legal));
   });
 
-  // Pantalla de Inicio
-  document.getElementById('btn-home-play').addEventListener('click', () => navigate('personajes'));
+  // Portada
+  document.getElementById('btn-home-play').addEventListener('click', () => navigate(hasAnyCharacter() ? 'personajes' : 'crear', hasAnyCharacter() ? null : 'slot_1'));
   document.getElementById('btn-home-options').addEventListener('click', () => navigate('opciones'));
 
-  // Selector de 3 personajes
-  document.getElementById('btn-slots-back').addEventListener('click', () => navigate('inicio'));
-  document.getElementById('btn-slots-sync').addEventListener('click', async () => {
-    const res = await syncAllSlotsToCloud();
-    slotsMap = await loadAllSlots();
-    renderSlotsScreen();
-    showToast(res.message, res.status === 'error' ? 'error' : 'success');
+  // Campamento en Semicírculo (click en personajes o "+")
+  document.getElementById('camp-canvas').addEventListener('click', (e) => {
+    const cv = e.currentTarget;
+    const rect = cv.getBoundingClientRect();
+    const cx = ((e.clientX - rect.left) / rect.width) * cv.width;
+    const cy = ((e.clientY - rect.top) / rect.height) * cv.height;
+    const hit = campHitboxes.find((h) => cx >= h.x && cx <= h.x + h.w && cy >= h.y && cy <= h.y + h.h);
+    if (!hit) return;
+    if (hit.type === 'select') {
+      activeSlotKey = hit.key;
+      sfx.playCoin();
+      updateCampBottomBar();
+    } else if (hit.type === 'create') {
+      navigate('crear', hit.key);
+    }
   });
 
-  // Confirmación de borrado
+  document.getElementById('btn-camp-play').addEventListener('click', () => {
+    if (!getActiveSave()) return;
+    if (engine.running) engine.stop();
+    navigate('jugar');
+  });
+  document.getElementById('btn-camp-create').addEventListener('click', () => {
+    const empty = firstEmptySlot();
+    if (empty) navigate('crear', empty);
+    else showToast('Ya tienes los 3 espacios de personaje ocupados.', 'error');
+  });
+  document.getElementById('btn-camp-delete').addEventListener('click', () => {
+    const s = getActiveSave();
+    if (!s) return;
+    pendingDeleteSlot = activeSlotKey;
+    document.getElementById('confirm-delete-text').textContent = `¿Seguro que deseas eliminar a "${s.name}" (Nv.${s.level})?`;
+    document.getElementById('modal-confirm-delete').classList.remove('hidden');
+  });
   document.getElementById('btn-confirm-delete-yes').addEventListener('click', async () => {
     if (!pendingDeleteSlot) return;
     await deleteSlotGame(pendingDeleteSlot);
     slotsMap[pendingDeleteSlot] = null;
     pendingDeleteSlot = null;
     document.getElementById('modal-confirm-delete').classList.add('hidden');
-    renderSlotsScreen();
-    showToast('Personaje eliminado correctamente.');
+    if (!hasAnyCharacter()) {
+      navigate('crear', 'slot_1');
+    } else {
+      updateCampBottomBar();
+    }
+    showToast('Personaje eliminado.');
   });
 
-  // Creación de personaje
-  document.getElementById('btn-create-back').addEventListener('click', () => navigate('personajes'));
+  // Creación
+  document.getElementById('btn-create-back').addEventListener('click', () => navigate(hasAnyCharacter() ? 'personajes' : 'inicio'));
   document.getElementById('btn-rot-left').addEventListener('click', () => {
     creatorState.dir = (creatorState.dir + 3) % 4;
     document.getElementById('preview-dir-label').textContent = DIR_LABELS[creatorState.dir];
@@ -700,68 +644,39 @@ function bindEvents() {
     sfx.playAttack(creatorState.gender);
   });
 
-  document.querySelectorAll('#faction-picker .choice-card').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      creatorState.faction = btn.dataset.faction;
-      renderCreatePickers();
-    });
-  });
-
-  document.querySelectorAll('#gender-picker .choice-card').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      creatorState.gender = btn.dataset.gender;
-      renderCreatePickers();
-    });
-  });
-
   document.getElementById('form-create-hero').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('hero-name').value.trim();
-    if (name.length < 3 || name.length > 15) {
-      showToast('El nombre debe tener entre 3 y 15 letras.', 'error');
-      return;
-    }
+    if (name.length < 3 || name.length > 15) return showToast('El nombre debe tener entre 3 y 15 letras.', 'error');
     activeSlotKey = creatorState.slotKey;
     const freshSave = createInitialSave({
-      name,
-      faction: creatorState.faction,
-      gender: creatorState.gender,
-      race: creatorState.race,
-      heroClass: creatorState.heroClass
+      name, faction: creatorState.faction, gender: creatorState.gender,
+      race: creatorState.race, heroClass: creatorState.heroClass
     });
     await persistActiveSlot(freshSave, false);
     if (engine.running) engine.stop();
     navigate('jugar');
-    const vName = FACTIONS[freshSave.faction]?.villageName || 'Valoria';
-    const welcome = freshSave.gender === 'female' ? '¡Bienvenida' : '¡Bienvenido';
-    showToast(`${welcome} a ${vName}, ${freshSave.name}!`, 'success');
+    showToast(`${freshSave.gender === 'female' ? '¡Bienvenida' : '¡Bienvenido'} a Valoria, ${freshSave.name}!`, 'success');
   });
 
-  // Opciones (sonido, música, tema, cuenta)
-  document.getElementById('btn-opt-sfx').addEventListener('click', () => {
-    settings.sfx = !settings.sfx;
-    applyAudioSettings();
-  });
-  document.getElementById('btn-opt-music').addEventListener('click', () => {
-    settings.music = !settings.music;
-    applyAudioSettings();
-  });
-  document.getElementById('btn-opt-theme').addEventListener('click', () => {
-    applyTheme(settings.theme === 'dark' ? 'light' : 'dark');
-  });
+  // Opciones
+  document.getElementById('btn-opt-sfx').addEventListener('click', () => { settings.sfx = !settings.sfx; applyAudioSettings(); });
+  document.getElementById('btn-opt-music').addEventListener('click', () => { settings.music = !settings.music; applyAudioSettings(); });
+  document.getElementById('btn-opt-theme').addEventListener('click', () => applyTheme(settings.theme === 'dark' ? 'light' : 'dark'));
   document.getElementById('btn-opt-account').addEventListener('click', () => navigate('cuenta'));
 
-  // HUD botones rápidos
+  // HUD
+  document.getElementById('btn-hud-char-open').addEventListener('click', () => navigate('caracteristicas'));
+  document.getElementById('btn-hud-pet').addEventListener('click', () => navigate('mascotas'));
+  document.getElementById('btn-hud-bosses').addEventListener('click', () => navigate('jefes'));
   document.getElementById('btn-hud-potion').addEventListener('click', () => engine.useBestHealPotion());
   document.getElementById('btn-hud-upgrades').addEventListener('click', () => navigate('mejoras'));
   document.getElementById('btn-hud-shop').addEventListener('click', () => navigate('tienda'));
-  document.getElementById('btn-hud-backpack').addEventListener('click', () => navigate('mochila'));
+  document.getElementById('btn-hud-backpack').addEventListener('click', () => navigate('caracteristicas'));
   document.getElementById('btn-hud-worldmap').addEventListener('click', () => navigate('mapa'));
   document.getElementById('btn-hud-pause').addEventListener('click', () => navigate('pausa'));
   document.getElementById('hud-quest-box').addEventListener('click', (e) => {
-    const el = e.currentTarget;
-    el.classList.toggle('collapsed');
-    el.setAttribute('aria-expanded', String(!el.classList.contains('collapsed')));
+    e.currentTarget.classList.toggle('collapsed');
   });
   document.getElementById('btn-interact-prompt').addEventListener('click', () => engine.interactNearest());
   document.getElementById('btn-victory-continue').addEventListener('click', () => {
@@ -769,33 +684,39 @@ function bindEvents() {
     engine.setPaused(false);
   });
 
+  // Pestañas Características (Equipo / Habilidades / Talentos)
+  document.querySelectorAll('[data-char-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      charTab = btn.dataset.charTab;
+      document.querySelectorAll('[data-char-tab]').forEach((b) => b.classList.toggle('active', b === btn));
+      renderCharacterModal(engine, charTab, {
+        onToast: showToast,
+        onSave: () => persistActiveSlot(engine.exportSave(), false),
+        onOpenUpgrades: () => navigate('mejoras'),
+        onOpenPets: () => navigate('mascotas'),
+        onClose: () => navigate('jugar')
+      });
+    });
+  });
+
   // Pausa
   document.getElementById('btn-pause-resume').addEventListener('click', () => navigate('jugar'));
-  document.getElementById('btn-pause-save').addEventListener('click', () =>
-    persistActiveSlot(engine.exportSave(), true)
-  );
+  document.getElementById('btn-pause-save').addEventListener('click', () => persistActiveSlot(engine.exportSave(), true));
   document.getElementById('btn-pause-audio').addEventListener('click', () => {
     const next = !(settings.sfx || settings.music);
-    settings.sfx = next;
-    settings.music = next;
-    applyAudioSettings();
+    settings.sfx = next; settings.music = next; applyAudioSettings();
   });
-  document.getElementById('btn-pause-achievements').addEventListener('click', () => {
-    achievementsReturnRoute = 'pausa';
-    navigate('logros');
-  });
+  document.getElementById('btn-pause-achievements').addEventListener('click', () => { achievementsReturnRoute = 'pausa'; navigate('logros'); });
   document.getElementById('btn-pause-touch').addEventListener('click', () => {
     const order = ['auto', 'on', 'off'];
     settings.touchMode = order[(order.indexOf(settings.touchMode) + 1) % order.length];
     saveSettings(settings);
     applyTouchVisibility();
   });
-  document.getElementById('btn-pause-theme').addEventListener('click', () => {
-    applyTheme(settings.theme === 'dark' ? 'light' : 'dark');
-  });
+  document.getElementById('btn-pause-theme').addEventListener('click', () => applyTheme(settings.theme === 'dark' ? 'light' : 'dark'));
   document.getElementById('btn-pause-home').addEventListener('click', () => navigate('personajes'));
 
-  // Tabs Mejoras
+  // Tabs Mejoras y Tienda
   document.querySelectorAll('[data-upgrade-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       upgradeTab = btn.dataset.upgradeTab;
@@ -803,13 +724,11 @@ function bindEvents() {
       renderUpgradesModal(engine, upgradeTab, showToast, () => persistActiveSlot(engine.exportSave(), false));
     });
   });
-
-  // Tabs Tienda
   document.querySelectorAll('[data-shop-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       shopTab = btn.dataset.shopTab;
       document.querySelectorAll('[data-shop-tab]').forEach((b) => b.classList.toggle('active', b === btn));
-      renderShopModal(engine, shopTab, showToast, () => persistActiveSlot(engine.exportSave(), false));
+      renderShopModal(engine, shopTab, showToast, () => persistActiveSlot(engine.exportSave(), false), () => navigate('mascotas'));
     });
   });
 
@@ -817,23 +736,15 @@ function bindEvents() {
   document.querySelectorAll('.modal-close').forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = btn.dataset.close;
-      if (target === 'modal-dialog') {
-        document.getElementById('modal-dialog').classList.add('hidden');
-        engine.setPaused(false);
-      } else if (target === 'modal-confirm-delete') {
-        pendingDeleteSlot = null;
-        document.getElementById('modal-confirm-delete').classList.add('hidden');
-      } else if (['modal-upgrades', 'modal-shop', 'modal-backpack', 'modal-worldmap', 'modal-pause'].includes(target)) {
-        navigate('jugar');
-      } else if (target === 'modal-achievements') {
-        navigate(achievementsReturnRoute === 'pausa' ? 'pausa' : 'inicio');
-      } else {
-        navigate('inicio');
-      }
+      if (target === 'modal-dialog') { document.getElementById('modal-dialog').classList.add('hidden'); engine.setPaused(false); }
+      else if (target === 'modal-confirm-delete') { pendingDeleteSlot = null; document.getElementById('modal-confirm-delete').classList.add('hidden'); }
+      else if (['modal-character', 'modal-pets', 'modal-bosses', 'modal-upgrades', 'modal-shop', 'modal-worldmap', 'modal-pause'].includes(target)) navigate('jugar');
+      else if (target === 'modal-achievements') navigate(achievementsReturnRoute === 'pausa' ? 'pausa' : 'personajes');
+      else navigate('personajes');
     });
   });
 
-  // Tabs Auth
+  // Auth
   document.querySelectorAll('[data-auth-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       authMode = btn.dataset.authTab;
@@ -851,21 +762,18 @@ function bindEvents() {
     const feedback = document.getElementById('auth-feedback');
     feedback.className = 'form-feedback';
     feedback.textContent = 'Conectando...';
-
     const identifier = document.getElementById('auth-identifier').value.trim();
     const password = document.getElementById('auth-password').value;
     const username = document.getElementById('auth-username').value.trim();
-
     try {
       const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
       const payload = authMode === 'register' ? { username, email: identifier, password } : { identifier, password };
       const data = await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
-
       setSavedUser({ ...data.user, token: data.token });
-      feedback.className = 'form-feedback ok';
-      feedback.textContent = 'Sesión iniciada correctamente.';
       await syncAllSlotsToCloud();
       slotsMap = await loadAllSlots();
+      feedback.className = 'form-feedback ok';
+      feedback.textContent = 'Sesión iniciada correctamente.';
       updateSyncBadge('Sincronizado', 'online');
       renderAccountModal();
       showToast(`¡Bienvenido, ${data.user.username}!`, 'success');
@@ -874,9 +782,7 @@ function bindEvents() {
     }
   });
 
-  if (!settings.cookiesAccepted) {
-    document.getElementById('cookie-banner').classList.remove('hidden');
-  }
+  if (!settings.cookiesAccepted) document.getElementById('cookie-banner').classList.remove('hidden');
   document.getElementById('btn-cookie-accept').addEventListener('click', () => {
     settings.cookiesAccepted = true;
     saveSettings(settings);
@@ -890,7 +796,7 @@ function bindEvents() {
       if (res.status === 'synced') {
         slotsMap = await loadAllSlots();
         updateSyncBadge('Sincronizado', 'online');
-        showToast('Conexión recuperada: 3 espacios sincronizados con MySQL.', 'success');
+        showToast('Conexión recuperada: personajes sincronizados con MySQL.', 'success');
         return;
       }
     }
@@ -899,7 +805,7 @@ function bindEvents() {
 
   window.addEventListener('offline', () => {
     updateSyncBadge('Sin conexión', 'offline');
-    showToast('Modo sin conexión activo. Tus 3 espacios se guardan en el dispositivo.');
+    showToast('Modo sin conexión activo.');
   });
 }
 
@@ -908,6 +814,12 @@ async function bootstrap() {
   applyAudioSettings();
 
   slotsMap = await loadAllSlots();
+  // Normalizar todos los espacios cargados
+  for (const k of SLOT_KEYS) {
+    if (slotsMap[k]?.saveData) slotsMap[k].saveData = normalizeSave(slotsMap[k].saveData);
+  }
+  const firstOccupied = SLOT_KEYS.find((k) => slotsMap[k]?.saveData);
+  if (firstOccupied) activeSlotKey = firstOccupied;
 
   updateSyncBadge(
     navigator.onLine ? (getSavedUser()?.token ? 'En línea' : 'Local') : 'Sin conexión',
@@ -917,10 +829,21 @@ async function bootstrap() {
   initTouchControls();
   bindEvents();
   onRouteChange(handleRoute);
+
+  // Lógica de inicio obligatoria:
+  // Sin personajes -> abrir Creación directamente; con 1+ personajes -> abrir Selección en Semicírculo
+  const rawHash = (window.location.hash || '').replace(/^#/, '');
+  if (!rawHash || rawHash === 'inicio') {
+    if (hasAnyCharacter()) {
+      window.history.replaceState({ route: 'personajes', param: null }, '', '#personajes');
+    } else {
+      window.history.replaceState({ route: 'crear', param: 'slot_1' }, '', '#crear/slot_1');
+    }
+  }
   initRouter();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
   if (navigator.onLine && getSavedUser()?.token) {

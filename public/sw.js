@@ -1,22 +1,22 @@
-const CACHE_NAME = 'cronicas-fractura-v8';
+const CACHE_NAME = 'cronicas-fractura-v10';
 const APP_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/assets/logo-espada-grieta.svg',
-  '/css/styles.css',
-  '/js/app.js',
-  '/js/router.js',
-  '/js/storage.js',
-  '/js/legal.js',
-  '/js/audio.js',
-  '/js/game/data.js',
-  '/js/game/textures.js',
-  '/js/game/sprites.js',
-  '/js/game/world.js',
-  '/js/game/preview.js',
-  '/js/game/engine.js',
-  '/js/game/hud.js'
+  './',
+  './index.html',
+  './manifest.json',
+  './assets/logo-espada-grieta.svg',
+  './css/styles.css',
+  './js/app.js',
+  './js/router.js',
+  './js/storage.js',
+  './js/legal.js',
+  './js/audio.js',
+  './js/game/data.js',
+  './js/game/textures.js',
+  './js/game/sprites.js',
+  './js/game/world.js',
+  './js/game/preview.js',
+  './js/game/engine.js',
+  './js/game/hud.js'
 ];
 
 self.addEventListener('install', (event) => {

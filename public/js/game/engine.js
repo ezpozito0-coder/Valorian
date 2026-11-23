@@ -12,7 +12,11 @@ import {
   QUESTS,
   ACHIEVEMENTS,
   MAPS_META,
+  BOSS_META,
+  TITLES,
+  TALENTS,
   xpNeededForLevel,
+  petXpNeeded,
   computeWeaponAtkBonus,
   computeArmorBonuses,
   normalizeSave
@@ -27,6 +31,7 @@ import {
 import {
   drawHero,
   drawPet,
+  drawBossAltar,
   drawCampfire,
   drawPortal,
   drawChest,
@@ -97,6 +102,8 @@ export class GameEngine {
       currentMap: s.currentMap,
       visitedMaps: [...s.visitedMaps],
       defeatedBosses: [...s.defeatedBosses],
+      unlockedTitles: [...s.unlockedTitles],
+      activeTitle: s.activeTitle,
       vaelorVictoryShown: s.vaelorVictoryShown,
       x: s.x,
       y: s.y,
@@ -108,11 +115,19 @@ export class GameEngine {
       moving: false,
       hp: s.hp || cls.hp,
       maxHp: cls.hp,
+      mp: s.mp ?? cls.mp,
+      maxMp: cls.mp,
       speed: cls.speed,
-      gold: s.gold ?? 40,
+      gold: s.gold ?? 60,
       equipment: s.equipment,
+      gearSlots: s.gearSlots,
+      skillPoints: s.skillPoints,
+      skillLevels: [...s.skillLevels],
+      talentPoints: s.talentPoints,
+      talentLevels: { ...s.talentLevels },
       ownedPets: s.ownedPets,
       activePet: s.activePet,
+      petProgress: s.petProgress,
       openedChests: s.openedChests,
       unlockedAchievements: s.unlockedAchievements,
       backpack: s.backpack,
@@ -181,31 +196,87 @@ export class GameEngine {
     return true;
   }
 
-  recalcDerivedStats(healOnIncrease = false) {
+  getComputedStats() {
     const p = this.player;
     const cls = CLASSES[p.heroClass] || CLASSES.guerrero;
-    const lvlOffset = Math.max(0, p.level - 1);
-    const armorBonus = computeArmorBonuses(p.equipment.armor);
-    const prevMax = p.maxHp || cls.hp;
-    p.maxHp = Math.round(cls.hp + lvlOffset * cls.hpPerLvl + armorBonus.hp);
+    const lvlOff = Math.max(0, p.level - 1);
+    const armorB = computeArmorBonuses(p.equipment.armor);
+    const weapAtk = computeWeaponAtkBonus(p.equipment.weapon);
+
+    // Bonos de equipo exclusivo en las 12 ranuras
+    let gearHp = 0, gearMp = 0, gearAtk = 0, gearDef = 0, gearCrit = 0;
+    for (const itemId of Object.values(p.gearSlots || {})) {
+      const it = ITEMS[itemId];
+      if (!it || it.type !== 'equipment') continue;
+      gearHp += it.hp || 0;
+      gearMp += it.mp || 0;
+      gearAtk += it.atk || 0;
+      gearDef += it.def || 0;
+      gearCrit += it.crit || 0;
+    }
+
+    // Bonos de Talentos
+    const tl = p.talentLevels || {};
+    const talAtk = (tl.fuerza_bruta || 0) * 4;
+    const talSpd = (tl.impetu || 0) * 8;
+    const talCrit = (tl.golpe_letal || 0) * 3;
+    const talHp = (tl.determinacion || 0) * 25;
+    const talDef = (tl.pared_hierro || 0) * 3;
+    const talMp = (tl.mente_clara || 0) * 18;
+
+    // Bonos de Mascota activa según nivel
+    let petHp = 0, petAtk = 0, petDef = 0, petCrit = 0;
+    if (p.activePet && PETS[p.activePet]) {
+      const petDefObj = PETS[p.activePet];
+      const petLvl = p.petProgress?.[p.activePet]?.level || 1;
+      petHp = Math.round(petDefObj.hpBase + (petLvl - 1) * petDefObj.hpPerLvl);
+      petAtk = Math.round(petDefObj.atkBase + (petLvl - 1) * petDefObj.atkPerLvl);
+      petDef = Math.round(petDefObj.defBase + (petLvl - 1) * petDefObj.defPerLvl);
+      petCrit = petDefObj.critBase || 0;
+    }
+
+    // Bonos permanentes de TODOS los títulos desbloqueados
+    let hpPct = 1, atkPct = 1, defPct = 1;
+    for (const tId of p.unlockedTitles || []) {
+      const t = TITLES[tId];
+      if (!t) continue;
+      if (t.hpPct) hpPct += t.hpPct;
+      if (t.atkPct) atkPct += t.atkPct;
+      if (t.defPct) defPct += t.defPct;
+      if (t.allPct) { hpPct += t.allPct; atkPct += t.allPct; defPct += t.allPct; }
+    }
+
+    const shieldDef = p.shieldBuffTimer > 0 ? 14 : 0;
+    const maxHp = Math.round((cls.hp + lvlOff * cls.hpPerLvl + armorB.hp + gearHp + talHp + petHp) * hpPct);
+    const maxMp = Math.round((cls.mp + lvlOff * cls.mpPerLvl + gearMp + talMp) * hpPct);
+    const atk = Math.round((cls.atk + lvlOff * cls.atkPerLvl + weapAtk + gearAtk + talAtk + petAtk) * atkPct);
+    const def = Math.round((cls.def + lvlOff * cls.defPerLvl + armorB.def + gearDef + talDef + petDef + shieldDef) * defPct);
+    const crit = Math.min(75, (cls.crit || 5) + gearCrit + talCrit + petCrit);
+    const speed = cls.speed + talSpd;
+
+    return { maxHp, maxMp, atk, def, crit, speed };
+  }
+
+  recalcDerivedStats(healOnIncrease = false) {
+    const p = this.player;
+    const st = this.getComputedStats();
+    const prevMax = p.maxHp || st.maxHp;
+    p.maxHp = st.maxHp;
+    p.maxMp = st.maxMp;
+    p.speed = st.speed;
     if (healOnIncrease && p.maxHp > prevMax) {
       p.hp = Math.min(p.maxHp, p.hp + (p.maxHp - prevMax));
     }
+    p.hp = Math.min(p.hp, p.maxHp);
+    p.mp = Math.min(p.mp ?? p.maxMp, p.maxMp);
   }
 
   getTotalAtk() {
-    const p = this.player;
-    const cls = CLASSES[p.heroClass] || CLASSES.guerrero;
-    return Math.round(cls.atk + Math.max(0, p.level - 1) * cls.atkPerLvl + computeWeaponAtkBonus(p.equipment.weapon));
+    return this.getComputedStats().atk;
   }
 
   getTotalDef() {
-    const p = this.player;
-    const cls = CLASSES[p.heroClass] || CLASSES.guerrero;
-    const armorBonus = computeArmorBonuses(p.equipment.armor);
-    const petDef = p.activePet && PETS[p.activePet] ? PETS[p.activePet].defBonus : 0;
-    const shieldDef = p.shieldBuffTimer > 0 ? 12 : 0;
-    return Math.round(cls.def + Math.max(0, p.level - 1) * cls.defPerLvl + armorBonus.def + petDef + shieldDef);
+    return this.getComputedStats().def;
   }
 
   exportSave() {
@@ -213,22 +284,32 @@ export class GameEngine {
     const p = this.player;
     return {
       ...this.saveState,
-      version: 3,
+      version: 4,
       gender: p.gender || 'male',
       level: p.level,
       xp: p.xp,
       currentMap: p.currentMap,
       visitedMaps: p.visitedMaps,
       defeatedBosses: p.defeatedBosses,
+      unlockedTitles: p.unlockedTitles,
+      activeTitle: p.activeTitle,
       vaelorVictoryShown: p.vaelorVictoryShown,
       x: Math.round(p.x),
       y: Math.round(p.y),
       hp: Math.round(p.hp),
       maxHp: p.maxHp,
+      mp: Math.round(p.mp),
+      maxMp: p.maxMp,
       gold: p.gold,
       equipment: p.equipment,
+      gearSlots: { ...p.gearSlots, mascota: p.activePet },
+      skillPoints: p.skillPoints,
+      skillLevels: p.skillLevels,
+      talentPoints: p.talentPoints,
+      talentLevels: p.talentLevels,
       ownedPets: p.ownedPets,
       activePet: p.activePet,
+      petProgress: p.petProgress,
       openedChests: p.openedChests,
       unlockedAchievements: p.unlockedAchievements,
       backpack: p.backpack,
@@ -292,10 +373,11 @@ export class GameEngine {
     else if (code === 'Digit3' || code === 'KeyU') this.triggerAbility(3);
     else if (code === 'KeyE') this.interactNearest();
     else if (code === 'KeyQ') this.useBestHealPotion();
-    else if (code === 'KeyI' || code === 'KeyB') this.callbacks.onOpenBackpack?.();
+    else if (code === 'KeyI' || code === 'KeyB' || code === 'KeyC') this.callbacks.onOpenCharacter?.();
     else if (code === 'KeyM') this.callbacks.onOpenUpgrades?.();
     else if (code === 'KeyT') this.callbacks.onOpenShop?.();
     else if (code === 'KeyN') this.callbacks.onOpenWorldMap?.();
+    else if (code === 'KeyJ') this.callbacks.onOpenBosses?.();
     else if (code === 'Escape') this.callbacks.onTogglePause?.();
   }
 
@@ -346,14 +428,20 @@ export class GameEngine {
     if (this.portalLockMsgCooldown > 0) this.portalLockMsgCooldown = Math.max(0, this.portalLockMsgCooldown - dt);
     if (this.camera.shake > 0) this.camera.shake = Math.max(0, this.camera.shake - dt * 18);
 
-    // Fogatas de descanso (recuperan toda la vida gratis en pocos segundos)
+    // Regeneración suave de PM (Energía)
+    if (p.mp < p.maxMp) {
+      p.mp = Math.min(p.maxMp, p.mp + (this.isInSafeArea(p.x, p.y) ? 14 : 5.5) * dt);
+    }
+
+    // Fogatas de descanso (recuperan toda la vida y PM gratis en pocos segundos)
     for (const fire of this.map.campfires) {
-      if (Math.hypot(p.x - fire.x, p.y - fire.y) <= fire.radius && p.hp < p.maxHp) {
+      if (Math.hypot(p.x - fire.x, p.y - fire.y) <= fire.radius && (p.hp < p.maxHp || p.mp < p.maxMp)) {
         p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.36 * dt);
+        p.mp = Math.min(p.maxMp, p.mp + p.maxMp * 0.4 * dt);
         this.campfireTick += dt;
         if (this.campfireTick >= 0.65) {
           this.campfireTick = 0;
-          this.addFloatingText(p.x, p.y - 24, '+Vida (Fogata)', '#4ADE80');
+          this.addFloatingText(p.x, p.y - 24, '+Vida / PM', '#4ADE80');
         }
       }
     }
@@ -630,13 +718,33 @@ export class GameEngine {
     if (p.level >= MAX_LEVEL) p.xp = 0;
 
     if (leveled) {
+      p.skillPoints = (p.skillPoints || 0) + 1;
+      p.talentPoints = (p.talentPoints || 0) + 1;
       this.recalcDerivedStats(false);
       p.hp = p.maxHp;
+      p.mp = p.maxMp;
       sfx.playLevelUp();
       this.addEffect('ring', p.x, p.y, 56, '#FDE047', 0.55);
       this.addFloatingText(p.x, p.y - 34, `¡NIVEL ${p.level}!`, '#FDE047');
-      this.callbacks.onToast?.(`¡Subiste al Nivel ${p.level}!`, 'success');
+      this.callbacks.onToast?.(`¡Subiste al Nivel ${p.level}! (+1 Punto de Habilidad y Talento)`, 'success');
       this.callbacks.onAutoSave?.(this.exportSave());
+    }
+  }
+
+  gainPetXp(amount) {
+    const p = this.player;
+    if (!p.activePet || !p.petProgress?.[p.activePet] || amount <= 0) return;
+    const prog = p.petProgress[p.activePet];
+    prog.xp += amount;
+    let leveled = false;
+    while (prog.level < MAX_LEVEL && prog.xp >= petXpNeeded(prog.level)) {
+      prog.xp -= petXpNeeded(prog.level);
+      prog.level += 1;
+      leveled = true;
+    }
+    if (leveled) {
+      this.recalcDerivedStats(true);
+      this.callbacks.onToast?.(`${PETS[p.activePet]?.name || 'Tu mascota'} subió a Nivel ${prog.level}!`, 'success');
     }
   }
 
@@ -701,39 +809,47 @@ export class GameEngine {
 
     const skill = cls.skills[slot - 1];
     if (!skill) return;
-    p.cooldowns[slot] = skill.cooldown;
+    const mpCost = skill.mpCost || 15;
+    if (p.mp < mpCost) {
+      this.addFloatingText(p.x, p.y - 26, 'Sin PM', '#38BDF8');
+      return;
+    }
+    p.mp = Math.max(0, p.mp - mpCost);
+    const skLvl = p.skillLevels?.[slot - 1] || 1;
+    const skMult = 1 + (skLvl - 1) * 0.16;
+    p.cooldowns[slot] = Math.max(1.2, skill.cooldown - (skLvl - 1) * 0.25);
     p.attackAnimTimer = 1.0;
     sfx.playSkill(p.gender);
 
     if (skill.id === 'corte_pesado') {
-      this.performMeleeArc(p.x, p.y, aim.x, aim.y, 76, Math.round(atk * 1.8), '#D9A441');
+      this.performMeleeArc(p.x, p.y, aim.x, aim.y, 76, Math.round(atk * 1.8 * skMult), '#D9A441');
       this.camera.shake = 5;
     } else if (skill.id === 'grito_escudo') {
-      p.shieldBuffTimer = 5.0;
-      this.addFloatingText(p.x, p.y - 24, '+12 DEF (5s)', '#D9A441');
+      p.shieldBuffTimer = 5.0 + skLvl;
+      this.addFloatingText(p.x, p.y - 24, `+14 DEF (${5 + skLvl}s)`, '#D9A441');
       this.addEffect('ring', p.x, p.y, 44, '#D9A441', 0.35);
     } else if (skill.id === 'embestida') {
       for (let step = 0; step < 6; step++) this.moveEntityWithCollisions(p, aim.x * 16, aim.y * 16);
       this.addEffect('ring', p.x, p.y, 58, '#60A5FA', 0.3);
-      this.hitEnemiesInRadius(p.x, p.y, 64, Math.round(atk * 1.25), (e) => { e.stunTimer = 1.5; });
-      this.checkDummyHit(p.x, p.y, 64, Math.round(atk * 1.25));
+      this.hitEnemiesInRadius(p.x, p.y, 64, Math.round(atk * 1.25 * skMult), (e) => { e.stunTimer = 1.5; });
+      this.checkDummyHit(p.x, p.y, 64, Math.round(atk * 1.25 * skMult));
       this.camera.shake = 6;
     } else if (skill.id === 'bola_fuego') {
-      this.spawnProjectile('player', p.x, p.y, aim.x * 320, aim.y * 320, Math.round(atk * 1.65), 11, '#F97316', 0.95, { aoeRadius: 72 });
+      this.spawnProjectile('player', p.x, p.y, aim.x * 320, aim.y * 320, Math.round(atk * 1.65 * skMult), 11, '#F97316', 0.95, { aoeRadius: 72 });
     } else if (skill.id === 'escarcha') {
       this.addEffect('ring', p.x, p.y, 125, '#38BDF8', 0.45);
-      this.hitEnemiesInRadius(p.x, p.y, 125, Math.round(atk * 0.9), (e) => { e.slowTimer = 3.0; });
-      this.checkDummyHit(p.x, p.y, 125, Math.round(atk * 0.9));
+      this.hitEnemiesInRadius(p.x, p.y, 125, Math.round(atk * 0.9 * skMult), (e) => { e.slowTimer = 3.0; });
+      this.checkDummyHit(p.x, p.y, 125, Math.round(atk * 0.9 * skMult));
     } else if (skill.id === 'destello') {
       this.addEffect('ring', p.x, p.y, 28, '#9333EA', 0.25);
       p.invulnTimer = 0.5;
       for (let step = 0; step < 6; step++) this.moveEntityWithCollisions(p, -aim.x * 18, -aim.y * 18);
       this.addEffect('ring', p.x, p.y, 32, '#38BDF8', 0.3);
     } else if (skill.id === 'flecha_rapida') {
-      this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95), 6, '#FACC15', 0.75);
+      this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75);
       setTimeout(() => {
         if (!this.running || this.paused) return;
-        this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95), 6, '#FACC15', 0.75);
+        this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75);
       }, 130);
     } else if (skill.id === 'trampa_raices') {
       this.traps.push({ x: p.x + aim.x * 34, y: p.y + aim.y * 34, life: 12 });
@@ -742,8 +858,8 @@ export class GameEngine {
       const tx = p.x + aim.x * 140;
       const ty = p.y + aim.y * 140;
       this.addEffect('ring', tx, ty, 92, '#EAB308', 0.55);
-      this.hitEnemiesInRadius(tx, ty, 95, Math.round(atk * 1.55));
-      this.checkDummyHit(tx, ty, 95, Math.round(atk * 1.55));
+      this.hitEnemiesInRadius(tx, ty, 95, Math.round(atk * 1.55 * skMult));
+      this.checkDummyHit(tx, ty, 95, Math.round(atk * 1.55 * skMult));
     }
   }
 
@@ -810,11 +926,25 @@ export class GameEngine {
   }
 
   damageEnemy(e, rawDmg, color = '#FFFFFF') {
-    const dmg = Math.max(4, Math.round(rawDmg - e.def * 0.35));
+    const isCrit = Math.random() * 100 < this.getComputedStats().crit;
+    const baseDmg = Math.max(4, Math.round(rawDmg - e.def * 0.35));
+    const dmg = isCrit ? Math.round(baseDmg * 1.6) : baseDmg;
     e.hp = Math.max(0, e.hp - dmg);
     e.hitFlash = 0.14;
     sfx.playHit();
-    this.addFloatingText(e.x, e.y - 24, `-${dmg}`, color);
+    this.addFloatingText(e.x, e.y - 24, isCrit ? `¡-${dmg}!` : `-${dmg}`, isCrit ? '#FDE047' : color);
+
+    // Estado de FURIA en Jefes por debajo del 30% de vida
+    if (e.isBoss && !e.furyActive && e.hp > 0 && e.hp <= e.maxHp * 0.3) {
+      e.furyActive = true;
+      e.speed = Math.round(e.speed * 1.35);
+      e.attackCd = Math.max(0.65, e.attackCd * 0.72);
+      e.specialCd = Math.max(2.2, (e.specialCd || 4.5) * 0.68);
+      sfx.playBossWave();
+      this.camera.shake = 12;
+      this.addFloatingText(e.x, e.y - 58, '¡FURIA!', '#EF4444');
+      this.callbacks.onToast?.(`¡${e.name} entró en Estado de Furia!`, 'error');
+    }
 
     // Fase 2 de Jefes al bajar del 50% de vida
     if (e.isBoss && !e.phase2Triggered && e.hp > 0 && e.hp <= e.maxHp * 0.5) {
@@ -826,11 +956,10 @@ export class GameEngine {
         this.map.enemies.push(spawnEnemy('trasgo', e.x - 65, e.y + 45), spawnEnemy('trasgo', e.x + 65, e.y + 45));
         this.callbacks.onToast?.('Malakor invocó 2 Trasgos Sombríos.', 'error');
       } else if (e.kind === 'vaelor') {
-        e.speed = Math.round(e.speed * 1.38);
-        e.specialCd = 3.2;
-        this.addFloatingText(e.x, e.y - 52, '¡FASE 2: LA FRACTURA!', '#F0ABFC');
+        e.speed = Math.round(e.speed * 1.25);
+        this.addFloatingText(e.x, e.y - 52, '¡SOMBRAS DEL TRONO!', '#F0ABFC');
         this.map.enemies.push(spawnEnemy('caballero_vacio', e.x - 80, e.y + 55), spawnEnemy('caballero_vacio', e.x + 80, e.y + 55));
-        this.callbacks.onToast?.('¡Vaelor entró en Fase 2 e invocó 2 Caballeros del Vacío!', 'error');
+        this.callbacks.onToast?.('¡Vaelor invocó 2 Caballeros del Vacío!', 'error');
       }
     }
 
@@ -845,6 +974,7 @@ export class GameEngine {
     if (e.kind === 'lobo') this.player.stats.wolvesTotal = (this.player.stats.wolvesTotal || 0) + 1;
 
     this.gainXp(e.xp || 30);
+    this.gainPetXp(Math.round((e.xp || 30) * 0.5));
     this.addFloatingText(e.x, e.y - 34, `+${e.xp || 30} XP`, '#38BDF8');
 
     const goldGain = e.goldMin + Math.floor(Math.random() * (e.goldMax - e.goldMin + 1));
@@ -863,24 +993,30 @@ export class GameEngine {
       q.goblinsKilled = Math.min(4, (q.goblinsKilled || 0) + 1);
       this.checkQuest4();
     } else if (e.isBoss) {
-      if (!this.player.defeatedBosses.includes(e.kind)) {
-        this.player.defeatedBosses.push(e.kind);
+      const firstKill = !this.player.defeatedBosses.includes(e.kind);
+      if (firstKill) this.player.defeatedBosses.push(e.kind);
+
+      const meta = BOSS_META[e.kind];
+      // Desbloquear título permanente del jefe
+      if (meta?.titleId && !this.player.unlockedTitles.includes(meta.titleId)) {
+        this.player.unlockedTitles.push(meta.titleId);
+        if (!this.player.activeTitle) this.player.activeTitle = meta.titleId;
+        this.recalcDerivedStats(true);
+        this.callbacks.onToast?.(`👑 Título desbloqueado: ${TITLES[meta.titleId].name} (${TITLES[meta.titleId].bonusText})`, 'success');
       }
+      // Soltar equipo exclusivo (100% la primera vez, 60% en revanchas)
+      if (meta?.dropItemId && (firstKill || Math.random() < 0.6)) {
+        this.addItemToBackpack(meta.dropItemId, 1);
+        this.callbacks.onToast?.(`✨ ¡Equipo exclusivo obtenido: ${ITEMS[meta.dropItemId]?.name}!`, 'success');
+      }
+
       if (e.kind === 'malakor') {
         q.malakorDefeated = true;
-        this.addItemToBackpack('nucleo_malakor', 1);
         sfx.playQuest();
-        this.callbacks.onToast?.('¡Malakor derrotado! Vuelve con el Tabernero o sube a Nv. 30 para el Desierto.', 'success');
-      } else if (e.kind === 'ignis') {
+      } else if (e.kind === 'ignis' || e.kind === 'boreas') {
         sfx.playQuest();
-        this.callbacks.onToast?.('¡Ignis derrotado! Portal a las Montañas Heladas desbloqueado (Nv. 50).', 'success');
-      } else if (e.kind === 'boreas') {
-        sfx.playQuest();
-        this.callbacks.onToast?.('¡Boreas derrotado! Portal a la Fortaleza del Vacío desbloqueado (Nv. 70).', 'success');
       } else if (e.kind === 'vaelor') {
-        // Jefe Final: Cofre Legendario + Pantalla de Victoria
-        this.player.gold += 1000;
-        this.addItemToBackpack('cofre_legendario', 1);
+        this.player.gold += 1200;
         this.addItemToBackpack('gema_zafiro', 5);
         this.addItemToBackpack('gema_rubi', 5);
         this.addItemToBackpack('gema_esmeralda', 5);
@@ -1106,12 +1242,27 @@ export class GameEngine {
         return { type: 'crystal', target: c, label: 'Recoger Cristal Morado (E)' };
       }
     }
+    if (this.map.bossAltar) {
+      const aliveBoss = this.map.enemies.some((e) => e.isBoss && e.alive);
+      if (!aliveBoss && Math.hypot(this.map.bossAltar.x - p.x, this.map.bossAltar.y - p.y) < 74) {
+        return { type: 'altar', target: this.map.bossAltar, label: `${this.map.bossAltar.label} (E)` };
+      }
+    }
     return null;
   }
 
   interactNearest() {
     const found = this.getNearestInteractable();
     if (!found) return;
+
+    if (found.type === 'altar') {
+      const alt = found.target;
+      this.map.enemies.push(spawnEnemy(alt.bossKind, alt.x, alt.y - 30));
+      sfx.playBossWave();
+      this.camera.shake = 10;
+      this.callbacks.onToast?.(`¡${BOSS_META[alt.bossKind]?.name || 'El Jefe'} ha regresado para la revancha!`, 'error');
+      return;
+    }
 
     if (found.type === 'chest') {
       const ch = found.target;
@@ -1194,6 +1345,18 @@ export class GameEngine {
       return true;
     }
 
+    if (item.mana) {
+      if (this.player.mp >= this.player.maxMp) {
+        this.callbacks.onToast?.('Tu PM ya está al máximo.');
+        return false;
+      }
+      if (!this.consumeItem(itemId, 1)) return false;
+      this.player.mp = Math.min(this.player.maxMp, this.player.mp + item.mana);
+      sfx.playPotion();
+      this.addFloatingText(this.player.x, this.player.y - 24, `+${item.mana} PM`, '#38BDF8');
+      return true;
+    }
+
     if (item.speedBoost) {
       if (!this.consumeItem(itemId, 1)) return false;
       this.player.speedBuffTimer = item.speedBoost;
@@ -1232,7 +1395,9 @@ export class GameEngine {
   getHudSnapshot() {
     const p = this.player;
     const boss = this.map.enemies.find((e) => e.isBoss && e.alive);
-    const bossVisible = boss && Math.hypot(boss.x - p.x, boss.y - p.y) < 420;
+    const bossVisible = boss && Math.hypot(boss.x - p.x, boss.y - p.y) < 460;
+    const petProg = p.activePet ? p.petProgress?.[p.activePet] || { level: 1, xp: 0 } : null;
+    const st = this.getComputedStats();
     return {
       name: p.name,
       gender: p.gender || 'male',
@@ -1244,16 +1409,23 @@ export class GameEngine {
       weaponQuality: p.equipment.weapon.quality,
       hp: Math.ceil(p.hp),
       maxHp: p.maxHp,
+      mp: Math.ceil(p.mp),
+      maxMp: p.maxMp,
       gold: p.gold,
-      atk: this.getTotalAtk(),
-      def: this.getTotalDef(),
+      atk: st.atk,
+      def: st.def,
+      crit: st.crit,
       zone: this.map.name,
       quest: p.quest,
       potions: this.getItemQty('pocion_vida') + this.getItemQty('pocion_grande'),
       bagCount: p.backpack.length,
+      activePet: p.activePet,
+      petLevel: petProg?.level || 1,
+      petXp: petProg?.xp || 0,
+      petXpNeeded: petXpNeeded(petProg?.level || 1),
       cooldowns: p.cooldowns,
       interactable: this.getNearestInteractable(),
-      boss: bossVisible ? { name: boss.name, hp: Math.ceil(boss.hp), maxHp: boss.maxHp } : null
+      boss: bossVisible ? { name: `${boss.name} · Nv.${boss.level || 30}`, hp: Math.ceil(boss.hp), maxHp: boss.maxHp, fury: Boolean(boss.furyActive) } : null
     };
   }
 
@@ -1272,6 +1444,9 @@ export class GameEngine {
 
     for (const fire of this.map.campfires) drawCampfire(ctx, fire, this.elapsed);
     for (const pt of this.map.portals) drawPortal(ctx, pt, this.elapsed, this.player.level);
+    if (this.map.bossAltar && !this.map.enemies.some((e) => e.isBoss && e.alive)) {
+      drawBossAltar(ctx, this.map.bossAltar, this.elapsed);
+    }
 
     // Áreas telegrafiadas de jefes (fuego / hielo / vacío)
     for (const h of this.hazards) {

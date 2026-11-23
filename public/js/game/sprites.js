@@ -3,8 +3,8 @@
  * Sombras suaves, animaciones de agua/fuego/gemas, 13 tipos de enemigos/jefes, NPCs y decoraciones.
  */
 
-import { QUALITIES } from './data.js';
-import { drawDetailedHeroSprite } from './preview.js';
+import { QUALITIES, TITLES } from './data.js';
+import { drawDetailedHeroSprite, drawPetSprite } from './preview.js';
 
 function px(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -90,11 +90,22 @@ export function drawHero(ctx, p, time) {
       gender: p.gender || 'male',
       race: p.race,
       heroClass: p.heroClass,
+      wings: p.gearSlots?.alas || null,
       dir,
       attackTimer: p.attackAnimTimer || 0
     },
     time
   );
+
+  // Nombre y Título dorado activo del personaje en el mapa
+  if (p.activeTitle && TITLES[p.activeTitle]) {
+    ctx.font = 'bold 11px "Pixelify Sans", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#0D0A14';
+    ctx.fillText(TITLES[p.activeTitle].name, x + 1, y - 34);
+    ctx.fillStyle = '#FDE047';
+    ctx.fillText(TITLES[p.activeTitle].name, x, y - 35);
+  }
 
   if (p.hitFlash > 0) {
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -103,43 +114,30 @@ export function drawHero(ctx, p, time) {
 }
 
 export function drawPet(ctx, pet, time) {
-  const bob = Math.sin(time * 9) * 2.5;
-  const x = Math.round(pet.x);
-  const y = Math.round(pet.y + bob);
-  drawShadow(ctx, pet.x, pet.y + 10, 9, 4);
+  drawPetSprite(ctx, pet.id, pet.x, pet.y, 1.35, time);
+}
 
-  if (pet.id === 'cachorro') {
-    px(ctx, x - 8, y - 4, 16, 10, '#0D0A14');
-    px(ctx, x - 6, y - 2, 12, 6, '#C97A32');
-    px(ctx, x - 7, y - 8, 8, 7, '#D9A441');
-    px(ctx, x - 5, y - 6, 2, 2, '#0D0A14');
-    px(ctx, x + 5, y - 5, 4, 3, '#D9A441');
-  } else if (pet.id === 'espiritu') {
-    ctx.save();
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
-    ctx.beginPath();
-    ctx.arc(x, y - 2, 12 + Math.sin(time * 7) * 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    px(ctx, x - 5, y - 7, 10, 10, '#E0F2FE');
-    px(ctx, x - 3, y - 5, 6, 6, '#38BDF8');
-    px(ctx, x - 2, y - 4, 2, 2, '#0D0A14');
-    px(ctx, x + 1, y - 4, 2, 2, '#0D0A14');
-  } else if (pet.id === 'fenix') {
-    const flap = Math.sin(time * 16) * 3;
-    px(ctx, x - 11, y - 4 + flap, 6, 4, '#F97316');
-    px(ctx, x + 5, y - 4 - flap, 6, 4, '#F97316');
-    px(ctx, x - 5, y - 7, 10, 10, '#EF4444');
-    px(ctx, x - 3, y - 9, 6, 4, '#FDE047');
-    px(ctx, x - 2, y - 5, 2, 2, '#0D0A14');
-    px(ctx, x + 1, y - 5, 2, 2, '#0D0A14');
-  } else if (pet.id === 'golem') {
-    px(ctx, x - 9, y - 8, 18, 16, '#0D0A14');
-    px(ctx, x - 7, y - 6, 14, 12, '#64748B');
-    px(ctx, x - 5, y - 4, 10, 4, '#94A3B8');
-    px(ctx, x - 4, y - 3, 2, 2, '#38BDF8');
-    px(ctx, x + 2, y - 3, 2, 2, '#38BDF8');
-  }
+export function drawBossAltar(ctx, altar, time) {
+  const x = Math.round(altar.x);
+  const y = Math.round(altar.y);
+  const pulse = 0.55 + Math.sin(time * 4) * 0.25;
+  ctx.save();
+  ctx.fillStyle = `rgba(147, 51, 234, ${pulse * 0.3})`;
+  ctx.beginPath();
+  ctx.arc(x, y, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#D9A441';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  px(ctx, x - 14, y - 10, 28, 20, '#334155');
+  px(ctx, x - 10, y - 14, 20, 6, '#94A3B8');
+  px(ctx, x - 4, y - 22, 8, 10, '#A855F7');
+  ctx.font = 'bold 11px "Pixelify Sans", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FDE047';
+  ctx.fillText('ALTAR DE REVANCHA', x, y + 26);
 }
 
 export function drawCampfire(ctx, fire, time) {
@@ -381,35 +379,67 @@ export function drawEnemy(ctx, e, time) {
     px(ctx, x - 5, y - 16, 10, 3, '#C084FC');
     px(ctx, x + 12, y - 18, 4, 28, '#A855F7');
   } else if (e.isBoss) {
-    // Jefes: Malakor, Ignis, Boreas, Vaelor
+    // Jefes imponentes (2.5x - 3x tamaño del héroe) con Estado de Furia rojo (<30% PV)
     const palette =
       e.kind === 'ignis'
-        ? { aura: 'rgba(249,115,22,0.6)', body: '#7C2D12', mid: '#EA580C', core: '#FDE047', eye: '#FEF08A' }
+        ? { aura: 'rgba(249,115,22,0.65)', body: '#292524', mid: '#EA580C', core: '#FDE047', eye: '#FEF08A', weapon: '#F97316' }
         : e.kind === 'boreas'
-        ? { aura: 'rgba(56,189,248,0.6)', body: '#0C4A6E', mid: '#0284C7', core: '#E0F2FE', eye: '#7DD3FC' }
+        ? { aura: 'rgba(56,189,248,0.65)', body: '#475569', mid: '#38BDF8', core: '#E0F2FE', eye: '#38BDF8', weapon: '#7DD3FC' }
         : e.kind === 'vaelor'
-        ? { aura: 'rgba(192,132,252,0.75)', body: '#090612', mid: '#4C1D95', core: '#F0ABFC', eye: '#FFFFFF' }
-        : { aura: 'rgba(147,51,234,0.55)', body: '#2E1065', mid: '#4C1D95', core: '#9333EA', eye: '#F0ABFC' };
+        ? { aura: 'rgba(192,132,252,0.78)', body: '#090612', mid: '#4C1D95', core: '#F0ABFC', eye: '#FFFFFF', weapon: '#C084FC' }
+        : { aura: 'rgba(147,51,234,0.6)', body: '#2E1065', mid: '#581C87', core: '#C084FC', eye: '#F0ABFC', weapon: '#9333EA' };
 
     ctx.save();
-    ctx.strokeStyle = palette.aura;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(x, y, e.radius + 6 + Math.sin(time * 5) * 3, 0, Math.PI * 2);
-    ctx.stroke();
+    // Brillo rojo intenso en Estado de Furia (<30% vida)
+    if (e.furyActive) {
+      ctx.fillStyle = `rgba(220, 38, 38, ${0.26 + Math.sin(time * 12) * 0.1})`;
+      ctx.beginPath();
+      ctx.arc(x, y - 6, e.radius + 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#EF4444';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = palette.aura;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y - 4, e.radius + 8 + Math.sin(time * 5) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
 
-    px(ctx, x - 21, y - 15, 42, 34, '#0D0A14');
-    px(ctx, x - 18, y - 12, 36, 28, palette.body);
-    px(ctx, x - 14, y - 6, 28, 9, palette.mid);
-    px(ctx, x - 5, y - 4, 10, 10, palette.core);
-    px(ctx, x - 13, y - 32, 26, 18, '#0D0A14');
-    px(ctx, x - 11, y - 30, 22, 14, palette.body);
-    px(ctx, x - 17, y - 38, 5, 11, '#D9A441');
-    px(ctx, x + 12, y - 38, 5, 11, '#D9A441');
-    px(ctx, x - 6, y - 24, 4, 3, palette.eye);
-    px(ctx, x + 3, y - 24, 4, 3, palette.eye);
-    px(ctx, x + 20, y - 26, 6, 40, palette.core);
+    // Alas de energía morada en Vaelor
+    if (e.kind === 'vaelor') {
+      const flap = Math.sin(time * 6) * 5;
+      px(ctx, x - 52, y - 34 - flap, 28, 36, '#4C1D95');
+      px(ctx, x - 48, y - 30 - flap, 20, 26, '#A855F7');
+      px(ctx, x + 24, y - 34 - flap, 28, 36, '#4C1D95');
+      px(ctx, x + 28, y - 30 - flap, 20, 26, '#A855F7');
+    }
+
+    // Cuerpo gigante imponente
+    px(ctx, x - 28, y - 20, 56, 44, '#0D0A14');
+    px(ctx, x - 24, y - 16, 48, 36, palette.body);
+    px(ctx, x - 18, y - 8, 36, 12, palette.mid);
+    px(ctx, x - 7, y - 6, 14, 14, palette.core);
+    // Hombros en llamas (Ignis) o cristales (Malakor/Boreas)
+    px(ctx, x - 34, y - 22, 12, 14, palette.mid);
+    px(ctx, x + 22, y - 22, 12, 14, palette.mid);
+    // Cabeza con cuernos / barba escarchada
+    px(ctx, x - 16, y - 40, 32, 22, '#0D0A14');
+    px(ctx, x - 13, y - 37, 26, 16, palette.body);
+    px(ctx, x - 22, y - 48, 6, 14, e.kind === 'boreas' ? '#BAE6FD' : '#D9A441');
+    px(ctx, x + 16, y - 48, 6, 14, e.kind === 'boreas' ? '#BAE6FD' : '#D9A441');
+    px(ctx, x - 8, y - 30, 5, 4, palette.eye);
+    px(ctx, x + 3, y - 30, 5, 4, palette.eye);
+    if (e.kind === 'boreas') {
+      px(ctx, x - 10, y - 22, 20, 10, '#E0F2FE'); // barba escarchada
+    }
+    // Arma gigante (Martillo / Hacha de cristal / Espada del Vacío / Garras)
+    px(ctx, x + 26, y - 34, 8, 52, palette.weapon);
+    if (e.kind === 'ignis' || e.kind === 'boreas') {
+      px(ctx, x + 20, y - 38, 22, 14, palette.core);
+    }
   }
 
   if (e.stunTimer > 0) {
