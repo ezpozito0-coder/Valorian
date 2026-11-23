@@ -96,15 +96,190 @@ const engine = new GameEngine(canvas, {
 });
 
 /* =========================================================
-   UTILIDADES UI
+   MINI-CHAT DEL SISTEMA (LOGROS, BOTÍN, EVENTOS) + CONSOLA GM
    ========================================================= */
+function appendChatMessage(message, type = 'info', customTag = null) {
+  const log = document.getElementById('hud-chat-log');
+  if (!log) return;
+
+  let tag = customTag;
+  let cssClass = 'chat-info';
+  if (type === 'gm') {
+    tag = tag || 'GM';
+    cssClass = 'chat-gm';
+  } else if (type === 'loot' || message.includes('Oro') || message.includes('Recogiste')) {
+    tag = tag || 'Botín';
+    cssClass = 'chat-loot';
+  } else if (message.includes('Logro') || message.includes('Título') || message.includes('🏅') || message.includes('👑')) {
+    tag = tag || 'Logro';
+    cssClass = 'chat-success';
+  } else if (type === 'success') {
+    tag = tag || 'Evento';
+    cssClass = 'chat-success';
+  } else if (type === 'error') {
+    tag = tag || 'Alerta';
+    cssClass = 'chat-error';
+  } else {
+    tag = tag || 'Sistema';
+    cssClass = 'chat-info';
+  }
+
+  const line = document.createElement('div');
+  line.className = `chat-line ${cssClass}`;
+  const cleanText = String(message).replace(/^[🏅👑✨]\s*/, '');
+  line.innerHTML = `<span class="chat-tag">[${tag}]</span><span></span>`;
+  line.lastElementChild.textContent = cleanText;
+  log.appendChild(line);
+
+  while (log.children.length > 35) {
+    log.removeChild(log.firstChild);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+function executeGmCommand(rawText) {
+  const text = String(rawText || '').trim();
+  if (!text) return;
+
+  const p = engine.player;
+  if (!p) {
+    appendChatMessage('Debes entrar al mundo con un personaje para usar comandos GM.', 'error', 'GM');
+    return;
+  }
+
+  const lower = text.toLowerCase();
+  const parts = lower.replace(/^\//, '').split(/\s+/);
+  const cmd = parts[0];
+  const argNum = parseInt(parts[1], 10);
+
+  // 1. Comando de Oro: /oro 5000, oro 5000, +oro 5000, /gold 5000, gm 5000 o un número directo
+  if (
+    cmd === 'oro' ||
+    cmd === '+oro' ||
+    cmd === 'gold' ||
+    cmd === 'monedas' ||
+    (cmd === 'gm' && !Number.isNaN(argNum)) ||
+    /^\+?\d+$/.test(cmd)
+  ) {
+    const amount = /^\+?\d+$/.test(cmd)
+      ? parseInt(cmd, 10)
+      : (!Number.isNaN(argNum) && argNum > 0 ? argNum : 10000);
+    p.gold = Math.max(0, (p.gold || 0) + amount);
+    sfx.playCoin();
+    engine.addFloatingText(p.x, p.y - 26, `+${amount} Oro (GM)`, '#FDE047');
+    updateHudDom(engine.getHudSnapshot());
+    persistActiveSlot(engine.exportSave(), false);
+    appendChatMessage(`+${amount.toLocaleString()} Oro agregado (Total: ${p.gold.toLocaleString()} Oro).`, 'gm', 'GM');
+    return;
+  }
+
+  // 2. Comando de Nivel: /nivel 50, nivel 90, /lvl 50
+  if (cmd === 'nivel' || cmd === 'lvl' || cmd === 'level') {
+    const targetLvl = !Number.isNaN(argNum) ? Math.max(1, Math.min(90, argNum)) : Math.min(90, p.level + 10);
+    const diff = Math.max(0, targetLvl - p.level);
+    p.level = targetLvl;
+    p.xp = 0;
+    if (diff > 0) {
+      p.skillPoints = (p.skillPoints || 0) + diff;
+      p.talentPoints = (p.talentPoints || 0) + diff;
+    }
+    engine.recalcDerivedStats(false);
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    sfx.playLevelUp();
+    engine.addFloatingText(p.x, p.y - 30, `¡NIVEL ${p.level} (GM)!`, '#FDE047');
+    updateHudDom(engine.getHudSnapshot());
+    persistActiveSlot(engine.exportSave(), false);
+    appendChatMessage(`Nivel ajustado a Nv.${p.level} (+${diff} Puntos de Habilidad y Talento).`, 'gm', 'GM');
+    return;
+  }
+
+  // 3. Comando de Gemas: /gemas, gemas
+  if (cmd === 'gemas' || cmd === 'gems') {
+    const qty = !Number.isNaN(argNum) && argNum > 0 ? argNum : 10;
+    engine.addItemToBackpack('gema_rubi', qty);
+    engine.addItemToBackpack('gema_esmeralda', qty);
+    engine.addItemToBackpack('gema_zafiro', qty);
+    sfx.playGem();
+    updateHudDom(engine.getHudSnapshot());
+    persistActiveSlot(engine.exportSave(), false);
+    appendChatMessage(`+${qty} Rubíes, +${qty} Esmeraldas y +${qty} Zafiros agregados a la mochila.`, 'gm', 'GM');
+    return;
+  }
+
+  // 4. Comando de Curar: /curar, curar, /heal
+  if (cmd === 'curar' || cmd === 'heal' || cmd === 'vida') {
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    sfx.playPotion();
+    updateHudDom(engine.getHudSnapshot());
+    appendChatMessage('Vida (PV) y Energía (PM) restauradas al 100%.', 'gm', 'GM');
+    return;
+  }
+
+  // 5. Comando de Equipo Máximo: /max, /equipo, max
+  if (cmd === 'max' || cmd === 'equipo' || cmd === 'full') {
+    p.equipment.weapon = { tier: 4, plus: 12, quality: 4 };
+    p.equipment.armor = { tier: 4, plus: 12, quality: 4 };
+    p.gearSlots.alas = 'alas_vacio';
+    engine.addItemToBackpack('alas_vacio', 1);
+    engine.recalcDerivedStats(true);
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    sfx.playUpgrade();
+    updateHudDom(engine.getHudSnapshot());
+    persistActiveSlot(engine.exportSave(), false);
+    appendChatMessage('Arma y Armadura subidas a +12 Legendario y Alas del Vacío equipadas.', 'gm', 'GM');
+    return;
+  }
+
+  // 6. Comando de Mascotas y Títulos: /mascotas, /titulos
+  if (cmd === 'mascotas' || cmd === 'pets') {
+    ['lobo_blanco', 'fantasma_hoz', 'gato_volador', 'dragon_negro'].forEach((id) => {
+      if (!p.ownedPets.includes(id)) p.ownedPets.push(id);
+    });
+    persistActiveSlot(engine.exportSave(), false);
+    appendChatMessage('Las 4 Mascotas de Valoria han sido desbloqueadas.', 'gm', 'GM');
+    return;
+  }
+
+  if (cmd === 'titulos' || cmd === 'titles') {
+    Object.keys(TITLES).forEach((id) => {
+      if (!p.unlockedTitles.includes(id)) p.unlockedTitles.push(id);
+    });
+    engine.recalcDerivedStats(true);
+    persistActiveSlot(engine.exportSave(), false);
+    appendChatMessage('Todos los títulos de Jefes de Valoria desbloqueados.', 'gm', 'GM');
+    return;
+  }
+
+  // 7. Ayuda GM: /ayuda, /gm, ayuda
+  if (cmd === 'ayuda' || cmd === 'help' || cmd === 'gm' || cmd === 'codigos') {
+    appendChatMessage('Códigos GM: /oro 5000 | /nivel 50 | /gemas | /curar | /max | /mascotas | /titulos', 'gm', 'GM');
+    return;
+  }
+
+  // Mensaje libre en el chat
+  appendChatMessage(text, 'gm', p.name || 'GM');
+}
+
 function showToast(message, type = 'info') {
+  // Siempre registrar en el mini-chat del sistema para no perder ningún evento
+  appendChatMessage(message, type);
+
+  // Si el jugador está dentro del mapa (#screen-game visible), NO mostrar globos grandes flotantes
+  const gameScreen = document.getElementById('screen-game');
+  if (gameScreen && !gameScreen.classList.contains('hidden')) {
+    return;
+  }
+
   const wrap = document.getElementById('toast-container');
+  if (!wrap) return;
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = message;
   wrap.appendChild(el);
-  setTimeout(() => el.remove(), 3600);
+  setTimeout(() => el.remove(), 2800);
 }
 
 function applyTheme(theme) {
@@ -788,6 +963,31 @@ function bindEvents() {
     saveSettings(settings);
     document.getElementById('cookie-banner').classList.add('hidden');
   });
+
+  // Eventos del Mini-Chat del Sistema y Consola GM
+  const chatForm = document.getElementById('hud-chat-form');
+  const chatInput = document.getElementById('hud-chat-input');
+  const chatPanel = document.getElementById('hud-chat-panel');
+  const chatToggle = document.getElementById('btn-chat-toggle');
+
+  chatForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!chatInput) return;
+    const val = chatInput.value.trim();
+    if (val) {
+      executeGmCommand(val);
+      chatInput.value = '';
+    }
+    chatInput.blur();
+  });
+
+  chatToggle?.addEventListener('click', () => {
+    if (!chatPanel) return;
+    const collapsed = chatPanel.classList.toggle('collapsed');
+    chatToggle.textContent = collapsed ? '▴' : '▾';
+  });
+
+  appendChatMessage('Consola GM lista. Escribe /oro 5000, /nivel 50, /gemas, /max o /ayuda.', 'gm', 'GM');
 
   window.addEventListener('online', async () => {
     updateSyncBadge('Sincronizando...', 'online');

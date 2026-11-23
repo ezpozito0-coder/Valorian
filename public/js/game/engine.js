@@ -365,6 +365,8 @@ export class GameEngine {
 
   onKeyDown(e) {
     if (this.paused) return;
+    const activeTag = document.activeElement?.tagName;
+    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     const code = e.code;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     this.keys.add(code);
@@ -737,6 +739,7 @@ export class GameEngine {
       sfx.playGem();
       const item = ITEMS[g.itemId];
       this.addFloatingText(g.x, g.y - 16, `+1 ${item.name}`, item.gemColor || '#38BDF8');
+      this.callbacks.onToast?.(`Recogiste +1 ${item.name}.`, 'loot');
       this.callbacks.onAutoSave?.(this.exportSave());
     }
   }
@@ -748,12 +751,14 @@ export class GameEngine {
       this.player.gold += d.amount;
       sfx.playCoin();
       this.addFloatingText(d.x, d.y - 12, `+${d.amount} Oro`, '#EAB308');
+      this.callbacks.onToast?.(`+${d.amount} Oro recogido.`, 'loot');
       this.groundDrops.splice(index, 1);
     } else if (d.kind === 'gem') {
       if (this.addItemToBackpack(d.itemId, 1)) {
         const item = ITEMS[d.itemId];
         sfx.playGem();
         this.addFloatingText(d.x, d.y - 12, `+1 ${item.name}`, item.gemColor || '#38BDF8');
+        this.callbacks.onToast?.(`Recogiste +1 ${item.name}.`, 'loot');
         this.groundDrops.splice(index, 1);
       }
     }
@@ -1511,7 +1516,7 @@ export class GameEngine {
   }
 
   addFloatingText(x, y, text, color) {
-    this.floatingTexts.push({ x, y, text, color, life: 0.95 });
+    this.floatingTexts.push({ x, y, text, color, life: 0.72 });
   }
 
   getHudSnapshot() {
@@ -1701,7 +1706,7 @@ export class GameEngine {
       ctx.restore();
     }
 
-    ctx.font = 'bold 16px "Pixelify Sans", monospace';
+    ctx.font = 'bold 13px "Pixelify Sans", monospace';
     ctx.textAlign = 'center';
     for (const ft of this.floatingTexts) {
       ctx.fillStyle = '#0D0A14';

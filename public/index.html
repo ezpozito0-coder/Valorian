@@ -316,8 +316,23 @@
         </div>
       </div>
 
-      <div class="pc-hints">
-        WASD Mover · Espacio Atacar · 1/2/3 Habilidades · E Interactuar · Q Poción · I/C Características · M Mejoras · T Tienda · N Mapa · J Jefes · Esc Pausa
+      <!-- Mini-Chat del Sistema (Logros, Botín, Eventos) + Consola GM -->
+      <div id="hud-chat-panel" class="hud-chat-panel metallic-frame" aria-label="Registro del sistema y consola GM">
+        <div class="hud-chat-header">
+          <span class="hud-chat-title">Registro / Consola GM</span>
+          <button type="button" id="btn-chat-toggle" class="hud-chat-toggle" title="Minimizar o expandir chat" aria-label="Minimizar chat">▾</button>
+        </div>
+        <div id="hud-chat-log" class="hud-chat-log" aria-live="polite"></div>
+        <form id="hud-chat-form" class="hud-chat-form" autocomplete="off">
+          <input
+            type="text"
+            id="hud-chat-input"
+            class="hud-chat-input"
+            placeholder="Código GM: /oro 5000, /nivel 50, /ayuda"
+            maxlength="80"
+          />
+          <button type="submit" id="btn-chat-send" class="hud-chat-send">GM</button>
+        </form>
       </div>
     </section>
   </main>
