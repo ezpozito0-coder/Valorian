@@ -1,20 +1,47 @@
 {
+  "id": "./",
   "name": "Crónicas de la Fractura",
   "short_name": "Fractura RPG",
   "description": "RPG 2D Pixel Art de 16 bits en el continente de Valoria. Offline-first y multiplataforma.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
   "background_color": "#10131C",
-  "theme_color": "#1E4E8C",
+  "theme_color": "#181D27",
+  "categories": ["games", "rpg"],
   "lang": "es",
   "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "./assets/logo-espada-grieta.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

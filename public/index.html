@@ -5,12 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Crónicas de la Fractura — RPG 2D Pixel Art | TG Legacy S.A.S.</title>
   <meta name="description" content="Explora el continente de Valoria en Crónicas de la Fractura: RPG 2D Pixel Art 16 bits en modo horizontal 16:9 con guardado offline y MySQL." />
-  <meta name="theme-color" content="#10131C" />
+  <meta name="theme-color" content="#181D27" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fractura RPG" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Crónicas de la Fractura — RPG 2D Pixel Art" />
   <meta property="og:description" content="Elige tu bando, derrota a los 4 Jefes de Valoria y conquista las Alas del Vacío." />
-  <meta property="og:image" content="./assets/logo-espada-grieta.svg" />
+  <meta property="og:image" content="./assets/icon-512.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="./assets/logo-espada-grieta.svg" />
+  <link rel="apple-touch-icon" sizes="192x192" href="./assets/icon-192.png" />
   <link rel="manifest" href="./manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,6 +32,10 @@
     </a>
 
     <div class="header-actions">
+      <button type="button" id="btn-install-app" class="btn btn-gold btn-sm hidden" title="Instalar Crónicas de la Fractura como App en tu dispositivo">
+        Instalar App
+      </button>
+
       <span id="sync-badge" class="sync-badge" title="Estado de conexión y guardado">
         <span class="sync-dot"></span>
         <span id="sync-badge-text">Local</span>
@@ -56,6 +66,7 @@
       <button type="button" id="btn-menu-close" class="icon-btn" aria-label="Cerrar menú">✕</button>
     </div>
     <nav class="drawer-nav">
+      <button type="button" id="btn-drawer-install" class="drawer-link" style="color:#FDE047;border-color:#F2B63D">Instalar App en Celular / PC</button>
       <button type="button" class="drawer-link" data-nav="personajes">Selección de Personajes</button>
       <button type="button" class="drawer-link" data-nav="inicio">Portada de Valoria</button>
       <button type="button" class="drawer-link" data-nav="opciones">Opciones (Audio / Tema)</button>

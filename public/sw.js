@@ -1,9 +1,11 @@
-const CACHE_NAME = 'cronicas-fractura-v18';
+const CACHE_NAME = 'cronicas-fractura-v19';
 const APP_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './assets/logo-espada-grieta.svg',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
   './assets/bg_campamento.png',
   './assets/bg_creacion.png',
   './assets/mapa_valoria.png',

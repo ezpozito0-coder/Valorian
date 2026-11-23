@@ -873,6 +873,64 @@ async function bootstrap() {
       .catch(() => {});
   }
 
+  // Instalación como App nativa (PWA / WebAPK en Android, iOS y PC)
+  let deferredInstallPrompt = null;
+  const btnInstallHeader = document.getElementById('btn-install-app');
+  const btnInstallDrawer = document.getElementById('btn-drawer-install');
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.navigator.standalone === true;
+
+  if (isStandalone) {
+    btnInstallHeader?.classList.add('hidden');
+    btnInstallDrawer?.classList.add('hidden');
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (!isStandalone) {
+      btnInstallHeader?.classList.remove('hidden');
+      btnInstallDrawer?.classList.remove('hidden');
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    btnInstallHeader?.classList.add('hidden');
+    btnInstallDrawer?.classList.add('hidden');
+    showToast('¡Crónicas de la Fractura se instaló como App en tu dispositivo!', 'success');
+  });
+
+  const handleInstallClick = async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice.catch(() => null);
+      if (choice?.outcome === 'accepted') {
+        btnInstallHeader?.classList.add('hidden');
+      }
+      deferredInstallPrompt = null;
+      return;
+    }
+    if (isStandalone) {
+      showToast('Ya estás jugando desde la App instalada.', 'success');
+      return;
+    }
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/i.test(ua)) {
+      showToast('En iPhone/iPad: toca el botón Compartir de Safari y elige "Agregar a inicio".', 'info');
+    } else {
+      showToast('Abre el menú del navegador (⋮) y selecciona "Instalar aplicación" o "Agregar a la pantalla principal".', 'info');
+    }
+  };
+
+  btnInstallHeader?.addEventListener('click', handleInstallClick);
+  btnInstallDrawer?.addEventListener('click', () => {
+    closeDrawer();
+    handleInstallClick();
+  });
+
   if (navigator.onLine && getSavedUser()?.token) {
     syncAllSlotsToCloud().then(async (res) => {
       if (res.status === 'synced') {
