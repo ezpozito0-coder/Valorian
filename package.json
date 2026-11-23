@@ -1,0 +1,27 @@
+{
+  "name": "cronicas-de-la-fractura",
+  "version": "1.0.0",
+  "description": "Crónicas de la Fractura — Juego RPG 2D Pixel Art 16-bit offline-first con sincronización MySQL. Desarrollado para TG Legacy S.A.S.",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "db:backup": "node server/scripts/backup.js"
+  },
+  "keywords": [
+    "rpg",
+    "pixel-art",
+    "html5-canvas",
+    "offline-first",
+    "pwa",
+    "mysql"
+  ],
+  "author": "TG Legacy S.A.S.",
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mysql2": "^3.12.0"
+  }
+}

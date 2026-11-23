@@ -1,0 +1,18 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno y secretos
+.env
+.env.local
+.env.*.local
+
+# Logs y copias de seguridad locales
+logs/
+backups/
+*.log
+
+# Archivos de sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
