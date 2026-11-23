@@ -22,10 +22,26 @@ export const ASSET_MANIFEST = {
   mascota_gato: { path: './assets/mascota_gato.png', floodFill: true },
   mascota_dragon: { path: './assets/mascota_dragon.png', floodFill: true },
 
-  // Heroínas / Clases (3)
+  // Heroínas Femeninas (3)
   heroina_guerrera: { path: './assets/heroina_guerrera.png', floodFill: true },
   heroina_maga: { path: './assets/heroina_maga.png', floodFill: true },
   heroina_arquera: { path: './assets/heroina_arquera.png', floodFill: true },
+
+  // Héroes Masculinos (3)
+  heroe_guerrero: { path: './assets/heroe_guerrero.png', floodFill: true },
+  heroe_mago: { path: './assets/heroe_mago.png', floodFill: true },
+  heroe_arquero: { path: './assets/heroe_arquero.png', floodFill: true },
+
+  // NPCs y Entrenamiento en Villa Alba (3)
+  npc_tabernero: { path: './assets/npc_tabernero.png', floodFill: true },
+  npc_herrero: { path: './assets/npc_herrero.png', floodFill: true },
+  prop_muneco: { path: './assets/prop_muneco.png', floodFill: true },
+
+  // Enemigos Comunes (4)
+  enemigo_lobo: { path: './assets/enemigo_lobo.png', floodFill: true },
+  enemigo_trasgo: { path: './assets/enemigo_trasgo.png', floodFill: true },
+  enemigo_esqueleto: { path: './assets/enemigo_esqueleto.png', floodFill: true },
+  enemigo_elemental: { path: './assets/enemigo_elemental.png', floodFill: true },
 
   // Entorno e Iconos (4)
   tile_cesped: { path: './assets/tile_cesped.png', floodFill: false },
@@ -433,12 +449,114 @@ export function getAsset(key) {
 }
 
 /**
- * Obtiene el sprite de heroína/héroe según la clase elegida ('guerrero', 'mago', 'arquero').
+ * Obtiene el sprite de héroe o heroína según clase ('guerrero', 'mago', 'arquero') y sexo ('male' | 'female').
  */
-export function getHeroClassAsset(clase) {
-  if (clase === 'mago') return getAsset('heroina_maga');
-  if (clase === 'arquero') return getAsset('heroina_arquera');
-  return getAsset('heroina_guerrera');
+export function getHeroClassAsset(clase, gender = 'male') {
+  const isFem = gender === 'female';
+  if (clase === 'mago') {
+    return getAsset(isFem ? 'heroina_maga' : 'heroe_mago') || getAsset('heroina_maga');
+  }
+  if (clase === 'arquero') {
+    return getAsset(isFem ? 'heroina_arquera' : 'heroe_arquero') || getAsset('heroina_arquera');
+  }
+  return getAsset(isFem ? 'heroina_guerrera' : 'heroe_guerrero') || getAsset('heroina_guerrera');
+}
+
+/**
+ * Obtiene el sprite de NPC o muñeco de entrenamiento según kind ('tabernero', 'herrero', 'dummy', etc.).
+ */
+export function getNpcAsset(kind) {
+  if (kind === 'dummy') return getAsset('prop_muneco');
+  if (kind === 'herrero') return getAsset('npc_herrero');
+  if (kind === 'tabernero' || kind === 'mercader') return getAsset('npc_tabernero');
+  if (kind === 'guardia_alba' || kind === 'guardia_hierro') return getAsset('heroe_guerrero');
+  return null;
+}
+
+/**
+ * Obtiene el sprite de enemigo común según kind ('lobo', 'trasgo', 'esqueleto', 'golem_hielo', 'escorpion', etc.).
+ */
+export function getEnemyAsset(kind) {
+  if (kind === 'lobo' || kind === 'lobo_invernal') return getAsset('enemigo_lobo');
+  if (kind === 'trasgo' || kind === 'mago_sombrio' || kind === 'nomada') return getAsset('enemigo_trasgo');
+  if (kind === 'esqueleto' || kind === 'caballero_vacio') return getAsset('enemigo_esqueleto');
+  if (kind === 'golem_hielo' || kind === 'escorpion' || kind === 'elemental') return getAsset('enemigo_elemental');
+  return null;
+}
+
+/**
+ * Detecta automáticamente si un sprite es un spritesheet horizontal de 4 cuadros
+ * (cuando su ancho es >= 2.2 veces su alto) o una imagen de 1 solo cuadro.
+ * Cuadros en spritesheet de 4 cuadros:
+ *   0 = reposo/idle, 1 = paso/movimiento A, 2 = paso/movimiento B, 3 = ataque/acción.
+ */
+export function getSpriteFrameMetrics(img, frameIndex = 0) {
+  const totalW = img.naturalWidth || img.width || 64;
+  const totalH = img.naturalHeight || img.height || 64;
+  const isFourFrameSheet = totalW >= totalH * 2.2;
+  const frameCount = isFourFrameSheet ? 4 : 1;
+  const frameWidth = isFourFrameSheet ? Math.floor(totalW / 4) : totalW;
+  const frameHeight = totalH;
+  const clampedFrame = isFourFrameSheet ? Math.max(0, Math.min(3, Math.floor(frameIndex))) : 0;
+  const sx = clampedFrame * frameWidth;
+  return {
+    isFourFrameSheet,
+    frameCount,
+    frameWidth,
+    frameHeight,
+    sx,
+    sy: 0,
+    aspect: frameWidth / Math.max(1, frameHeight)
+  };
+}
+
+/**
+ * Dibuja un sprite (tanto si es spritesheet de 4 cuadros como si es de 1 cuadro)
+ * anclado exactamente en la base de los pies (footX, footY), con soporte de espejo horizontal,
+ * inclinación de paso (tiltRad), squash-and-stretch (scaleX, scaleY) y filtro opcional.
+ */
+export function drawFootAnchoredSprite(
+  ctx,
+  img,
+  footX,
+  footY,
+  targetHeight,
+  {
+    frameIndex = 0,
+    flipX = false,
+    tiltRad = 0,
+    scaleX = 1,
+    scaleY = 1,
+    filter = null,
+    alpha = 1
+  } = {}
+) {
+  if (!img) return null;
+  const m = getSpriteFrameMetrics(img, frameIndex);
+  const drawH = targetHeight * scaleY;
+  const drawW = targetHeight * m.aspect * scaleX;
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  if (alpha < 1) ctx.globalAlpha = alpha;
+  if (filter) ctx.filter = filter;
+  ctx.translate(Math.round(footX), Math.round(footY));
+  if (tiltRad !== 0) ctx.rotate(tiltRad);
+  if (flipX) ctx.scale(-1, 1);
+
+  ctx.drawImage(
+    img,
+    m.sx,
+    m.sy,
+    m.frameWidth,
+    m.frameHeight,
+    Math.round(-drawW / 2),
+    Math.round(-drawH),
+    Math.round(drawW),
+    Math.round(drawH)
+  );
+  ctx.restore();
+  return { drawW, drawH, isFourFrameSheet: m.isFourFrameSheet };
 }
 
 /**

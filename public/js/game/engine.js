@@ -69,8 +69,10 @@ export class GameEngine {
     this.hazards = []; // círculos de fuego (Ignis) / hielo (Boreas)
     this.effects = [];
     this.floatingTexts = [];
+    this.dustParticles = [];
+    this.dustSpawnTimer = 0;
 
-    this.petEntity = { x: 760, y: 720, healTimer: 0 };
+    this.petEntity = { x: 760, y: 720, vx: 0, vy: 0, dirX: 1, moving: false, healTimer: 0 };
     this.campfireTick = 0;
     this.portalCooldown = 0;
     this.portalLockMsgCooldown = 0;
@@ -446,7 +448,7 @@ export class GameEngine {
       }
     }
 
-    // Movimiento (con física resbaladiza en Lago Congelado)
+    // Movimiento con aceleración y desaceleración suaves + física resbaladiza en Lago Congelado
     let mx = this.joyVec.x;
     let my = this.joyVec.y;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) my -= 1;
@@ -463,27 +465,50 @@ export class GameEngine {
       const ny = my / len;
       p.dirX = nx;
       p.dirY = ny;
-      p.moving = true;
-      if (onIce) {
-        p.vx += (nx * spd - p.vx) * Math.min(1, dt * 3.8);
-        p.vy += (ny * spd - p.vy) * Math.min(1, dt * 3.8);
-      } else {
-        p.vx = nx * spd;
-        p.vy = ny * spd;
-      }
+      const accelRate = onIce ? 3.8 : 16.0;
+      p.vx += (nx * spd - p.vx) * Math.min(1, dt * accelRate);
+      p.vy += (ny * spd - p.vy) * Math.min(1, dt * accelRate);
     } else {
-      p.moving = false;
-      if (onIce) {
-        p.vx *= Math.pow(0.25, dt);
-        p.vy *= Math.pow(0.25, dt);
-      } else {
+      const decelFactor = onIce ? 0.25 : 0.0005;
+      p.vx *= Math.pow(decelFactor, dt);
+      p.vy *= Math.pow(decelFactor, dt);
+      if (Math.hypot(p.vx, p.vy) < 6) {
         p.vx = 0;
         p.vy = 0;
       }
     }
 
-    if (Math.hypot(p.vx, p.vy) > 4) {
+    const curSpeed = Math.hypot(p.vx, p.vy);
+    p.moving = curSpeed > 18;
+    p.moveSpeedRatio = Math.min(1.4, curSpeed / Math.max(1, p.speed));
+
+    if (curSpeed > 4) {
       this.moveEntityWithCollisions(p, p.vx * dt, p.vy * dt);
+    }
+
+    // Partículas de polvo en la base de los pies al caminar
+    if (p.moving) {
+      this.dustSpawnTimer -= dt;
+      if (this.dustSpawnTimer <= 0) {
+        this.dustSpawnTimer = 0.11;
+        this.dustParticles.push({
+          x: p.x - p.dirX * 6 + (Math.random() - 0.5) * 10,
+          y: p.y + 15 + (Math.random() - 0.5) * 3,
+          vx: -p.dirX * (12 + Math.random() * 14) + (Math.random() - 0.5) * 8,
+          vy: -6 - Math.random() * 8,
+          size: 3 + Math.floor(Math.random() * 2),
+          life: 0.34,
+          maxLife: 0.34
+        });
+      }
+    }
+
+    for (let i = this.dustParticles.length - 1; i >= 0; i--) {
+      const dp = this.dustParticles[i];
+      dp.x += dp.vx * dt;
+      dp.y += dp.vy * dt;
+      dp.life -= dt;
+      if (dp.life <= 0) this.dustParticles.splice(i, 1);
     }
 
     // Comprobar portales entre mapas
@@ -661,10 +686,25 @@ export class GameEngine {
     const dx = targetX - pet.x;
     const dy = targetY - pet.y;
     const dist = Math.hypot(dx, dy);
-    if (dist > 6) {
-      const speed = targetDropIdx !== -1 || targetMapGem ? 260 : 210;
-      pet.x += (dx / dist) * Math.min(dist, speed * dt);
-      pet.y += (dy / dist) * Math.min(dist, speed * dt);
+    if (dist > 3) {
+      // Seguimiento suavizado (lerp) detrás o al costado del jugador
+      const isFetching = targetDropIdx !== -1 || Boolean(targetMapGem);
+      const lerpSpeed = isFetching ? 7.5 : 5.2;
+      const maxStep = (isFetching ? 270 : 225) * dt;
+      const step = Math.min(dist, Math.max(dist * Math.min(1, dt * lerpSpeed), Math.min(dist, 45 * dt)), maxStep);
+      const stepX = (dx / dist) * step;
+      const stepY = (dy / dist) * step;
+      pet.vx = stepX / Math.max(0.001, dt);
+      pet.vy = stepY / Math.max(0.001, dt);
+      pet.x += stepX;
+      pet.y += stepY;
+      if (Math.abs(dx) > 2) pet.dirX = dx >= 0 ? 1 : -1;
+      pet.moving = Math.hypot(pet.vx, pet.vy) > 16;
+    } else {
+      pet.vx = 0;
+      pet.vy = 0;
+      pet.moving = false;
+      if (Math.abs(p.dirX) > 0.2) pet.dirX = p.dirX >= 0 ? 1 : -1;
     }
 
     if (targetDropIdx !== -1 && Math.hypot(pet.x - targetX, pet.y - targetY) < 18) {
@@ -1476,6 +1516,15 @@ export class GameEngine {
 
     for (const d of this.groundDrops) drawGroundDrop(ctx, d, this.elapsed);
 
+    // Partículas de polvo suaves en los pies al caminar
+    for (const dp of this.dustParticles) {
+      const a = Math.max(0, dp.life / dp.maxLife);
+      ctx.save();
+      ctx.fillStyle = `rgba(214, 199, 178, ${(a * 0.55).toFixed(2)})`;
+      ctx.fillRect(Math.round(dp.x - dp.size / 2), Math.round(dp.y - dp.size / 2), dp.size, dp.size);
+      ctx.restore();
+    }
+
     // Ordenar entidades por eje Y para profundidad 2.5D
     const renderables = [];
     for (const b of this.map.buildings) renderables.push({ y: b.y + b.h, draw: () => drawBuilding(ctx, b, this.elapsed) });
@@ -1487,7 +1536,21 @@ export class GameEngine {
     for (const npc of this.map.npcs) renderables.push({ y: npc.y, draw: () => drawNpc(ctx, npc, this.elapsed) });
     for (const e of this.map.enemies) if (e.alive) renderables.push({ y: e.y, draw: () => drawEnemy(ctx, e, this.elapsed) });
     if (this.player.activePet && PETS[this.player.activePet]) {
-      renderables.push({ y: this.petEntity.y, draw: () => drawPet(ctx, { id: this.player.activePet, x: this.petEntity.x, y: this.petEntity.y }, this.elapsed) });
+      renderables.push({
+        y: this.petEntity.y,
+        draw: () =>
+          drawPet(
+            ctx,
+            {
+              id: this.player.activePet,
+              x: this.petEntity.x,
+              y: this.petEntity.y,
+              dirX: this.petEntity.dirX,
+              moving: this.petEntity.moving
+            },
+            this.elapsed
+          )
+      });
     }
     renderables.push({ y: this.player.y, draw: () => drawHero(ctx, this.player, this.elapsed) });
 

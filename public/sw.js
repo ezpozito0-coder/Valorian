@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cronicas-fractura-v16';
+const CACHE_NAME = 'cronicas-fractura-v17';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,16 @@ const APP_ASSETS = [
   './assets/heroina_guerrera.png',
   './assets/heroina_maga.png',
   './assets/heroina_arquera.png',
+  './assets/heroe_guerrero.png',
+  './assets/heroe_mago.png',
+  './assets/heroe_arquero.png',
+  './assets/npc_tabernero.png',
+  './assets/npc_herrero.png',
+  './assets/prop_muneco.png',
+  './assets/enemigo_lobo.png',
+  './assets/enemigo_trasgo.png',
+  './assets/enemigo_esqueleto.png',
+  './assets/enemigo_elemental.png',
   './assets/tile_cesped.png',
   './assets/tile_adoquin.png',
   './assets/prop_arbol.png',

@@ -5,7 +5,14 @@
 
 import { QUALITIES, TITLES } from './data.js';
 import { drawDetailedHeroSprite, drawPetSprite } from './preview.js';
-import { getAsset, getBossAsset } from './assetLoader.js';
+import {
+  getAsset,
+  getBossAsset,
+  getNpcAsset,
+  getEnemyAsset,
+  getSpriteFrameMetrics,
+  drawFootAnchoredSprite
+} from './assetLoader.js';
 
 function px(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -22,15 +29,8 @@ export function drawShadow(ctx, x, y, rx, ry) {
 }
 
 export function drawHero(ctx, p, time) {
-  const bob = p.moving ? Math.sin(time * 13) * 2.2 : 0;
   const x = Math.round(p.x);
-  const y = Math.round(p.y + bob);
-  const isAlba = p.faction === 'alba';
-  const primary = isAlba ? '#1E4E8C' : '#9E2A2B';
-  const accent = isAlba ? '#D9A441' : '#C97A32';
-  const cape = isAlba ? '#F4F6FA' : '#6E737B';
-
-  drawShadow(ctx, p.x, p.y + 15, 13, 6);
+  const y = Math.round(p.y);
 
   // Brillo visual de equipo a partir de +9 (intensificado al llegar a +12)
   const maxPlus = Math.max(p.equipment?.weapon?.plus || 0, p.equipment?.armor?.plus || 0);
@@ -76,7 +76,7 @@ export function drawHero(ctx, p, time) {
     ctx.restore();
   }
 
-  // Renderizado unificado 16-bit 4-direcciones (Masculino y Femenino) con sombreado y brillo
+  // Renderizado unificado 16-bit 4-direcciones (Masculino y Femenino) anclado a la base de los pies (footY)
   let dir = 0;
   if (Math.abs(p.dirX) > Math.abs(p.dirY)) dir = p.dirX >= 0 ? 1 : 3;
   else dir = p.dirY < 0 ? 2 : 0;
@@ -93,6 +93,7 @@ export function drawHero(ctx, p, time) {
       heroClass: p.heroClass,
       wings: p.gearSlots?.alas || null,
       dir,
+      moving: Boolean(p.moving),
       attackTimer: p.attackAnimTimer || 0
     },
     time
@@ -103,19 +104,22 @@ export function drawHero(ctx, p, time) {
     ctx.font = 'bold 11px "Pixelify Sans", monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0D0A14';
-    ctx.fillText(TITLES[p.activeTitle].name, x + 1, y - 34);
+    ctx.fillText(TITLES[p.activeTitle].name, x + 1, y - 36);
     ctx.fillStyle = '#FDE047';
-    ctx.fillText(TITLES[p.activeTitle].name, x, y - 35);
+    ctx.fillText(TITLES[p.activeTitle].name, x, y - 37);
   }
 
   if (p.hitFlash > 0) {
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillRect(x - 10, y - 22, 20, 36);
+    ctx.fillRect(x - 14, y - 28, 28, 46);
   }
 }
 
 export function drawPet(ctx, pet, time) {
-  drawPetSprite(ctx, pet.id, pet.x, pet.y, 1.35, time);
+  drawPetSprite(ctx, pet.id, pet.x, pet.y, 1.35, time, {
+    dirX: pet.dirX,
+    moving: pet.moving
+  });
 }
 
 export function drawBossAltar(ctx, altar, time) {
@@ -267,9 +271,26 @@ export function drawGroundDrop(ctx, drop, time) {
 export function drawNpc(ctx, npc, time) {
   const x = Math.round(npc.x);
   const y = Math.round(npc.y);
-  drawShadow(ctx, x, y + 15, 13, 6);
+  const footY = y + 15;
+  drawShadow(ctx, x, footY, 13, 6);
+
+  const npcImg = getNpcAsset(npc.kind);
 
   if (npc.kind === 'dummy') {
+    const wobbleRad = npc.hitFlash > 0 ? Math.sin(time * 48) * 0.18 : 0;
+    if (npcImg) {
+      drawFootAnchoredSprite(ctx, npcImg, x, footY, 52, {
+        frameIndex: npc.hitFlash > 0 ? 3 : 0,
+        tiltRad: wobbleRad,
+        scaleX: npc.hitFlash > 0 ? 1.04 : 1,
+        scaleY: npc.hitFlash > 0 ? 0.96 : 1
+      });
+      if (npc.hitFlash > 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillRect(x - 16, y - 28, 32, 44);
+      }
+      return;
+    }
     const wobble = npc.hitFlash > 0 ? Math.sin(time * 50) * 4 : 0;
     px(ctx, x - 2, y - 4, 4, 20, '#78350F');
     px(ctx, x - 12 + wobble, y - 6, 24, 4, '#92400E');
@@ -280,50 +301,80 @@ export function drawNpc(ctx, npc, time) {
     return;
   }
 
-  let coat = '#1E4E8C';
-  let apron = '#F4F6FA';
-  if (npc.kind === 'herrero') { coat = '#9E2A2B'; apron = '#475569'; }
-  else if (npc.kind === 'mercader') { coat = '#0F766E'; apron = '#D9A441'; }
-  else if (npc.kind === 'guardia_alba') { coat = '#CBD5E1'; apron = '#1E4E8C'; }
-  else if (npc.kind === 'guardia_hierro') { coat = '#7F1D1D'; apron = '#57534E'; }
-
-  px(ctx, x - 10, y - 8, 20, 19, '#0D0A14');
-  px(ctx, x - 8, y - 6, 16, 15, coat);
-  px(ctx, x - 6, y - 1, 12, 10, apron);
-  px(ctx, x - 7, y - 20, 14, 13, '#0D0A14');
-  px(ctx, x - 5, y - 18, 10, 10, npc.kind === 'guardia_hierro' ? '#6D9E51' : '#F2C9A0');
-  if (npc.kind === 'guardia_alba') {
-    px(ctx, x - 6, y - 21, 12, 5, '#E2E8F0');
-    px(ctx, x + 10, y - 16, 3, 26, '#94A3B8'); // lanza plateada
-  } else if (npc.kind === 'guardia_hierro') {
-    px(ctx, x - 6, y - 21, 12, 4, '#57534E');
-    px(ctx, x + 10, y - 14, 4, 24, '#78350F'); // hacha
-    px(ctx, x + 11, y - 15, 6, 7, '#CBD5E1');
+  if (npcImg) {
+    const breathScaleY = 1 + Math.sin(time * 3.5 + x * 0.05) * 0.016;
+    drawFootAnchoredSprite(ctx, npcImg, x, footY, 50, {
+      frameIndex: 0,
+      scaleX: 1 - (breathScaleY - 1) * 0.4,
+      scaleY: breathScaleY
+    });
   } else {
-    px(ctx, x - 5, y - 11, 10, 4, npc.kind === 'herrero' ? '#334155' : '#92400E');
+    let coat = '#1E4E8C';
+    let apron = '#F4F6FA';
+    if (npc.kind === 'herrero') { coat = '#9E2A2B'; apron = '#475569'; }
+    else if (npc.kind === 'mercader') { coat = '#0F766E'; apron = '#D9A441'; }
+    else if (npc.kind === 'guardia_alba') { coat = '#CBD5E1'; apron = '#1E4E8C'; }
+    else if (npc.kind === 'guardia_hierro') { coat = '#7F1D1D'; apron = '#57534E'; }
+
+    px(ctx, x - 10, y - 8, 20, 19, '#0D0A14');
+    px(ctx, x - 8, y - 6, 16, 15, coat);
+    px(ctx, x - 6, y - 1, 12, 10, apron);
+    px(ctx, x - 7, y - 20, 14, 13, '#0D0A14');
+    px(ctx, x - 5, y - 18, 10, 10, npc.kind === 'guardia_hierro' ? '#6D9E51' : '#F2C9A0');
+    if (npc.kind === 'guardia_alba') {
+      px(ctx, x - 6, y - 21, 12, 5, '#E2E8F0');
+      px(ctx, x + 10, y - 16, 3, 26, '#94A3B8');
+    } else if (npc.kind === 'guardia_hierro') {
+      px(ctx, x - 6, y - 21, 12, 4, '#57534E');
+      px(ctx, x + 10, y - 14, 4, 24, '#78350F');
+      px(ctx, x + 11, y - 15, 6, 7, '#CBD5E1');
+    } else {
+      px(ctx, x - 5, y - 11, 10, 4, npc.kind === 'herrero' ? '#334155' : '#92400E');
+    }
+    px(ctx, x - 3, y - 15, 2, 2, '#0D0A14');
+    px(ctx, x + 2, y - 15, 2, 2, '#0D0A14');
   }
-  px(ctx, x - 3, y - 15, 2, 2, '#0D0A14');
-  px(ctx, x + 2, y - 15, 2, 2, '#0D0A14');
 
   if (npc.marker) {
     const floatY = Math.sin(time * 5) * 3;
     ctx.font = 'bold 18px "Pixelify Sans", monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0D0A14';
-    ctx.fillText(npc.marker, x + 1, y - 28 + floatY + 1);
+    ctx.fillText(npc.marker, x + 1, y - 34 + floatY + 1);
     ctx.fillStyle = '#EAB308';
-    ctx.fillText(npc.marker, x, y - 28 + floatY);
+    ctx.fillText(npc.marker, x, y - 34 + floatY);
   }
 }
 
 export function drawEnemy(ctx, e, time) {
-  const bob = Math.sin(time * 8 + e.id) * 1.8;
   const x = Math.round(e.x);
-  const y = Math.round(e.y + bob);
+  const y = Math.round(e.y);
+  const footY = y + (e.isBoss ? 24 : 14);
 
-  drawShadow(ctx, e.x, e.y + (e.isBoss ? 24 : 13), e.radius * 0.85, e.radius * 0.4);
+  drawShadow(ctx, e.x, footY, e.radius * 0.88, e.radius * 0.42);
 
-  if (e.kind === 'lobo' || e.kind === 'lobo_invernal') {
+  // Si es un enemigo común y su sprite PNG (enemigo_lobo, enemigo_trasgo, enemigo_esqueleto, enemigo_elemental) está cargado:
+  const enemyImg = !e.isBoss ? getEnemyAsset(e.kind) : null;
+  if (enemyImg) {
+    const metrics = getSpriteFrameMetrics(enemyImg, 0);
+    const stepPhase = Math.sin(time * 10 + (e.id || 0));
+    const stepWave = Math.abs(stepPhase);
+    const frameIndex = Math.floor(time * 7 + (e.id || 0)) % 2 === 0 ? 1 : 2;
+    const bounceY = !metrics.isFourFrameSheet ? -stepWave * 2.2 : 0;
+    const tiltRad = stepPhase * 0.085;
+    const scaleY = 1 + (stepWave - 0.5) * 0.04;
+    const scaleX = 1 - (stepWave - 0.5) * 0.03;
+    const targetH = e.kind === 'golem_hielo' || e.kind === 'caballero_vacio' ? 54 : 46;
+    const facingRight = (e.homeX !== undefined && e.x > e.homeX + 2);
+
+    drawFootAnchoredSprite(ctx, enemyImg, x, footY + bounceY, targetH, {
+      frameIndex,
+      flipX: facingRight,
+      tiltRad,
+      scaleX,
+      scaleY
+    });
+  } else if (e.kind === 'lobo' || e.kind === 'lobo_invernal') {
     const isIce = e.kind === 'lobo_invernal';
     px(ctx, x - 14, y - 6, 28, 14, '#0D0A14');
     px(ctx, x - 12, y - 4, 24, 10, isIce ? '#CBD5E1' : '#3B1F54');

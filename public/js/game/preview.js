@@ -7,7 +7,13 @@
 
 import { getTexturePattern } from './textures.js';
 import { drawCanvasPixelBadge } from './pixelArt.js';
-import { getAsset, getHeroClassAsset, getPetAsset } from './assetLoader.js';
+import {
+  getAsset,
+  getHeroClassAsset,
+  getPetAsset,
+  getSpriteFrameMetrics,
+  drawFootAnchoredSprite
+} from './assetLoader.js';
 
 function px(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -447,35 +453,57 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
     ctx.restore();
   }
 
-  // Si el asset PNG de la clase (heroina_guerrera, heroina_maga, heroina_arquera) está cargado y procesado con Flood-Fill:
-  const heroImg = getHeroClassAsset(state.heroClass || 'guerrero');
+  // Si el asset PNG de la clase y sexo (heroe_guerrero/mago/arquero o heroina_guerrera/maga/arquera) está cargado y procesado con Flood-Fill:
+  const heroImg = getHeroClassAsset(state.heroClass || 'guerrero', state.gender || 'male');
   if (heroImg) {
     const s = scale;
-    const breath = Math.sin(time * 4.8) * 1.1 * s;
     const facingLeft = state.dir === 3;
+    const isMoving = Boolean(state.moving);
     const attackTimer = state.attackTimer || 0;
-    const atkLunge = attackTimer > 0 ? Math.sin(attackTimer * Math.PI) * 5 * s : 0;
+    const footY = cy + 16 * s;
 
-    // Sombra suave debajo de los pies
+    // Detectar si es spritesheet de 4 cuadros (0=idle, 1=paso A, 2=paso B, 3=ataque) o cuadro único
+    const metrics = getSpriteFrameMetrics(heroImg, 0);
+    let frameIndex = 0;
+    if (attackTimer > 0.15) {
+      frameIndex = 3;
+    } else if (isMoving) {
+      frameIndex = Math.floor(time * 9) % 2 === 0 ? 1 : 2;
+    }
+
+    // Dinámica anclada a la base de los pies (footY):
+    // - Si es cuadro único, aplicar rebote corto de paso, inclinación ~6°-8° y squash-and-stretch pegado al suelo
+    // - Si está quieto (idle), micro-respiración sutil (1-2 px) anclada al suelo
+    const stepWave = isMoving ? Math.abs(Math.sin(time * 13.5)) : 0;
+    const stepBounceY = (!metrics.isFourFrameSheet && isMoving) ? -stepWave * 2.4 * s : 0;
+    const tiltRad = isMoving ? (facingLeft ? -1 : 1) * 0.115 * Math.sin(time * 13.5) : 0;
+    const idleBreathScaleY = !isMoving ? 1 + Math.sin(time * 3.8) * 0.018 : 1;
+    const walkScaleY = isMoving ? 1 + (stepWave - 0.5) * 0.045 : idleBreathScaleY;
+    const walkScaleX = isMoving ? 1 - (stepWave - 0.5) * 0.035 : 1 - (idleBreathScaleY - 1) * 0.5;
+    const atkLunge = attackTimer > 0 ? Math.sin(attackTimer * Math.PI) * 5.5 * s : 0;
+
+    // Sombra ovalada siempre anclada en el suelo bajo los pies (footY)
     ctx.save();
     ctx.fillStyle = 'rgba(13, 10, 20, 0.42)';
     ctx.beginPath();
-    ctx.ellipse(cx, cy + 16 * s, 11 * s, 4.5 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, footY, 11 * s, 4.5 * s, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    const drawH = 38 * s;
-    const aspect = (heroImg.width && heroImg.height) ? heroImg.width / heroImg.height : 0.85;
-    const drawW = drawH * aspect;
-
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.translate(Math.round(cx + (facingLeft ? -atkLunge : atkLunge)), Math.round(cy + 16 * s + breath));
-    if (facingLeft) {
-      ctx.scale(-1, 1);
-    }
-    ctx.drawImage(heroImg, Math.round(-drawW / 2), Math.round(-drawH), Math.round(drawW), Math.round(drawH));
-    ctx.restore();
+    drawFootAnchoredSprite(
+      ctx,
+      heroImg,
+      cx + (facingLeft ? -atkLunge : atkLunge),
+      footY + stepBounceY,
+      38 * s,
+      {
+        frameIndex,
+        flipX: facingLeft,
+        tiltRad,
+        scaleX: walkScaleX,
+        scaleY: walkScaleY
+      }
+    );
 
     // Efecto visual de ataque ("Probar Ataque" o combate en tiempo real)
     if (attackTimer > 0) {
@@ -971,9 +999,17 @@ export function getSkillIconSvg(heroClass, slot) {
 /* =========================================================
    4 MASCOTAS ICÓNICAS 16-BIT (Lobo Blanco, Fantasma, Gato, Dragón)
    ========================================================= */
-export function drawPetSprite(ctx, petId, cx, cy, scale, time) {
+export function drawPetSprite(ctx, petId, cx, cy, scale, time, opts = {}) {
   const s = scale;
-  const bob = Math.sin(time * 6.5) * 1.1 * s;
+  const isAerial = petId === 'fantasma_hoz' || petId === 'gato_volador';
+  const isMoving = Boolean(opts.moving);
+  const facingLeft = opts.dirX !== undefined && opts.dirX < 0;
+  const footY = cy + 8 * s;
+  const bob = isAerial
+    ? Math.sin(time * 5.8) * 1.9 * s - 2 * s
+    : isMoving
+    ? -Math.abs(Math.sin(time * 14)) * 1.6 * s
+    : 0;
   const x = cx;
   const y = cy + bob;
   const p = (ox, oy, ow, oh, col) => px(ctx, x + ox * s, y + oy * s, ow * s, oh * s, col);
@@ -981,20 +1017,23 @@ export function drawPetSprite(ctx, petId, cx, cy, scale, time) {
   ctx.save();
   ctx.fillStyle = 'rgba(13, 10, 20, 0.38)';
   ctx.beginPath();
-  ctx.ellipse(cx, cy + 8 * s, 9 * s, 3.4 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, footY, 9 * s, 3.4 * s, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
   // Si el asset PNG de la mascota (mascota_lobo, mascota_fantasma, mascota_gato, mascota_dragon) está cargado y procesado con Flood-Fill:
   const petImg = getPetAsset(petId);
   if (petImg) {
-    const drawH = 22 * s;
-    const aspect = (petImg.width && petImg.height) ? petImg.width / petImg.height : 1;
-    const drawW = drawH * aspect;
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(petImg, Math.round(x - drawW / 2), Math.round(cy + 8 * s - drawH + bob), Math.round(drawW), Math.round(drawH));
-    ctx.restore();
+    const frameIndex = isMoving ? (Math.floor(time * 9) % 2 === 0 ? 1 : 2) : 0;
+    const tiltRad = (!isAerial && isMoving) ? (facingLeft ? -1 : 1) * 0.09 * Math.sin(time * 14) : 0;
+    const scaleY = isAerial ? 1 : isMoving ? 1 + (Math.abs(Math.sin(time * 14)) - 0.5) * 0.04 : 1 + Math.sin(time * 4) * 0.015;
+    drawFootAnchoredSprite(ctx, petImg, x, footY + bob, 22 * s, {
+      frameIndex,
+      flipX: facingLeft,
+      tiltRad,
+      scaleX: 1,
+      scaleY
+    });
     return;
   }
 
