@@ -111,7 +111,7 @@ export class GameEngine {
       vy: 0,
       radius: 15,
       dirX: 0,
-      dirY: -1,
+      dirY: 1,
       moving: false,
       hp: s.hp || cls.hp,
       maxHp: cls.hp,
@@ -166,8 +166,8 @@ export class GameEngine {
     p.y = spawnY ?? meta.spawnY;
     p.vx = 0;
     p.vy = 0;
-    this.petEntity.x = p.x - 28;
-    this.petEntity.y = p.y + 12;
+    this.petEntity.x = p.x - 36;
+    this.petEntity.y = p.y + 8;
 
     this.projectiles = [];
     this.traps = [];
@@ -625,8 +625,10 @@ export class GameEngine {
       }
     }
 
-    let targetX = p.x - p.dirX * 34;
-    let targetY = p.y - p.dirY * 34 + 8;
+    // La mascota siempre acompaña al costado/detrás del héroe a nivel del suelo (nunca sobre la cabeza)
+    const sideOffset = p.dirX > 0.2 ? -36 : p.dirX < -0.2 ? 36 : -34;
+    let targetX = p.x + sideOffset;
+    let targetY = p.y + 8;
     let targetDropIdx = -1;
     let targetMapGem = null;
     let bestDist = 240;

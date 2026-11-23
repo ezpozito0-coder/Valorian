@@ -191,7 +191,8 @@ export async function apiRequest(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (user?.token) headers.Authorization = `Bearer ${user.token}`;
 
-  const res = await fetch(path, { ...options, headers, credentials: 'same-origin' });
+  const relPath = path.startsWith('/') ? `.${path}` : path;
+  const res = await fetch(relPath, { ...options, headers, credentials: 'same-origin' });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Error HTTP ${res.status}`);
   return data;

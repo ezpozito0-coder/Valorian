@@ -179,7 +179,7 @@
         <div class="hud-left-col">
           <div class="hud-hero-card metallic-frame" id="btn-hud-char-open" title="Abrir Características (C)">
             <div class="hud-class-emblem" id="hud-class-emblem">
-              <span id="hud-class-icon">⚔️</span>
+              <span id="hud-class-icon" class="pixel-ico-wrap"></span>
               <span id="hud-level-badge" class="hud-lvl-pill">Nv.1</span>
             </div>
             <div class="hud-bars-col">
@@ -203,7 +203,7 @@
 
           <!-- Recuadro interactivo de Mascota activa -->
           <button type="button" id="btn-hud-pet" class="hud-pet-card metallic-frame" title="Gestionar Mascotas de Valoria">
-            <span id="hud-pet-icon" class="hud-pet-ico">🐺</span>
+            <span id="hud-pet-icon" class="hud-pet-ico pixel-ico-wrap"></span>
             <div class="hud-pet-info">
               <div class="hud-pet-top">
                 <strong id="hud-pet-name">Lobo Blanco</strong>
@@ -214,7 +214,7 @@
           </button>
 
           <!-- Misión activa (visible sin tapar HUD) -->
-          <button type="button" id="hud-quest-box" class="hud-quest-strip" aria-expanded="true">
+          <button type="button" id="hud-quest-box" class="hud-quest-strip metallic-frame" aria-expanded="true">
             <span class="hud-quest-dot"></span>
             <span id="hud-quest-text" class="hud-quest-text">1/5: Habla con el Tabernero</span>
           </button>
@@ -225,7 +225,7 @@
           <div id="hud-zone" class="hud-zone-pill metallic-frame">Villa Alba</div>
           <div id="hud-boss-bar" class="hud-boss-bar metallic-frame hidden">
             <div class="hud-boss-head">
-              <span class="boss-skull">💀</span>
+              <span class="boss-skull pixel-ico-wrap" id="hud-boss-skull-ico"></span>
               <span id="hud-boss-name" class="hud-boss-name">Malakor · Nv. 25</span>
               <span id="hud-boss-fury" class="boss-fury-tag hidden">¡FURIA!</span>
             </div>
@@ -239,8 +239,12 @@
         <!-- Arriba Derecha: Minimapa + Botón Mapa + Pausa y Jefes -->
         <div class="hud-right">
           <div class="hud-top-mini-btns">
-            <button type="button" id="btn-hud-bosses" class="hud-sq-btn" title="Jefes de Valoria (J)" aria-label="Jefes de Valoria">💀</button>
-            <button type="button" id="btn-hud-pause" class="hud-sq-btn pause" title="Pausa (Esc)" aria-label="Pausa">❚❚</button>
+            <button type="button" id="btn-hud-bosses" class="hud-sq-btn metallic-frame" title="Jefes de Valoria (J)" aria-label="Jefes de Valoria">
+              <span id="ico-hud-bosses" class="pixel-ico-wrap"></span>
+            </button>
+            <button type="button" id="btn-hud-pause" class="hud-sq-btn pause metallic-frame" title="Pausa (Esc)" aria-label="Pausa">
+              <span id="ico-hud-pause" class="pixel-ico-wrap"></span>
+            </button>
           </div>
           <div class="minimap-wrap metallic-frame">
             <canvas id="minimap-canvas" width="112" height="84" aria-label="Minimapa"></canvas>
@@ -252,17 +256,17 @@
       <!-- Barra de accesos rápidos derecha 2x2 (Poción, Mejoras, Tienda, Mochila/Características) -->
       <div class="hud-side-dock grid-2x2" aria-label="Accesos rápidos">
         <button type="button" id="btn-hud-potion" class="hud-sq-btn metallic-frame" title="Poción de Vida (Q)">
-          <span class="dock-ico">🧪</span>
+          <span class="dock-ico pixel-ico-wrap" id="ico-hud-potion"></span>
           <span class="dock-badge" id="hud-potion-count">0</span>
         </button>
         <button type="button" id="btn-hud-upgrades" class="hud-sq-btn metallic-frame" title="Mejoras de Equipo (M)">
-          <span class="dock-ico">⚒️</span>
+          <span class="dock-ico pixel-ico-wrap" id="ico-hud-upgrades"></span>
         </button>
         <button type="button" id="btn-hud-shop" class="hud-sq-btn metallic-frame" title="Tienda de Oro (T)">
-          <span class="dock-ico">🪙</span>
+          <span class="dock-ico pixel-ico-wrap" id="ico-hud-shop"></span>
         </button>
         <button type="button" id="btn-hud-backpack" class="hud-sq-btn metallic-frame" title="Características y Mochila (I / C)">
-          <span class="dock-ico">🎒</span>
+          <span class="dock-ico pixel-ico-wrap" id="ico-hud-backpack"></span>
           <span class="dock-badge" id="hud-bag-count">0/16</span>
         </button>
       </div>

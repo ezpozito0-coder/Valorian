@@ -5,6 +5,7 @@
 
 import { QUALITIES, TITLES } from './data.js';
 import { drawDetailedHeroSprite, drawPetSprite } from './preview.js';
+import { getAsset, getBossAsset } from './assetLoader.js';
 
 function px(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -408,37 +409,49 @@ export function drawEnemy(ctx, e, time) {
     }
     ctx.restore();
 
-    // Alas de energía morada en Vaelor
-    if (e.kind === 'vaelor') {
-      const flap = Math.sin(time * 6) * 5;
-      px(ctx, x - 52, y - 34 - flap, 28, 36, '#4C1D95');
-      px(ctx, x - 48, y - 30 - flap, 20, 26, '#A855F7');
-      px(ctx, x + 24, y - 34 - flap, 28, 36, '#4C1D95');
-      px(ctx, x + 28, y - 30 - flap, 20, 26, '#A855F7');
-    }
+    // Si el asset PNG del jefe (jefe_malakor, jefe_ignis, jefe_boreas, jefe_vaelor) está cargado y procesado con Flood-Fill:
+    const bossImg = getBossAsset(e.kind);
+    if (bossImg) {
+      const breathY = Math.sin(time * 4.2 + (e.id || 0)) * 3;
+      const bw = 96;
+      const bh = 96;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bossImg, Math.round(x - bw / 2), Math.round(y - bh * 0.72 + breathY), bw, bh);
+      ctx.restore();
+    } else {
+      // Fallback procedural: Alas de energía morada en Vaelor
+      if (e.kind === 'vaelor') {
+        const flap = Math.sin(time * 6) * 5;
+        px(ctx, x - 52, y - 34 - flap, 28, 36, '#4C1D95');
+        px(ctx, x - 48, y - 30 - flap, 20, 26, '#A855F7');
+        px(ctx, x + 24, y - 34 - flap, 28, 36, '#4C1D95');
+        px(ctx, x + 28, y - 30 - flap, 20, 26, '#A855F7');
+      }
 
-    // Cuerpo gigante imponente
-    px(ctx, x - 28, y - 20, 56, 44, '#0D0A14');
-    px(ctx, x - 24, y - 16, 48, 36, palette.body);
-    px(ctx, x - 18, y - 8, 36, 12, palette.mid);
-    px(ctx, x - 7, y - 6, 14, 14, palette.core);
-    // Hombros en llamas (Ignis) o cristales (Malakor/Boreas)
-    px(ctx, x - 34, y - 22, 12, 14, palette.mid);
-    px(ctx, x + 22, y - 22, 12, 14, palette.mid);
-    // Cabeza con cuernos / barba escarchada
-    px(ctx, x - 16, y - 40, 32, 22, '#0D0A14');
-    px(ctx, x - 13, y - 37, 26, 16, palette.body);
-    px(ctx, x - 22, y - 48, 6, 14, e.kind === 'boreas' ? '#BAE6FD' : '#D9A441');
-    px(ctx, x + 16, y - 48, 6, 14, e.kind === 'boreas' ? '#BAE6FD' : '#D9A441');
-    px(ctx, x - 8, y - 30, 5, 4, palette.eye);
-    px(ctx, x + 3, y - 30, 5, 4, palette.eye);
-    if (e.kind === 'boreas') {
-      px(ctx, x - 10, y - 22, 20, 10, '#E0F2FE'); // barba escarchada
-    }
-    // Arma gigante (Martillo / Hacha de cristal / Espada del Vacío / Garras)
-    px(ctx, x + 26, y - 34, 8, 52, palette.weapon);
-    if (e.kind === 'ignis' || e.kind === 'boreas') {
-      px(ctx, x + 20, y - 38, 22, 14, palette.core);
+      // Cuerpo gigante imponente
+      px(ctx, x - 28, y - 20, 56, 44, '#0D0A14');
+      px(ctx, x - 24, y - 16, 48, 36, palette.body);
+      px(ctx, x - 18, y - 8, 36, 12, palette.mid);
+      px(ctx, x - 7, y - 6, 14, 14, palette.core);
+      // Hombros en llamas (Ignis) o cristales (Malakor/Boreas)
+      px(ctx, x - 34, y - 22, 12, 14, palette.mid);
+      px(ctx, x + 22, y - 22, 12, 14, palette.mid);
+      // Cabeza con cuernos / barba escarchada
+      px(ctx, x - 16, y - 40, 32, 22, '#0D0A14');
+      px(ctx, x - 13, y - 37, 26, 16, palette.body);
+      px(ctx, x - 22, y - 48, 6, 14, e.kind === 'boreas' ? '#BAE6FD' : '#D9A441');
+      px(ctx, x + 16, y - 48, 6, 14, e.kind === 'boreas' ? '#BAE6FD' : '#D9A441');
+      px(ctx, x - 8, y - 30, 5, 4, palette.eye);
+      px(ctx, x + 3, y - 30, 5, 4, palette.eye);
+      if (e.kind === 'boreas') {
+        px(ctx, x - 10, y - 22, 20, 10, '#E0F2FE'); // barba escarchada
+      }
+      // Arma gigante (Martillo / Hacha de cristal / Espada del Vacío / Garras)
+      px(ctx, x + 26, y - 34, 8, 52, palette.weapon);
+      if (e.kind === 'ignis' || e.kind === 'boreas') {
+        px(ctx, x + 20, y - 38, 22, 14, palette.core);
+      }
     }
   }
 
@@ -513,24 +526,53 @@ export function drawBuilding(ctx, b, time) {
 }
 
 export function drawTree(ctx, t) {
-  drawShadow(ctx, t.x, t.y + 18, 20, 9);
-  px(ctx, t.x - 6, t.y, 12, 22, t.style === 'dead' ? '#3F3F46' : '#5C3A21');
+  drawShadow(ctx, t.x, t.y + 18, 22, 9);
   if (t.style === 'snow_pine') {
-    px(ctx, t.x - 20, t.y - 12, 40, 16, '#14532D');
-    px(ctx, t.x - 16, t.y - 24, 32, 16, '#166534');
-    px(ctx, t.x - 14, t.y - 28, 28, 10, '#F1F5F9'); // nieve
+    px(ctx, t.x - 6, t.y + 2, 12, 20, '#3B2314');
+    px(ctx, t.x - 22, t.y - 10, 44, 16, '#141018');
+    px(ctx, t.x - 20, t.y - 8, 40, 13, '#14532D');
+    px(ctx, t.x - 18, t.y - 22, 36, 16, '#166534');
+    px(ctx, t.x - 14, t.y - 28, 28, 10, '#F1F5F9');
     px(ctx, t.x - 8, t.y - 36, 16, 10, '#FFFFFF');
   } else if (t.style === 'dry_palm') {
-    px(ctx, t.x - 4, t.y - 18, 8, 40, '#78350F');
-    px(ctx, t.x - 20, t.y - 22, 40, 6, '#92400E');
+    px(ctx, t.x - 5, t.y - 16, 10, 38, '#141018');
+    px(ctx, t.x - 4, t.y - 15, 8, 36, '#78350F');
+    px(ctx, t.x - 22, t.y - 22, 44, 6, '#92400E');
     px(ctx, t.x - 14, t.y - 28, 28, 6, '#A16207');
   } else if (t.style === 'dead') {
+    px(ctx, t.x - 6, t.y, 12, 22, '#3F3F46');
     px(ctx, t.x - 16, t.y - 16, 32, 5, '#52525B');
     px(ctx, t.x - 10, t.y - 26, 20, 5, '#52525B');
   } else {
-    px(ctx, t.x - 22, t.y - 24, 44, 28, '#0D0A14');
-    px(ctx, t.x - 20, t.y - 22, 40, 24, t.corrupted ? '#3B1F54' : '#166534');
-    px(ctx, t.x - 16, t.y - 28, 32, 16, t.corrupted ? '#581C87' : '#228B4E');
+    // Si prop_arbol.png está disponible (y no es árbol corrupto), renderizar el sprite Pixel Art con sombra en la base
+    const treeImg = !t.corrupted ? getAsset('prop_arbol') : null;
+    if (treeImg) {
+      const tw = 74;
+      const th = 78;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(treeImg, Math.round(t.x - tw / 2), Math.round(t.y - th + 22), tw, th);
+      ctx.restore();
+      return;
+    }
+    // Fallback procedural: Árbol frondoso multicapa de 16 bits con raíces, corteza sombreada y follaje en 3 tonos
+    const cDark = t.corrupted ? '#2E1065' : '#14532D';
+    const cMid = t.corrupted ? '#4C1D95' : '#15803D';
+    const cLight = t.corrupted ? '#7E22CE' : '#22C55E';
+    // Tronco y raíces con contorno #141018
+    px(ctx, t.x - 8, t.y + 12, 16, 8, '#141018');
+    px(ctx, t.x - 7, t.y - 2, 14, 22, '#141018');
+    px(ctx, t.x - 5, t.y, 10, 19, '#5C3A21');
+    px(ctx, t.x - 5, t.y, 4, 18, '#7C4D2B');
+    // Copa frondosa escalonada (3 lóbulos de follaje con relieve)
+    px(ctx, t.x - 24, t.y - 24, 48, 26, '#141018');
+    px(ctx, t.x - 18, t.y - 34, 36, 16, '#141018');
+    px(ctx, t.x - 22, t.y - 22, 44, 22, cDark);
+    px(ctx, t.x - 20, t.y - 26, 40, 18, cMid);
+    px(ctx, t.x - 16, t.y - 32, 32, 14, cMid);
+    px(ctx, t.x - 14, t.y - 31, 26, 9, cLight);
+    px(ctx, t.x - 18, t.y - 21, 12, 7, cLight);
+    px(ctx, t.x + 6, t.y - 21, 12, 7, cLight);
   }
 }
 

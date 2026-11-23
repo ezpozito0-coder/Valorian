@@ -119,32 +119,32 @@ export const BOSS_META = {
 export const MAPS_META = {
   aldea: {
     id: 'aldea', order: 1, name: 'Aldea Inicial', levelRange: 'Zona Segura', reqLevel: 1,
-    color: '#22C55E', spawnX: 800, spawnY: 700, mapX: 0.19, mapY: 0.56, bossId: null,
+    color: '#22C55E', spawnX: 800, spawnY: 700, mapX: 0.24, mapY: 0.64, bossId: null,
     desc: 'Refugio seguro con Fogata, Taberna, Herrería y Zona de Entrenamiento.'
   },
   bosque: {
     id: 'bosque', order: 2, name: 'Bosque de la Fractura', levelRange: 'Niveles 1–15', reqLevel: 1,
-    color: '#16A34A', spawnX: 800, spawnY: 1140, mapX: 0.37, mapY: 0.45, bossId: null,
+    color: '#16A34A', spawnX: 800, spawnY: 1140, mapX: 0.34, mapY: 0.38, bossId: null,
     desc: 'Sendero Sur, Río con puente, Ruinas y acceso a la cueva corrupta.'
   },
   cueva: {
     id: 'cueva', order: 3, name: 'Cueva del Vacío', levelRange: 'Niveles 15–30', reqLevel: 1,
-    color: '#9333EA', spawnX: 800, spawnY: 1140, mapX: 0.54, mapY: 0.67, bossId: 'malakor',
+    color: '#9333EA', spawnX: 800, spawnY: 1140, mapX: 0.49, mapY: 0.72, bossId: 'malakor',
     desc: 'Túneles oscuros, Paso del Abismo y el Altar del jefe Malakor.'
   },
   desierto: {
     id: 'desierto', order: 4, name: 'Desierto de Ceniza', levelRange: 'Niveles 30–50', reqLevel: 30,
-    color: '#EA580C', spawnX: 800, spawnY: 1140, mapX: 0.75, mapY: 0.65, bossId: 'ignis',
+    color: '#EA580C', spawnX: 800, spawnY: 1140, mapX: 0.71, mapY: 0.66, bossId: 'ignis',
     desc: 'Tierras quemadas con ceniza, lava y el Cráter de Ignis.'
   },
   montanas: {
     id: 'montanas', order: 5, name: 'Montañas Heladas', levelRange: 'Niveles 50–70', reqLevel: 50,
-    color: '#38BDF8', spawnX: 800, spawnY: 1140, mapX: 0.77, mapY: 0.34, bossId: 'boreas',
+    color: '#38BDF8', spawnX: 800, spawnY: 1140, mapX: 0.69, mapY: 0.33, bossId: 'boreas',
     desc: 'Cordilleras nevadas, lago congelado resbaladizo y la Cima de Boreas.'
   },
   fortaleza: {
     id: 'fortaleza', order: 6, name: 'Fortaleza del Vacío', levelRange: 'Niveles 70–90', reqLevel: 70,
-    color: '#7E22CE', spawnX: 800, spawnY: 1140, mapX: 0.52, mapY: 0.24, bossId: 'vaelor',
+    color: '#7E22CE', spawnX: 800, spawnY: 1140, mapX: 0.52, mapY: 0.21, bossId: 'vaelor',
     desc: 'Origen de la Fractura y Salón del Trono de Vaelor.'
   }
 };

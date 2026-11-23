@@ -1,6 +1,7 @@
 /**
  * Controlador de HUD Horizontal 16:9, Características (Equipo 12 ranuras / Habilidades / Talentos),
  * Mascotas de Valoria, Jefes de Valoria, Mapa Ilustrado, Mejoras, Tienda, Logros y Diálogos.
+ * 100% Pixel Art 16-bit real (cero emojis del sistema, cero textos cortados, cero barras de scroll).
  */
 
 import {
@@ -33,11 +34,43 @@ import {
   drawPetSprite,
   drawIllustratedWorldMap
 } from './preview.js';
+import {
+  pixelIcon,
+  drawBossPortraitCard,
+  drawPetPortraitBackdrop
+} from './pixelArt.js';
+import { onAssetsUpdated } from './assetLoader.js';
 
 let lastIconClass = null;
+let lastPetIconKey = null;
+let staticHudIconsMounted = false;
 let selectedBagIndex = -1;
 let selectedWorldMapId = 'aldea';
 let worldMapNodes = [];
+
+onAssetsUpdated(() => {
+  staticHudIconsMounted = false;
+  lastIconClass = null;
+  lastPetIconKey = null;
+});
+
+function ensureStaticHudIcons() {
+  if (staticHudIconsMounted) return;
+  const map = [
+    ['hud-boss-skull-ico', 'skull', 16],
+    ['ico-hud-bosses', 'skull', 20],
+    ['ico-hud-pause', 'pause', 18],
+    ['ico-hud-potion', 'pocion_vida', 22],
+    ['ico-hud-upgrades', 'anvil', 22],
+    ['ico-hud-shop', 'coin', 22],
+    ['ico-hud-backpack', 'backpack', 22]
+  ];
+  for (const [id, key, size] of map) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = pixelIcon(key, size);
+  }
+  staticHudIconsMounted = true;
+}
 
 export function formatQuestStatus(q) {
   if (q.completedAll) return 'Misiones completadas (Explora hasta Nv. 90)';
@@ -50,11 +83,19 @@ export function formatQuestStatus(q) {
 }
 
 export function updateHudDom(snap) {
+  ensureStaticHudIcons();
   const cls = CLASSES[snap.heroClass] || CLASSES.guerrero;
-  const classEmoji = snap.heroClass === 'mago' ? '🪄' : snap.heroClass === 'arquero' ? '🏹' : '⚔️';
 
-  const icoEl = document.getElementById('hud-class-icon');
-  if (icoEl) icoEl.textContent = classEmoji;
+  if (lastIconClass !== snap.heroClass) {
+    lastIconClass = snap.heroClass;
+    const icoEl = document.getElementById('hud-class-icon');
+    if (icoEl) icoEl.innerHTML = pixelIcon(snap.heroClass, 24);
+    for (let i = 0; i < 4; i++) {
+      const ico = document.getElementById(`ico-skill-${i}`);
+      if (ico) ico.innerHTML = getSkillIconSvg(snap.heroClass, i);
+    }
+  }
+
   const lvlEl = document.getElementById('hud-level-badge');
   if (lvlEl) lvlEl.textContent = `Nv.${snap.level}`;
 
@@ -75,16 +116,20 @@ export function updateHudDom(snap) {
   const xpFill = document.getElementById('hud-xp-fill');
   if (xpFill) xpFill.style.width = `${xpPct}%`;
 
-  // Recuadro de Mascota activa
+  // Recuadro de Mascota activa con icono Pixel Art 16x16
   const petObj = snap.activePet ? PETS[snap.activePet] : null;
+  const petKey = petObj ? petObj.id : 'mascota';
+  if (lastPetIconKey !== petKey) {
+    lastPetIconKey = petKey;
+    const petIcoEl = document.getElementById('hud-pet-icon');
+    if (petIcoEl) petIcoEl.innerHTML = pixelIcon(petKey, 20);
+  }
   if (petObj) {
-    document.getElementById('hud-pet-icon').textContent = petObj.icon;
     document.getElementById('hud-pet-name').textContent = petObj.name;
     document.getElementById('hud-pet-lvl').textContent = `Nv.${snap.petLevel}`;
     const pPct = Math.min(100, (snap.petXp / Math.max(1, snap.petXpNeeded)) * 100);
     document.getElementById('hud-pet-xp').style.width = `${pPct}%`;
   } else {
-    document.getElementById('hud-pet-icon').textContent = '🐾';
     document.getElementById('hud-pet-name').textContent = 'Sin mascota';
     document.getElementById('hud-pet-lvl').textContent = 'Abrir';
     document.getElementById('hud-pet-xp').style.width = '0%';
@@ -99,14 +144,6 @@ export function updateHudDom(snap) {
     const lbl = document.getElementById(`lbl-skill-${idx + 1}`);
     if (lbl) lbl.textContent = sk.short;
   });
-
-  if (lastIconClass !== snap.heroClass) {
-    lastIconClass = snap.heroClass;
-    for (let i = 0; i < 4; i++) {
-      const ico = document.getElementById(`ico-skill-${i}`);
-      if (ico) ico.innerHTML = getSkillIconSvg(snap.heroClass, i);
-    }
-  }
 
   for (let i = 0; i < 4; i++) {
     const cdEl = document.getElementById(`cd-skill-${i}`);
@@ -124,7 +161,7 @@ export function updateHudDom(snap) {
     }
   }
 
-  // Barra metálica de Jefe con Calavera y Furia
+  // Barra metálica de Jefe con Calavera Pixel Art y Furia
   const bossWrap = document.getElementById('hud-boss-bar');
   if (snap.boss) {
     bossWrap.classList.remove('hidden');
@@ -156,18 +193,29 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
   const st = engine.getComputedStats();
 
   if (activeTab === 'equipo') {
-    const renderSlot = (slotDef) => {
+    const getSlotInfo = (slotDef) => {
       const val = p.gearSlots?.[slotDef.id];
       const item = val && ITEMS[val] ? ITEMS[val] : null;
       const pet = slotDef.id === 'mascota' && p.activePet ? PETS[p.activePet] : null;
       const isBase = val === 'base';
       const filled = Boolean(item || pet || isBase);
       const isLeg = item?.quality === 4;
-      const icon = item ? item.icon : pet ? pet.icon : slotDef.icon;
-      const tip = item ? `${item.name}: ${item.desc}` : pet ? `${pet.name} (Nv.${p.petProgress?.[pet.id]?.level || 1})` : slotDef.label;
-      return `<button type="button" class="gear-slot-btn ${filled ? 'equipped' : ''} ${isLeg ? 'legendary' : ''}" data-gear-slot="${slotDef.id}" title="${tip}">
-        <span style="font-size:1.1rem">${icon}</span>
-        <span>${slotDef.label.slice(0, 6)}</span>
+      const iconKey = item ? item.id : pet ? pet.id : (slotDef.id === 'anillo1' || slotDef.id === 'anillo2' ? slotDef.id : slotDef.id);
+      const tip = item
+        ? `${slotDef.label}: ${item.name} — ${item.desc}`
+        : pet
+        ? `Mascota: ${pet.name} (Nv.${p.petProgress?.[pet.id]?.level || 1})`
+        : isBase
+        ? `${slotDef.label}: Equipo Base (${slotDef.id === 'arma' ? `${cls.weapon} +${p.equipment.weapon.plus}` : `${cls.armor} +${p.equipment.armor.plus}`})`
+        : `${slotDef.label}: Ranura vacía`;
+      return { filled, isLeg, iconKey, tip };
+    };
+
+    // En cada slot de las 12 ranuras se muestra ÚNICAMENTE el icono Pixel Art centrado (sin texto cortado)
+    const renderSlot = (slotDef) => {
+      const info = getSlotInfo(slotDef);
+      return `<button type="button" class="gear-slot-btn ${info.filled ? 'equipped' : ''} ${info.isLeg ? 'legendary' : ''}" data-gear-slot="${slotDef.id}" data-slot-tip="${info.tip}" title="${info.tip}" aria-label="${slotDef.label}">
+        ${pixelIcon(info.iconKey, 24)}
       </button>`;
     };
 
@@ -182,11 +230,12 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
     body.innerHTML = `
       <div class="char-equip-layout">
         <div class="equip-doll-panel">
+          <div class="panel-subhead">Equipo del Personaje</div>
           <div class="equip-doll-grid">
             <div class="equip-col">${DEFENSE_SLOTS.map(renderSlot).join('')}</div>
             <div class="doll-center-wrap">
-              <canvas id="char-doll-canvas" width="190" height="180"></canvas>
-              <strong style="font-family:var(--font-pixel)">${p.name} · Nv.${p.level} ${getClassLabel(p.heroClass, p.gender)}</strong>
+              <canvas id="char-doll-canvas" width="210" height="184"></canvas>
+              <div id="slot-hover-banner" class="slot-hover-banner">${p.name} · Nv.${p.level} ${getClassLabel(p.heroClass, p.gender)}</div>
             </div>
             <div class="equip-col">${OFFENSE_SLOTS.map(renderSlot).join('')}</div>
           </div>
@@ -196,59 +245,74 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
             <select id="select-active-title">${titleOpts}</select>
           </div>
 
-          <div class="stats-box">
-            <span>Vida: <strong>${st.maxHp}</strong></span>
-            <span>Defensa: <strong>${st.def}</strong></span>
-            <span>Energía (PM): <strong>${st.maxMp}</strong></span>
-            <span>Velocidad: <strong>${Math.round(st.speed / 20)}</strong></span>
-            <span>Ataque: <strong>${st.atk} (+${p.equipment.weapon.plus})</strong></span>
-            <span>Crítico: <strong>${st.crit}%</strong></span>
+          <div class="stats-And-upg-row">
+            <div class="stats-box">
+              <span>Vida: <strong>${st.maxHp}</strong></span>
+              <span>Defensa: <strong>${st.def}</strong></span>
+              <span>Energía: <strong>${st.maxMp}</strong></span>
+              <span>Velocidad: <strong>${Math.round(st.speed / 20)}</strong></span>
+              <span>Ataque: <strong>${st.atk} <small style="color:#4ADE80">(+${p.equipment.weapon.plus})</small></strong></span>
+              <span>Golpe Crítico: <strong>${st.crit}%</strong></span>
+            </div>
+            <button type="button" id="btn-char-go-upgrades" class="btn btn-gold btn-sm">${pixelIcon('anvil', 16)} Mejoras</button>
           </div>
-
-          <button type="button" id="btn-char-go-upgrades" class="btn btn-gold btn-sm">⚒️ Abrir Mejoras (Gemas + Oro)</button>
         </div>
 
         <div class="bag-panel">
-          <div class="modal-head">
-            <strong>Mochila (${p.backpack.length}/16)</strong>
-            <span class="hud-stat gold">${p.gold} Oro</span>
-          </div>
+          <div class="panel-subhead">Mochila (${p.backpack.length}/16)</div>
           <div id="char-bag-grid" class="backpack-grid"></div>
-          <div id="char-bag-detail" class="backpack-detail">Selecciona un objeto para usarlo o equiparlo.</div>
+          <div id="char-bag-detail" class="backpack-detail">Toca un objeto de la mochila o una ranura de equipo para ver sus detalles.</div>
           <div class="bag-footer-bar">
-            <span class="hud-stat gold">🪙 ${p.gold} Oro</span>
+            <span class="gold-counter-box">${pixelIcon('coin', 16)} ${p.gold} Oro</span>
             <button type="button" id="btn-char-use-equip" class="btn btn-gold btn-sm" disabled>Usar / Equipar</button>
           </div>
         </div>
       </div>
     `;
 
-    // Dibujar silueta a color + alas + mascota en el centro
+    // Dibujar silueta detallada + alas + mascota en el centro
     const dollCanvas = document.getElementById('char-doll-canvas');
     if (dollCanvas) {
       const ctx = dollCanvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = '#121725';
-      ctx.fillRect(0, 0, 190, 180);
-      drawDetailedHeroSprite(ctx, 82, 108, 3.1, {
+      ctx.fillStyle = '#0d111a';
+      ctx.fillRect(0, 0, 210, 184);
+      drawDetailedHeroSprite(ctx, 88, 110, 3.2, {
         faction: p.faction, gender: p.gender, race: p.race, heroClass: p.heroClass,
         wings: p.gearSlots?.alas || null, dir: 0, attackTimer: 0
       }, performance.now() / 1000);
-      if (p.activePet) drawPetSprite(ctx, p.activePet, 146, 134, 1.8, performance.now() / 1000);
+      if (p.activePet) drawPetSprite(ctx, p.activePet, 156, 138, 1.9, performance.now() / 1000);
     }
+
+    // Mostrar nombre completo y stats del slot al pasar el mouse o tocar cualquier ranura
+    const slotBanner = document.getElementById('slot-hover-banner');
+    const detailEl = document.getElementById('char-bag-detail');
+    body.querySelectorAll('.gear-slot-btn').forEach((btn) => {
+      const showTip = () => {
+        const tip = btn.dataset.slotTip || '';
+        if (slotBanner) slotBanner.textContent = tip;
+        if (detailEl) detailEl.innerHTML = `<strong>${tip}</strong>`;
+      };
+      btn.addEventListener('mouseenter', showTip);
+      btn.addEventListener('focus', showTip);
+      btn.addEventListener('click', () => {
+        showTip();
+        if (btn.dataset.gearSlot === 'mascota') onOpenPets();
+      });
+    });
 
     document.getElementById('select-active-title').addEventListener('change', (e) => {
       p.activeTitle = e.target.value || null;
+      engine.recalcDerivedStats(false);
       onSave();
       onToast(p.activeTitle ? `Título equipado: ${TITLES[p.activeTitle].name}` : 'Título ocultado.');
+      renderCharacterModal(engine, 'equipo', { onToast, onSave, onOpenUpgrades, onOpenPets, onClose });
     });
 
     document.getElementById('btn-char-go-upgrades').addEventListener('click', () => onOpenUpgrades());
-    body.querySelector('[data-gear-slot="mascota"]')?.addEventListener('click', () => onOpenPets());
 
-    // Renderizar cuadrícula 4x4 de mochila
+    // Renderizar cuadrícula 4x4 de mochila con iconos Pixel Art nítidos
     const bagGrid = document.getElementById('char-bag-grid');
-    const detailEl = document.getElementById('char-bag-detail');
     const useBtn = document.getElementById('btn-char-use-equip');
     selectedBagIndex = -1;
 
@@ -259,15 +323,21 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
       b.className = `bag-slot ${slot ? 'filled' : 'empty'}`;
       if (slot && ITEMS[slot.id]) {
         const it = ITEMS[slot.id];
-        b.innerHTML = `<span style="font-size:1.25rem">${it.icon}</span><strong>${it.name.slice(0, 11)}</strong><small>x${slot.qty}</small>`;
+        b.title = `${it.name} (x${slot.qty}): ${it.desc}`;
+        b.innerHTML = `
+          ${pixelIcon(it.id, 26)}
+          <span class="bag-slot-qty">${slot.qty}</span>
+        `;
         b.addEventListener('click', () => {
+          bagGrid.querySelectorAll('.bag-slot').forEach((el) => el.classList.remove('selected-bag'));
+          b.classList.add('selected-bag');
           selectedBagIndex = i;
-          detailEl.innerHTML = `<div><strong>${it.name} (x${slot.qty})</strong><br/><small>${it.desc}</small></div>`;
+          detailEl.innerHTML = `<div><strong>${it.name} (x${slot.qty})</strong> — <small>${it.desc}</small></div>`;
           useBtn.disabled = !(it.type === 'consumable' || it.type === 'equipment');
-          useBtn.textContent = it.type === 'equipment' ? 'Equipar' : it.teleportVillage ? 'Teletransportar' : 'Usar';
+          useBtn.textContent = it.type === 'equipment' ? 'Equipar' : it.teleportVillage ? 'Teletransportar' : 'Usar / Equipar';
         });
       } else {
-        b.innerHTML = '<small>—</small>';
+        b.innerHTML = '';
       }
       bagGrid.appendChild(b);
     }
@@ -313,7 +383,7 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
       row.className = 'skill-upgrade-row';
       row.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px">
-          <div>${getSkillIconSvg(p.heroClass, idx + 1)}</div>
+          <div class="talent-ico-frame">${getSkillIconSvg(p.heroClass, idx + 1)}</div>
           <div>
             <strong>${sk.name}</strong> <span style="color:#FDE047">Nv.${lvl}/5</span><br/>
             <small>${sk.desc}</small><br/>
@@ -352,21 +422,21 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
     return;
   }
 
-  // Pestaña Talentos (Rama Furia y Rama Baluarte)
+  // Pestaña Talentos (Rama Furia a la izquierda y Rama Baluarte a la derecha en 2 columnas paralelas sin scroll)
   const resetCost = 250;
   body.innerHTML = `
     <div class="skills-tab-layout">
       <div class="bag-footer-bar">
-        <strong>Puntos de Talento disponibles: <span style="color:#FDE047">${p.talentPoints || 0}</span></strong>
+        <strong>PUNTOS DE TALENTO DISPONIBLES: <span style="color:#FDE047">${p.talentPoints || 0}</span></strong>
         <button type="button" id="btn-reset-talents" class="btn btn-secondary btn-sm">Reiniciar (${resetCost} Oro)</button>
       </div>
       <div class="talents-grid">
         <div class="talent-branch">
-          <strong style="color:#F97316">🔥 RAMA FURIA (Ataque y Crítico)</strong>
+          <div class="talent-branch-head" style="color:#F97316">${pixelIcon('flame', 18)} RAMA FURIA (Ataque y Crítico)</div>
           <div id="branch-furia" class="forge-content"></div>
         </div>
         <div class="talent-branch">
-          <strong style="color:#38BDF8">🛡️ RAMA BALUARTE (Vida y Defensa)</strong>
+          <div class="talent-branch-head" style="color:#38BDF8">${pixelIcon('shield', 18)} RAMA BALUARTE (Vida y Defensa)</div>
           <div id="branch-baluarte" class="forge-content"></div>
         </div>
       </div>
@@ -378,8 +448,16 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
     for (const node of list) {
       const lvl = p.talentLevels?.[node.id] || 0;
       const div = document.createElement('div');
-      div.className = 'talent-node';
-      div.innerHTML = `<div><strong>${node.icon} ${node.name} (${lvl}/${node.maxLevel})</strong><br/><small>${node.desc}</small></div>`;
+      div.className = `talent-node ${lvl > 0 ? 'active-talent' : ''}`;
+      div.innerHTML = `
+        <div class="talent-node-left">
+          <div class="talent-ico-frame">${pixelIcon(node.icon, 20)}</div>
+          <div>
+            <strong>${node.name} <span style="color:#FDE047">(${lvl}/${node.maxLevel})</span></strong><br/>
+            <small>${node.desc}</small>
+          </div>
+        </div>
+      `;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn-gold btn-sm';
@@ -417,7 +495,7 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
 }
 
 /* =========================================================
-   MASCOTAS DE VALORIA (4 TARJETAS CON NIVEL Y EXP)
+   MASCOTAS DE VALORIA (1 SOLA FILA DE 4 COLUMNAS IGUALES SIN SCROLL)
    ========================================================= */
 export function renderPetsModal(engine, onToast, onSave) {
   const grid = document.getElementById('pets-grid');
@@ -432,15 +510,29 @@ export function renderPetsModal(engine, onToast, onSave) {
     const atk = Math.round(pet.atkBase + (prog.level - 1) * pet.atkPerLvl);
     const def = Math.round(pet.defBase + (prog.level - 1) * pet.defPerLvl);
     const hp = Math.round(pet.hpBase + (prog.level - 1) * pet.hpPerLvl);
+    const xpPct = Math.min(100, Math.round((prog.xp / Math.max(1, petXpNeeded(prog.level))) * 100));
+
+    const filledHearts = Math.min(5, 3 + Math.floor(prog.level / 4));
+    let heartsHtml = '';
+    for (let h = 0; h < 5; h++) {
+      heartsHtml += pixelIcon(h < filledHearts ? 'heart' : 'heart_empty', 13);
+    }
 
     const card = document.createElement('div');
     card.className = `rpg-portrait-card ${equipped ? 'highlight' : ''}`;
     card.innerHTML = `
-      <div class="rpg-portrait-stage"><canvas width="140" height="100" data-pet-preview="${pet.id}"></canvas></div>
-      <strong>${pet.name}</strong>
-      <small style="color:#FDE047">Nv. ${prog.level} · EXP ${prog.xp}/${petXpNeeded(prog.level)}</small>
-      <small>⚔️+${atk} · 🛡️+${def} · ❤️+${hp}</small>
-      <small style="color:var(--text-muted)">${pet.desc}</small>
+      <div class="rpg-portrait-stage"><canvas width="180" height="158" data-pet-preview="${pet.id}"></canvas></div>
+      <div class="pet-hearts-lvl-row">
+        <span class="pet-hearts">${heartsHtml}</span>
+        <strong style="color:#FDE047;font-size:0.8rem">Nv. ${prog.level}</strong>
+      </div>
+      <div class="hud-xp-wrap"><div class="hud-xp-fill gold" style="width:${xpPct}%"></div></div>
+      <div class="wood-name-plate">${pet.name}</div>
+      <div class="pet-stats-mini">
+        <span class="pet-stat-item">${pixelIcon('guerrero', 14)} +${atk}</span>
+        <span class="pet-stat-item">${pixelIcon('shield', 14)} +${def}</span>
+        <span class="pet-stat-item">${pixelIcon('heart', 14)} +${hp}</span>
+      </div>
     `;
 
     const btn = document.createElement('button');
@@ -463,7 +555,7 @@ export function renderPetsModal(engine, onToast, onSave) {
         renderPetsModal(engine, onToast, onSave);
       });
     } else {
-      btn.className = equipped ? 'btn btn-secondary btn-sm' : 'btn btn-gold btn-sm';
+      btn.className = equipped ? 'btn btn-gold btn-sm' : 'btn btn-secondary btn-sm';
       btn.textContent = equipped ? 'Equipado' : 'Seleccionar';
       btn.disabled = equipped;
       btn.addEventListener('click', () => {
@@ -483,13 +575,14 @@ export function renderPetsModal(engine, onToast, onSave) {
     if (cv) {
       const ctx = cv.getContext('2d');
       ctx.imageSmoothingEnabled = false;
-      drawPetSprite(ctx, pet.id, 70, 56, 3.0, performance.now() / 1000);
+      drawPetPortraitBackdrop(ctx, cv.width, cv.height, pet.id);
+      drawPetSprite(ctx, pet.id, 90, 96, 4.4, performance.now() / 1000);
     }
   }
 }
 
 /* =========================================================
-   JEFES DE VALORIA (4 TARJETAS CON CALAVERA / CORONA Y EQUIPO EXCLUSIVO)
+   JEFES DE VALORIA (4 RETRATOS PIXEL ART EN 1 FILA DE 4 COLUMNAS)
    ========================================================= */
 export function renderBossesModal(engine) {
   const grid = document.getElementById('bosses-grid');
@@ -503,16 +596,22 @@ export function renderBossesModal(engine) {
 
     const card = document.createElement('div');
     card.className = `rpg-portrait-card ${defeated ? 'highlight' : ''}`;
-    card.style.borderTopColor = b.color;
     card.innerHTML = `
-      <div class="rpg-portrait-stage" style="font-size:2.6rem">${defeated ? '👑' : '💀'}</div>
-      <strong style="color:${b.color};font-family:var(--font-pixel);font-size:1.15rem">${b.name}</strong>
-      <small>${b.levelRange} · ${defeated ? 'Derrotado' : 'Pendiente'}</small>
-      <small>${b.powers}</small>
-      <small style="color:#FDE047">Exclusivo: ${dropItem?.icon || ''} ${dropItem?.name || ''}</small>
-      <small style="color:#4ADE80">Título: ${titleObj?.name} (${titleObj?.bonusText})</small>
+      <div class="rpg-portrait-stage" style="height:190px"><canvas width="180" height="190" data-boss-preview="${b.id}"></canvas></div>
+      <div class="boss-skull-badge">${pixelIcon(defeated ? 'crown' : 'skull_red', 18)}</div>
+      <div class="wood-name-plate">
+        <div style="font-size:1rem;letter-spacing:0.04em">${b.name.toUpperCase()}</div>
+        <div style="font-size:0.75rem;color:#E2E8F0">${b.levelRange} · ${defeated ? 'Vencido' : 'Pendiente'}</div>
+      </div>
+      <small style="color:#FDE047;display:inline-flex;align-items:center;justify-content:center;gap:4px">
+        ${dropItem ? pixelIcon(dropItem.id, 14) : ''} ${dropItem?.name || ''}
+      </small>
+      <small style="color:#4ADE80;font-size:0.72rem">${titleObj?.name} (${titleObj?.bonusText})</small>
     `;
     grid.appendChild(card);
+
+    const cv = card.querySelector('canvas');
+    if (cv) drawBossPortraitCard(cv, b.id, performance.now() / 1000);
   }
 }
 
@@ -538,7 +637,7 @@ export function renderWorldMapModal(engine, onClose) {
       <div>
         <strong>${m.order}. ${m.id === 'aldea' ? (FACTIONS[p.faction]?.villageName || m.name) : m.name}</strong>
         <span class="worldmap-lvl">${m.levelRange}</span>
-        ${boss ? `<small style="margin-left:8px;color:${bossDone ? '#FDE047' : '#FCA5A5'}">${bossDone ? '👑' : '💀'} Jefe: ${boss.name} (${bossDone ? 'Vencido' : 'Pendiente'})</small>` : ''}
+        ${boss ? `<small style="margin-left:8px;color:${bossDone ? '#FDE047' : '#FCA5A5'};display:inline-flex;align-items:center;gap:4px">${pixelIcon(bossDone ? 'crown' : 'skull', 14)} Jefe: ${boss.name} (${bossDone ? 'Vencido' : 'Pendiente'})</small>` : ''}
         <p style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">${m.desc}</p>
       </div>
     `;
@@ -604,9 +703,9 @@ export function renderUpgradesModal(engine, pieceKey, onToast, onSave) {
         <small>${statSummary}</small>
       </div>
       <div class="gem-counts">
-        <span class="gem-pill">♦️ ${rubies}</span>
-        <span class="gem-pill">💚 ${emeralds}</span>
-        <span class="gem-pill">💎 ${sapphires}</span>
+        <span class="gem-pill" style="display:inline-flex;align-items:center;gap:4px">${pixelIcon('gema_rubi', 14)} ${rubies}</span>
+        <span class="gem-pill" style="display:inline-flex;align-items:center;gap:4px">${pixelIcon('gema_esmeralda', 14)} ${emeralds}</span>
+        <span class="gem-pill" style="display:inline-flex;align-items:center;gap:4px">${pixelIcon('gema_zafiro', 14)} ${sapphires}</span>
       </div>
     </div>
   `;
@@ -675,7 +774,7 @@ export function renderShopModal(engine, shopTab, onToast, onSave, onOpenPets) {
     const item = ITEMS[id];
     const row = document.createElement('div');
     row.className = 'forge-item';
-    row.innerHTML = `<div><strong>${item.icon} ${item.name}</strong><br/><small>${item.desc} · ${item.price} Oro</small></div>`;
+    row.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><div class="talent-ico-frame">${pixelIcon(item.id, 22)}</div><div><strong>${item.name}</strong><br/><small>${item.desc} · ${item.price} Oro</small></div></div>`;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-gold btn-sm';
@@ -705,7 +804,7 @@ export function renderAchievementsModal(saveData) {
     const prog = saveData ? ach.progress(saveData) : '0';
     const card = document.createElement('div');
     card.className = `achievement-card ${isDone ? 'unlocked' : ''}`;
-    card.innerHTML = `<span class="ach-icon">${ach.icon}</span><div class="ach-info"><strong>${ach.title}</strong><small>${ach.desc}</small></div><span class="ach-status">${isDone ? '✓ Logrado' : prog}</span>`;
+    card.innerHTML = `<span class="ach-icon">${pixelIcon(ach.icon, 24)}</span><div class="ach-info"><strong>${ach.title}</strong><small>${ach.desc}</small></div><span class="ach-status">${isDone ? '✓ Logrado' : prog}</span>`;
     list.appendChild(card);
   }
 }

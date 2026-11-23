@@ -3,7 +3,24 @@
  * Cero impacto en FPS: cada patrón se dibuja una sola vez y se reutiliza en Canvas.
  */
 
+import { getAsset, onAssetsUpdated } from './assetLoader.js';
+
 const patternCache = new Map();
+
+// Cuando terminen de cargar las imágenes (tile_cesped.png, tile_adoquin.png), limpiar la caché de patrones
+onAssetsUpdated(() => {
+  patternCache.clear();
+});
+
+function makeImageTile(img, size = 128) {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, size, size);
+  return c;
+}
 
 function makeTile(size, drawFn) {
   const c = document.createElement('canvas');
@@ -164,6 +181,22 @@ const TILE_BUILDERS = {
 
 export function getTexturePattern(ctx, name) {
   if (!patternCache.has(name)) {
+    if (name === 'grass_lush') {
+      const grassImg = getAsset('tile_cesped');
+      if (grassImg) {
+        const tileCanvas = makeImageTile(grassImg, 128);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'cobble_alba') {
+      const cobbleImg = getAsset('tile_adoquin');
+      if (cobbleImg) {
+        const tileCanvas = makeImageTile(cobbleImg, 96);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    }
+
     const builder = TILE_BUILDERS[name];
     if (!builder) return null;
     const tileCanvas = builder();
