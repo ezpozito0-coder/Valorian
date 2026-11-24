@@ -696,10 +696,6 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.strokeStyle = '#E0F2FE';
     ctx.lineWidth = 4;
     ctx.strokeRect(280, 420, 1040, 310);
-    ctx.fillStyle = getTexturePattern(ctx, 'cobble_alba') || '#94A3B8';
-    ctx.beginPath();
-    ctx.arc(800, 255, 145, 0, Math.PI * 2);
-    ctx.fill();
   } else if (map.id === 'fortaleza') {
     ctx.fillStyle = getTexturePattern(ctx, 'obsidian_floor') || '#120D1D';
     ctx.fillRect(0, 0, W, H);
