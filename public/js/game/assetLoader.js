@@ -55,11 +55,31 @@ export const ASSET_MANIFEST = {
   edificio_herreria: { path: './assets/edificio_herreria.png', floodFill: false },
   edificio_refugio: { path: './assets/edificio_refugio.png', floodFill: false },
 
-  // Props Animados en Spritesheets de 4 Cuadros y GIFs (4)
+  // Props Animados en Spritesheets de 4 Cuadros y GIFs (10)
   prop_fuente: { path: './assets/prop_fuente.png', floodFill: false },
   prop_fogata: { path: './assets/prop_fogata.png', floodFill: false },
   prop_portal: { path: './assets/prop_portal.png', floodFill: false },
-  prop_cofre: { path: './assets/prop_cofre.png', floodFill: false }
+  prop_cofre: { path: './assets/prop_cofre.png', floodFill: false },
+  prop_antorcha: { path: './assets/prop_antorcha.png', floodFill: false },
+  prop_antorcha_vacio: { path: './assets/prop_antorcha_vacio.png', floodFill: false },
+  prop_estandarte_alba: { path: './assets/prop_estandarte_alba.png', floodFill: false },
+  prop_estandarte_hierro: { path: './assets/prop_estandarte_hierro.png', floodFill: false },
+  prop_cristal_vacio: { path: './assets/prop_cristal_vacio.png', floodFill: false },
+  prop_altar_jefe: { path: './assets/prop_altar_jefe.png', floodFill: false },
+
+  // Árboles y Props de Escenarios Pixel Art (12)
+  prop_pino_nevado: { path: './assets/prop_pino_nevado.png', floodFill: false },
+  prop_palmera_seca: { path: './assets/prop_palmera_seca.png', floodFill: false },
+  prop_arbol_muerto: { path: './assets/prop_arbol_muerto.png', floodFill: false },
+  prop_yunque: { path: './assets/prop_yunque.png', floodFill: false },
+  prop_barril: { path: './assets/prop_barril.png', floodFill: false },
+  prop_letrero: { path: './assets/prop_letrero.png', floodFill: false },
+  prop_pilar_ruina: { path: './assets/prop_pilar_ruina.png', floodFill: false },
+  prop_estatua_oscura: { path: './assets/prop_estatua_oscura.png', floodFill: false },
+  prop_vagoneta: { path: './assets/prop_vagoneta.png', floodFill: false },
+  prop_caravana: { path: './assets/prop_caravana.png', floodFill: false },
+  prop_cristal_hielo: { path: './assets/prop_cristal_hielo.png', floodFill: false },
+  prop_arbusto: { path: './assets/prop_arbusto.png', floodFill: false }
 };
 
 // Mapeo de los 16 iconos de iconos_equipo.png (grilla 4x4)

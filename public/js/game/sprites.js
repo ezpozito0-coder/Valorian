@@ -141,9 +141,15 @@ export function drawBossAltar(ctx, altar, time) {
   ctx.stroke();
   ctx.restore();
 
-  px(ctx, x - 14, y - 10, 28, 20, '#334155');
-  px(ctx, x - 10, y - 14, 20, 6, '#94A3B8');
-  px(ctx, x - 4, y - 22, 8, 10, '#A855F7');
+  const altarSheet = getAsset('prop_altar_jefe');
+  if (altarSheet) {
+    const frameIndex = Math.floor(time * 5) % 4;
+    drawFootAnchoredSprite(ctx, altarSheet, x, y + 18, 66, { frameIndex });
+  } else {
+    px(ctx, x - 14, y - 10, 28, 20, '#334155');
+    px(ctx, x - 10, y - 14, 20, 6, '#94A3B8');
+    px(ctx, x - 4, y - 22, 8, 10, '#A855F7');
+  }
   ctx.font = 'bold 11px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FDE047';
@@ -803,7 +809,18 @@ export function drawBuilding(ctx, b, time) {
 
 export function drawTree(ctx, t) {
   drawShadow(ctx, t.x, t.y + 18, 22, 9);
+  const drawTreeSprite = (assetKey, tw, th, yOffset = 22) => {
+    const img = getAsset(assetKey);
+    if (!img) return false;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, Math.round(t.x - tw / 2), Math.round(t.y - th + yOffset), tw, th);
+    ctx.restore();
+    return true;
+  };
+
   if (t.style === 'snow_pine') {
+    if (drawTreeSprite('prop_pino_nevado', 76, 82)) return;
     px(ctx, t.x - 6, t.y + 2, 12, 20, '#3B2314');
     px(ctx, t.x - 22, t.y - 10, 44, 16, '#141018');
     px(ctx, t.x - 20, t.y - 8, 40, 13, '#14532D');
@@ -811,26 +828,19 @@ export function drawTree(ctx, t) {
     px(ctx, t.x - 14, t.y - 28, 28, 10, '#F1F5F9');
     px(ctx, t.x - 8, t.y - 36, 16, 10, '#FFFFFF');
   } else if (t.style === 'dry_palm') {
+    if (drawTreeSprite('prop_palmera_seca', 78, 84)) return;
     px(ctx, t.x - 5, t.y - 16, 10, 38, '#141018');
     px(ctx, t.x - 4, t.y - 15, 8, 36, '#78350F');
     px(ctx, t.x - 22, t.y - 22, 44, 6, '#92400E');
     px(ctx, t.x - 14, t.y - 28, 28, 6, '#A16207');
   } else if (t.style === 'dead') {
+    if (drawTreeSprite('prop_arbol_muerto', 74, 80)) return;
     px(ctx, t.x - 6, t.y, 12, 22, '#3F3F46');
     px(ctx, t.x - 16, t.y - 16, 32, 5, '#52525B');
     px(ctx, t.x - 10, t.y - 26, 20, 5, '#52525B');
   } else {
     // Renderizar el sprite Pixel Art correspondiente (pino morado si está corrupto, árbol verde si no)
-    const treeImg = getAsset(t.corrupted ? 'prop_pino_morado' : 'prop_arbol');
-    if (treeImg) {
-      const tw = t.corrupted ? 76 : 74;
-      const th = t.corrupted ? 82 : 78;
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(treeImg, Math.round(t.x - tw / 2), Math.round(t.y - th + 22), tw, th);
-      ctx.restore();
-      return;
-    }
+    if (drawTreeSprite(t.corrupted ? 'prop_pino_morado' : 'prop_arbol', t.corrupted ? 76 : 74, t.corrupted ? 82 : 78)) return;
     // Fallback procedural: Árbol frondoso multicapa de 16 bits con raíces, corteza sombreada y follaje en 3 tonos
     const cDark = t.corrupted ? '#2E1065' : '#14532D';
     const cMid = t.corrupted ? '#4C1D95' : '#15803D';
@@ -901,17 +911,53 @@ export function drawProp(ctx, prop, time) {
     px(ctx, x - 11, y - 10, 3, 12, '#BAE6FD');
     px(ctx, x + 8, y - 10, 3, 12, '#BAE6FD');
   } else if (prop.kind === 'banner_alba' || prop.kind === 'banner_hierro') {
+    const bannerSheet = getAsset(prop.kind === 'banner_alba' ? 'prop_estandarte_alba' : 'prop_estandarte_hierro');
+    if (bannerSheet) {
+      drawShadow(ctx, x, y + 8, 12, 4);
+      const frameIndex = Math.floor(time * 6 + x * 0.05) % 4;
+      drawFootAnchoredSprite(ctx, bannerSheet, x + 6, y + 10, 48, { frameIndex });
+      return;
+    }
     const wave = Math.sin(time * 6 + x) * 2;
     px(ctx, x - 2, y - 26, 4, 34, '#78350F');
     px(ctx, x + 2, y - 24, 14 + wave, 16, prop.kind === 'banner_alba' ? '#1E4E8C' : '#9E2A2B');
     px(ctx, x + 5, y - 20, 6, 6, prop.kind === 'banner_alba' ? '#D9A441' : '#C97A32');
   } else if (prop.kind === 'torch' || prop.kind === 'torch_void') {
+    const isVoid = prop.kind === 'torch_void';
+    const torchSheet = getAsset(isVoid ? 'prop_antorcha_vacio' : 'prop_antorcha');
+    if (torchSheet) {
+      ctx.save();
+      const gr = ctx.createRadialGradient(x, y - 10, 2, x, y - 10, 34);
+      gr.addColorStop(0, isVoid ? 'rgba(168, 85, 247, 0.36)' : 'rgba(251, 146, 60, 0.36)');
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.arc(x, y - 10, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      drawShadow(ctx, x, y + 8, 9, 4);
+      const frameIndex = Math.floor(time * 8 + x * 0.07) % 4;
+      drawFootAnchoredSprite(ctx, torchSheet, x, y + 10, 42, { frameIndex });
+      return;
+    }
     px(ctx, x - 2, y - 10, 4, 18, '#57534E');
     const fl = Math.sin(time * 16 + x) * 2;
-    px(ctx, x - 4, y - 18 - fl, 8, 9, prop.kind === 'torch_void' ? '#9333EA' : '#EA580C');
-    px(ctx, x - 2, y - 16 - fl, 4, 5, prop.kind === 'torch_void' ? '#F0ABFC' : '#FDE047');
+    px(ctx, x - 4, y - 18 - fl, 8, 9, isVoid ? '#9333EA' : '#EA580C');
+    px(ctx, x - 2, y - 16 - fl, 4, 5, isVoid ? '#F0ABFC' : '#FDE047');
   } else if (prop.kind === 'anvil') {
-    drawShadow(ctx, x, y + 8, 14, 5);
+    drawShadow(ctx, x, y + 8, 15, 6);
+    const img = getAsset('prop_yunque');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, Math.round(x - 20), Math.round(y - 26), 40, 40);
+      ctx.restore();
+      if (Math.sin(time * 14) > 0.65) {
+        px(ctx, x + 4, y - 16, 3, 3, '#FDE047');
+        px(ctx, x - 5, y - 14, 2, 2, '#FB923C');
+      }
+      return;
+    }
     px(ctx, x - 12, y - 4, 24, 10, '#334155');
     px(ctx, x - 7, y + 4, 14, 6, '#1E293B');
     if (Math.sin(time * 14) > 0.6) {
@@ -919,24 +965,71 @@ export function drawProp(ctx, prop, time) {
       px(ctx, x - 6, y - 8, 2, 2, '#FB923C');
     }
   } else if (prop.kind === 'barrel') {
-    drawShadow(ctx, x, y + 8, 10, 4);
+    drawShadow(ctx, x, y + 8, 11, 5);
+    const img = getAsset('prop_barril');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, Math.round(x - 16), Math.round(y - 20), 32, 32);
+      ctx.restore();
+      return;
+    }
     px(ctx, x - 8, y - 10, 16, 18, '#78350F');
     px(ctx, x - 8, y - 6, 16, 2, '#334155');
     px(ctx, x - 8, y + 2, 16, 2, '#334155');
   } else if (prop.kind === 'sign') {
+    drawShadow(ctx, x, y + 11, 10, 4);
+    const img = getAsset('prop_letrero');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, Math.round(x - 20), Math.round(y - 26), 40, 40);
+      ctx.restore();
+      return;
+    }
     px(ctx, x - 2, y - 4, 4, 16, '#78350F');
     px(ctx, x - 14, y - 14, 28, 12, '#A16207');
     px(ctx, x - 10, y - 10, 20, 2, '#FEF08A');
   } else if (prop.kind === 'ruin_pillar' || prop.kind === 'dark_statue') {
-    drawShadow(ctx, x, y + 14, 18, 7);
+    drawShadow(ctx, x, y + 14, 19, 7);
+    const img = getAsset(prop.kind === 'dark_statue' ? 'prop_estatua_oscura' : 'prop_pilar_ruina');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, Math.round(x - 26), Math.round(y - 42), 52, 60);
+      ctx.restore();
+      return;
+    }
     px(ctx, x - 14, y - 24, 28, 38, '#0D0A14');
     px(ctx, x - 12, y - 22, 24, 34, prop.kind === 'dark_statue' ? '#312E81' : '#64748B');
     px(ctx, x - 8, y - 18, 16, 6, prop.kind === 'dark_statue' ? '#9333EA' : '#94A3B8');
   } else if (prop.kind === 'minecart' || prop.kind === 'caravan') {
-    drawShadow(ctx, x, y + 10, 20, 7);
-    px(ctx, x - 18, y - 10, 36, 18, prop.kind === 'caravan' ? '#92400E' : '#475569');
-    px(ctx, x - 14, y - 6, 28, 8, prop.kind === 'caravan' ? '#D6C7B2' : '#1E293B');
+    const isCaravan = prop.kind === 'caravan';
+    drawShadow(ctx, x, y + 12, isCaravan ? 30 : 20, 8);
+    const img = getAsset(isCaravan ? 'prop_caravana' : 'prop_vagoneta');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      if (isCaravan) {
+        ctx.drawImage(img, Math.round(x - 38), Math.round(y - 42), 76, 60);
+      } else {
+        ctx.drawImage(img, Math.round(x - 26), Math.round(y - 28), 52, 44);
+      }
+      ctx.restore();
+      return;
+    }
+    px(ctx, x - 18, y - 10, 36, 18, isCaravan ? '#92400E' : '#475569');
+    px(ctx, x - 14, y - 6, 28, 8, isCaravan ? '#D6C7B2' : '#1E293B');
   } else if (prop.kind === 'ice_crystal') {
+    drawShadow(ctx, x, y + 10, 14, 5);
+    const img = getAsset('prop_cristal_hielo');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, Math.round(x - 21), Math.round(y - 36), 42, 50);
+      ctx.restore();
+      return;
+    }
     px(ctx, x - 7, y - 18, 14, 24, '#0284C7');
     px(ctx, x - 4, y - 22, 8, 22, '#7DD3FC');
   } else if (prop.kind === 'void_crystal_giant') {
@@ -947,11 +1040,25 @@ export function drawProp(ctx, prop, time) {
     ctx.arc(x, y - 10 + fl, 44, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+    const crystalSheet = getAsset('prop_cristal_vacio');
+    if (crystalSheet) {
+      const frameIndex = Math.floor(time * 5) % 4;
+      drawFootAnchoredSprite(ctx, crystalSheet, x, y + 26 + fl, 84, { frameIndex });
+      return;
+    }
     px(ctx, x - 16, y - 44 + fl, 32, 56, '#4C1D95');
     px(ctx, x - 10, y - 54 + fl, 20, 62, '#9333EA');
     px(ctx, x - 4, y - 44 + fl, 8, 42, '#F5D0FE');
   } else if (prop.kind === 'bush') {
-    drawShadow(ctx, x, y + 8, 14, 5);
+    drawShadow(ctx, x, y + 9, 16, 6);
+    const img = getAsset('prop_arbusto');
+    if (img) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, Math.round(x - 20), Math.round(y - 20), 40, 34);
+      ctx.restore();
+      return;
+    }
     px(ctx, x - 14, y - 8, 28, 16, '#14532D');
     px(ctx, x - 10, y - 12, 20, 12, '#16A34A');
   } else if (prop.kind === 'flower') {
