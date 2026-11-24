@@ -820,11 +820,11 @@ export function drawTree(ctx, t) {
     px(ctx, t.x - 16, t.y - 16, 32, 5, '#52525B');
     px(ctx, t.x - 10, t.y - 26, 20, 5, '#52525B');
   } else {
-    // Si prop_arbol.png está disponible (y no es árbol corrupto), renderizar el sprite Pixel Art con sombra en la base
-    const treeImg = !t.corrupted ? getAsset('prop_arbol') : null;
+    // Renderizar el sprite Pixel Art correspondiente (pino morado si está corrupto, árbol verde si no)
+    const treeImg = getAsset(t.corrupted ? 'prop_pino_morado' : 'prop_arbol');
     if (treeImg) {
-      const tw = 74;
-      const th = 78;
+      const tw = t.corrupted ? 76 : 74;
+      const th = t.corrupted ? 82 : 78;
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(treeImg, Math.round(t.x - tw / 2), Math.round(t.y - th + 22), tw, th);
