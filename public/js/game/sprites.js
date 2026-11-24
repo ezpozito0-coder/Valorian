@@ -165,9 +165,6 @@ export function drawCampfire(ctx, fire, time) {
   ctx.beginPath();
   ctx.arc(x, y, fire.radius, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(253, 224, 71, 0.28)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
   ctx.restore();
 
   // Usar spritesheet animado de 4 cuadros prop_fogata.png (y prop_fogata.gif)
@@ -182,13 +179,6 @@ export function drawCampfire(ctx, fire, time) {
     px(ctx, x - 8, y - 18 - flicker * 0.5, 16, 15, '#EA580C');
     px(ctx, x - 5, y - 22 - flicker, 10, 15, '#FACC15');
   }
-
-  ctx.font = 'bold 11px "Pixelify Sans", monospace';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#0D0A14';
-  ctx.fillText('FOGATA', x + 1, y + 25);
-  ctx.fillStyle = '#FEF08A';
-  ctx.fillText('FOGATA', x, y + 24);
 }
 
 export function drawPortal(ctx, portal, time, playerLevel) {
