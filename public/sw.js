@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cronicas-fractura-v25';
+const CACHE_NAME = 'cronicas-fractura-v26';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -34,6 +34,17 @@ const APP_ASSETS = [
   './assets/tile_adoquin.png',
   './assets/prop_arbol.png',
   './assets/iconos_equipo.png',
+  './assets/edificio_taberna.png',
+  './assets/edificio_herreria.png',
+  './assets/edificio_refugio.png',
+  './assets/prop_fuente.png',
+  './assets/prop_fuente.gif',
+  './assets/prop_fogata.png',
+  './assets/prop_fogata.gif',
+  './assets/prop_portal.png',
+  './assets/prop_portal.gif',
+  './assets/prop_cofre.png',
+  './assets/prop_cofre.gif',
   './css/styles.css',
   './js/app.js',
   './js/router.js',

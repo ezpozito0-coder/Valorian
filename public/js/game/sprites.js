@@ -170,36 +170,17 @@ export function drawCampfire(ctx, fire, time) {
   ctx.stroke();
   ctx.restore();
 
-  drawShadow(ctx, x, y + 6, 20, 8);
-
-  // Anillo de 8 piedras de río sombreadas en 16-bit
-  const stones = [
-    [-16, 2], [-11, 6], [-3, 7], [6, 6], [13, 2], [11, -3], [2, -5], [-10, -3]
-  ];
-  for (const [sx, sy] of stones) {
-    px(ctx, x + sx - 1, y + sy - 1, 7, 6, '#0D0A14');
-    px(ctx, x + sx, y + sy, 5, 4, '#64748B');
-    px(ctx, x + sx, y + sy, 3, 2, '#94A3B8');
-  }
-
-  // Troncos cruzados con brasas incandescentes
-  px(ctx, x - 13, y - 1, 26, 6, '#3B1D0A');
-  px(ctx, x - 11, y - 3, 22, 5, '#78350F');
-  px(ctx, x - 6, y - 1, 12, 3, '#EA580C');
-
-  // Llamas pixeladas en 4 tonos
-  const flicker = Math.sin(time * 18) * 3;
-  const f2 = Math.cos(time * 14) * 2;
-  px(ctx, x - 10, y - 14 - flicker * 0.3, 20, 14, '#DC2626');
-  px(ctx, x - 8, y - 18 - flicker * 0.5, 16, 15, '#EA580C');
-  px(ctx, x - 5 + f2 * 0.4, y - 22 - flicker, 10, 15, '#FACC15');
-  px(ctx, x - 2, y - 14 - flicker * 0.4, 5, 9, '#FEF9C3');
-
-  // Chispas ascendentes
-  for (let i = 0; i < 4; i++) {
-    const sp = ((time * 34) + i * 9) % 28;
-    const sx = x + Math.sin(time * 5 + i * 2) * 7;
-    px(ctx, sx, y - 14 - sp, 2, 2, i % 2 === 0 ? '#FEF08A' : '#FB923C');
+  // Usar spritesheet animado de 4 cuadros prop_fogata.png (y prop_fogata.gif)
+  const fireSheet = getAsset('prop_fogata');
+  if (fireSheet) {
+    const frameIndex = Math.floor(time * 8) % 4;
+    drawFootAnchoredSprite(ctx, fireSheet, x, y + 14, 58, { frameIndex });
+  } else {
+    drawShadow(ctx, x, y + 6, 20, 8);
+    const flicker = Math.sin(time * 18) * 3;
+    px(ctx, x - 11, y - 3, 22, 5, '#78350F');
+    px(ctx, x - 8, y - 18 - flicker * 0.5, 16, 15, '#EA580C');
+    px(ctx, x - 5, y - 22 - flicker, 10, 15, '#FACC15');
   }
 
   ctx.font = 'bold 11px "Pixelify Sans", monospace';
@@ -215,41 +196,29 @@ export function drawPortal(ctx, portal, time, playerLevel) {
   const y = Math.round(portal.y);
   const locked = portal.reqLevel && playerLevel < portal.reqLevel;
   const mainColor = locked ? '#64748B' : portal.color || '#38BDF8';
-  const pulse = Math.sin(time * 5) * 4;
 
-  drawShadow(ctx, x, y + 12, 38, 12);
-
-  // Vórtice de energía rúnica multicapa
-  ctx.save();
-  ctx.fillStyle = locked ? 'rgba(100,116,139,0.25)' : 'rgba(56, 189, 248, 0.25)';
-  ctx.beginPath();
-  ctx.ellipse(x, y, 36 + pulse * 0.4, 20 + pulse * 0.2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = mainColor;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(x, y, 28, 15, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = locked ? '#94A3B8' : '#E0F2FE';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.ellipse(x, y, 18 - pulse * 0.2, 9, 0, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Obeliscos rúnicos de piedra a izquierda y derecha del portal
-  [-34, 24].forEach((ox) => {
-    px(ctx, x + ox - 1, y - 22, 12, 32, '#0D0A14');
-    px(ctx, x + ox, y - 20, 10, 28, '#475569');
-    px(ctx, x + ox + 1, y - 20, 4, 26, '#94A3B8');
-    px(ctx, x + ox + 3, y - 12, 4, 8, mainColor);
-  });
-
-  // Partículas orbitando el portal
-  for (let i = 0; i < 4; i++) {
-    const a = time * 3 + (i * Math.PI) / 2;
-    px(ctx, x + Math.cos(a) * 26 - 2, y + Math.sin(a) * 14 - 2, 4, 4, locked ? '#94A3B8' : '#E0F2FE');
+  const portalSheet = getAsset('prop_portal');
+  if (portalSheet) {
+    const frameIndex = Math.floor(time * 7) % 4;
+    drawFootAnchoredSprite(ctx, portalSheet, x, y + 26, 86, {
+      frameIndex,
+      filter: locked ? 'grayscale(0.85) brightness(0.8)' : null
+    });
+  } else {
+    const pulse = Math.sin(time * 5) * 4;
+    drawShadow(ctx, x, y + 12, 38, 12);
+    ctx.save();
+    ctx.fillStyle = locked ? 'rgba(100,116,139,0.25)' : 'rgba(56, 189, 248, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 36 + pulse * 0.4, 20 + pulse * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 28, 15, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.restore();
 
   ctx.font = 'bold 12px "Pixelify Sans", monospace';
   ctx.textAlign = 'center';
@@ -266,22 +235,25 @@ export function drawPortal(ctx, portal, time, playerLevel) {
 export function drawChest(ctx, chest, time) {
   const x = Math.round(chest.x);
   const y = Math.round(chest.y);
+  const chestSheet = getAsset('prop_cofre');
+  if (chestSheet) {
+    const frameX = chest.opened ? 64 : 0;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(chestSheet, frameX, 0, 64, 64, x - 26, y - 32, 52, 52);
+    ctx.restore();
+    return;
+  }
   drawShadow(ctx, x, y + 12, 18, 7);
-  // Base de madera con herrajes de hierro y bandas doradas
   px(ctx, x - 15, y - 11, 30, 22, '#0D0A14');
   px(ctx, x - 13, y - 9, 26, 18, chest.opened ? '#3B1D0A' : '#92400E');
   px(ctx, x - 13, y - 9, 26, 6, chest.opened ? '#1C1917' : '#B45309');
-  // Bandas metálicas doradas laterales
   px(ctx, x - 11, y - 9, 3, 18, '#D9A441');
   px(ctx, x + 8, y - 9, 3, 18, '#D9A441');
   if (!chest.opened) {
     px(ctx, x - 13, y - 3, 26, 3, '#D9A441');
     px(ctx, x - 3, y - 5, 6, 7, '#FDE047');
     px(ctx, x - 1, y - 3, 2, 3, '#0D0A14');
-    if (Math.sin(time * 6 + x) > 0.15) {
-      px(ctx, x + 11, y - 15, 3, 3, '#FDE047');
-      px(ctx, x - 14, y - 13, 2, 2, '#FEF9C3');
-    }
   }
 }
 
@@ -662,7 +634,51 @@ export function drawCrystal(ctx, c, time) {
 }
 
 export function drawBuilding(ctx, b, time) {
-  // Sombra proyectada profunda del edificio
+  const assetKey =
+    b.id === 'forja'
+      ? 'edificio_herreria'
+      : b.id === 'refugio'
+      ? 'edificio_refugio'
+      : 'edificio_taberna';
+  const bImg = getAsset(assetKey);
+
+  if (bImg) {
+    // Humo animado saliendo de la chimenea sobre el sprite ilustrado
+    if (b.chimney) {
+      const cx = b.x + b.w * 0.78;
+      const cy = b.y - 6;
+      for (let i = 0; i < 3; i++) {
+        const puff = ((time * 18) + i * 10) % 28;
+        ctx.fillStyle = `rgba(226, 232, 240, ${Math.max(0, 0.55 - puff / 50)})`;
+        ctx.beginPath();
+        ctx.arc(cx + Math.sin(time * 2.2 + i) * 5, cy - puff, 5 + puff * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bImg, Math.round(b.x - 10), Math.round(b.y - 12), Math.round(b.w + 20), Math.round(b.h + 20));
+    ctx.restore();
+
+    // Placa de madera/hierro biselada con el nombre del edificio
+    ctx.font = 'bold 13px "Pixelify Sans", monospace';
+    ctx.textAlign = 'center';
+    const tw = Math.ceil(ctx.measureText(b.label).width) + 20;
+    const bx = Math.round(b.x + b.w / 2 - tw / 2);
+    const by = b.y - 4;
+    px(ctx, bx - 2, by - 2, tw + 4, 22, '#0D0A14');
+    px(ctx, bx, by, tw, 18, '#3B2314');
+    px(ctx, bx, by, tw, 2, '#F2B63D');
+    px(ctx, bx, by + 16, tw, 2, '#92400E');
+    ctx.fillStyle = '#0D0A14';
+    ctx.fillText(b.label, b.x + b.w / 2 + 1, by + 14);
+    ctx.fillStyle = '#FEF08A';
+    ctx.fillText(b.label, b.x + b.w / 2, by + 13);
+    return;
+  }
+
+  // Fallback si la imagen aún se está cargando
   px(ctx, b.x + 8, b.y + 12, b.w, b.h, 'rgba(8, 10, 16, 0.42)');
 
   // Chimenea de ladrillo con humo animado en varias volutas
@@ -851,6 +867,12 @@ export function drawProp(ctx, prop, time) {
   const y = Math.round(prop.y);
 
   if (prop.kind === 'fountain') {
+    const fountainSheet = getAsset('prop_fuente');
+    if (fountainSheet) {
+      const frameIndex = Math.floor(time * 7) % 4;
+      drawFootAnchoredSprite(ctx, fountainSheet, x, y + 32, 92, { frameIndex });
+      return;
+    }
     drawShadow(ctx, x, y + 18, 36, 15);
     // Borde exterior de piedra tallada octogonal/elíptica
     ctx.fillStyle = '#0D0A14';

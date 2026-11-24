@@ -47,7 +47,18 @@ export const ASSET_MANIFEST = {
   tile_cesped: { path: './assets/tile_cesped.png', floodFill: false },
   tile_adoquin: { path: './assets/tile_adoquin.png', floodFill: false },
   prop_arbol: { path: './assets/prop_arbol.png', floodFill: true },
-  iconos_equipo: { path: './assets/iconos_equipo.png', floodFill: false }
+  iconos_equipo: { path: './assets/iconos_equipo.png', floodFill: false },
+
+  // Edificios Medievales Ilustrados (3)
+  edificio_taberna: { path: './assets/edificio_taberna.png', floodFill: false },
+  edificio_herreria: { path: './assets/edificio_herreria.png', floodFill: false },
+  edificio_refugio: { path: './assets/edificio_refugio.png', floodFill: false },
+
+  // Props Animados en Spritesheets de 4 Cuadros y GIFs (4)
+  prop_fuente: { path: './assets/prop_fuente.png', floodFill: false },
+  prop_fogata: { path: './assets/prop_fogata.png', floodFill: false },
+  prop_portal: { path: './assets/prop_portal.png', floodFill: false },
+  prop_cofre: { path: './assets/prop_cofre.png', floodFill: false }
 };
 
 // Mapeo de los 16 iconos de iconos_equipo.png (grilla 4x4)
