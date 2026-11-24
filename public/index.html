@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=26" />
+  <link rel="stylesheet" href="./css/styles.css?v=29" />
 </head>
 <body>
   <!-- Barra superior metálica para pantallas fuera del mapa -->
@@ -590,9 +590,9 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <script>
-    // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v26
+    // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v29
     (function () {
-      var CURRENT_VER = 'cronicas-fractura-v26';
+      var CURRENT_VER = 'cronicas-fractura-v29';
       try {
         var storedVer = localStorage.getItem('valoria_app_ver');
         if (storedVer !== CURRENT_VER) {
@@ -608,8 +608,8 @@
                   }
                 })
               ).then(function () {
-                if (deletedAny && !window.location.search.includes('v=26')) {
-                  window.location.replace(window.location.pathname + '?v=26' + window.location.hash);
+                if (deletedAny && !window.location.search.includes('v=29')) {
+                  window.location.replace(window.location.pathname + '?v=29' + window.location.hash);
                 }
               });
             });
@@ -618,6 +618,6 @@
       } catch (e) {}
     })();
   </script>
-  <script type="module" src="./js/app.js?v=26"></script>
+  <script type="module" src="./js/app.js?v=29"></script>
 </body>
 </html>

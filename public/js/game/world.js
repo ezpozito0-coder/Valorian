@@ -4,6 +4,7 @@
 
 import { ENEMY_TEMPLATES, MAPS_META, FACTIONS } from './data.js';
 import { getTexturePattern } from './textures.js';
+import { getAsset, getSpriteFrameMetrics, drawFootAnchoredSprite } from './assetLoader.js';
 
 export const MAP_WIDTH = 1600;
 export const MAP_HEIGHT = 1300;
@@ -604,6 +605,14 @@ export function drawMapGround(ctx, map, faction, time) {
       ctx.fillRect(rx + waveShift, 815, 36, 4);
       ctx.fillRect(rx + ((waveShift + 45) % 90), 850, 28, 4);
     }
+    const rippleSheet = getAsset('fx_ondas_agua');
+    if (rippleSheet) {
+      for (let rx = 140; rx < 1500; rx += 220) {
+        if (rx > 680 && rx < 920) continue;
+        const rFrame = Math.floor(time * 6 + rx * 0.03) % 4;
+        drawFootAnchoredSprite(ctx, rippleSheet, rx, 845, 24, { frameIndex: rFrame, alpha: 0.78 });
+      }
+    }
 
     // Puente de madera vieja con tablones, barandillas laterales y postes
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
@@ -728,32 +737,68 @@ export function drawMapGround(ctx, map, faction, time) {
 
 export function drawWeatherOverlay(ctx, map, vw, vh, time) {
   if (map.weather === 'butterflies') {
-    ctx.fillStyle = '#FEF08A';
+    // Rayos de luz volumétrica (god-rays) animados en los claros del Bosque de la Fractura
+    const sunbeamSheet = getAsset('fx_rayos_luz');
+    if (sunbeamSheet) {
+      const sbFrame = Math.floor(time * 5) % 4;
+      const m = getSpriteFrameMetrics(sunbeamSheet, sbFrame);
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.globalAlpha = 0.42;
+      ctx.drawImage(sunbeamSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, Math.round(vw * 0.12), 0, 240, 240);
+      ctx.drawImage(sunbeamSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, Math.round(vw * 0.58), 20, 260, 260);
+      ctx.restore();
+    }
+    const bfSheet = getAsset('fx_clima_mariposas');
     for (let i = 0; i < 8; i++) {
       const bx = ((i * 190 + time * 24) % vw);
       const by = 80 + ((i * 95) % (vh - 140)) + Math.sin(time * 4 + i) * 14;
-      ctx.fillRect(bx, by, 4, 3);
+      if (bfSheet) {
+        const fIdx = Math.floor(time * 10 + i) % 4;
+        drawFootAnchoredSprite(ctx, bfSheet, bx, by + 10, 22, { frameIndex: fIdx });
+      } else {
+        ctx.fillStyle = '#FEF08A';
+        ctx.fillRect(bx, by, 4, 3);
+      }
     }
   } else if (map.weather === 'ash') {
-    ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
-    for (let i = 0; i < 28; i++) {
+    const ashSheet = getAsset('fx_clima_ceniza');
+    for (let i = 0; i < 24; i++) {
       const ax = (i * 97 + time * 18) % vw;
       const ay = (i * 63 + time * 42) % vh;
-      ctx.fillRect(ax, ay, 3, 3);
+      if (ashSheet) {
+        const fIdx = Math.floor(time * 8 + i) % 4;
+        drawFootAnchoredSprite(ctx, ashSheet, ax, ay + 8, 16, { frameIndex: fIdx, alpha: 0.82 });
+      } else {
+        ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
+        ctx.fillRect(ax, ay, 3, 3);
+      }
     }
   } else if (map.weather === 'snow') {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
-    for (let i = 0; i < 36; i++) {
+    const snowSheet = getAsset('fx_clima_nieve');
+    for (let i = 0; i < 30; i++) {
       const sx = (i * 83 + Math.sin(time + i) * 20 + vw) % vw;
       const sy = (i * 59 + time * 68) % vh;
-      ctx.fillRect(sx, sy, 4, 4);
+      if (snowSheet) {
+        const fIdx = Math.floor(time * 7 + i) % 4;
+        drawFootAnchoredSprite(ctx, snowSheet, sx, sy + 8, 16, { frameIndex: fIdx, alpha: 0.88 });
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+        ctx.fillRect(sx, sy, 4, 4);
+      }
     }
   } else if (map.weather === 'void_storm') {
-    ctx.fillStyle = 'rgba(192, 132, 252, 0.45)';
+    const voidSheet = getAsset('fx_clima_vacio');
     for (let i = 0; i < 18; i++) {
       const vx = (i * 113) % vw;
       const vy = (vh - ((i * 71 + time * 35) % vh));
-      ctx.fillRect(vx, vy, 3, 5);
+      if (voidSheet) {
+        const fIdx = Math.floor(time * 9 + i) % 4;
+        drawFootAnchoredSprite(ctx, voidSheet, vx, vy + 10, 20, { frameIndex: fIdx, alpha: 0.85 });
+      } else {
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.45)';
+        ctx.fillRect(vx, vy, 3, 5);
+      }
     }
     // Rayo suave ocasional al fondo
     if (Math.sin(time * 1.7) > 0.985) {

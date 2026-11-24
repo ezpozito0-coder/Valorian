@@ -19,7 +19,27 @@ function px(ctx, x, y, w, h, color) {
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 
-export function drawShadow(ctx, x, y, rx, ry) {
+export function drawShadow(ctx, x, y, rx, ry, { isBoss = false, frameIndex = 0 } = {}) {
+  const shadowSheet = getAsset(isBoss ? 'fx_sombra_jefe' : 'fx_sombra_entidad');
+  if (shadowSheet) {
+    const m = getSpriteFrameMetrics(shadowSheet, frameIndex);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = isBoss ? 0.85 : 0.72;
+    ctx.drawImage(
+      shadowSheet,
+      m.sx,
+      m.sy,
+      m.frameWidth,
+      m.frameHeight,
+      Math.round(x - rx * 1.15),
+      Math.round(y - ry * 1.15),
+      Math.round(rx * 2.3),
+      Math.round(ry * 2.3)
+    );
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.fillStyle = 'rgba(13, 10, 20, 0.36)';
   ctx.beginPath();
@@ -32,27 +52,46 @@ export function drawHero(ctx, p, time) {
   const x = Math.round(p.x);
   const y = Math.round(p.y);
 
-  // Brillo visual de equipo a partir de +9 (intensificado al llegar a +12)
+  // Estela de velocidad animada (fx_estela_dash) cuando el héroe corre con poción de velocidad o montura
+  if (p.moving && (p.speedBuffTimer > 0 || p.mounted)) {
+    const dashSheet = getAsset('fx_estela_dash');
+    if (dashSheet) {
+      const fIdx = Math.floor(time * 14) % 4;
+      const m = getSpriteFrameMetrics(dashSheet, fIdx);
+      const ang = Math.atan2(p.dirY || 0, p.dirX || 1);
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.globalAlpha = 0.78;
+      ctx.translate(x - (p.dirX || 0) * 18, y + 2 - (p.dirY || 0) * 12);
+      ctx.rotate(ang);
+      ctx.drawImage(dashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -28, -18, 48, 36);
+      ctx.restore();
+    }
+  }
+
+  // Brillo visual de equipo a partir de +9 (intensificado al llegar a +12 con fx_aura_legendaria)
   const maxPlus = Math.max(p.equipment?.weapon?.plus || 0, p.equipment?.armor?.plus || 0);
   if (maxPlus >= 9) {
     const isMax12 = maxPlus >= 12;
-    const qualColor = (QUALITIES[p.equipment?.weapon?.quality || 0] || QUALITIES[0]).color;
-    const pulse = 0.5 + Math.sin(time * (isMax12 ? 9 : 5)) * 0.3;
-    ctx.save();
-    ctx.strokeStyle = isMax12 ? '#FDE047' : qualColor;
-    ctx.globalAlpha = isMax12 ? 0.85 : 0.45 + pulse * 0.25;
-    ctx.lineWidth = isMax12 ? 3.5 : 2;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y - 2, (isMax12 ? 26 : 21) + Math.sin(time * 7) * 2, 0, Math.PI * 2);
-    ctx.stroke();
-
-    if (isMax12) {
-      for (let i = 0; i < 4; i++) {
-        const ang = time * 3.5 + (i * Math.PI) / 2;
-        px(ctx, p.x + Math.cos(ang) * 24 - 2, p.y - 4 + Math.sin(ang) * 16 - 2, 4, 4, '#FDE047');
-      }
+    const auraSheet = getAsset('fx_aura_legendaria');
+    if (auraSheet) {
+      const frameIndex = Math.floor(time * (isMax12 ? 10 : 7)) % 4;
+      drawFootAnchoredSprite(ctx, auraSheet, x, y + 18, isMax12 ? 64 : 52, {
+        frameIndex,
+        alpha: isMax12 ? 0.92 : 0.65
+      });
+    } else {
+      const qualColor = (QUALITIES[p.equipment?.weapon?.quality || 0] || QUALITIES[0]).color;
+      const pulse = 0.5 + Math.sin(time * (isMax12 ? 9 : 5)) * 0.3;
+      ctx.save();
+      ctx.strokeStyle = isMax12 ? '#FDE047' : qualColor;
+      ctx.globalAlpha = isMax12 ? 0.85 : 0.45 + pulse * 0.25;
+      ctx.lineWidth = isMax12 ? 3.5 : 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 2, (isMax12 ? 26 : 21) + Math.sin(time * 7) * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
-    ctx.restore();
   }
 
   if (p.speedBuffTimer > 0 || p.mounted) {
@@ -131,6 +170,11 @@ export function drawBossAltar(ctx, altar, time) {
   const x = Math.round(altar.x);
   const y = Math.round(altar.y);
   drawShadow(ctx, x, y + 14, 24, 9);
+  const voidHalo = getAsset('fx_halo_vacio');
+  if (voidHalo) {
+    const hFrame = Math.floor(time * 6) % 4;
+    drawFootAnchoredSprite(ctx, voidHalo, x, y + 36, 76, { frameIndex: hFrame, alpha: 0.58 });
+  }
 
   const altarSheet = getAsset('prop_altar_jefe');
   if (altarSheet) {
@@ -152,7 +196,15 @@ export function drawCampfire(ctx, fire, time) {
   const y = Math.round(fire.y);
   const glow = 0.24 + Math.sin(time * 6) * 0.07;
 
-  // Halo radial cálido multicapa de la fogata
+  // Halo radial cálido multicapa de la fogata + sprite fx_halo_calido de 16 bits
+  const warmHalo = getAsset('fx_halo_calido');
+  if (warmHalo) {
+    const hFrame = Math.floor(time * 7) % 4;
+    drawFootAnchoredSprite(ctx, warmHalo, x, y + Math.round(fire.radius * 0.72), Math.round(fire.radius * 1.45), {
+      frameIndex: hFrame,
+      alpha: 0.48
+    });
+  }
   ctx.save();
   const grad = ctx.createRadialGradient(x, y, 8, x, y, fire.radius);
   grad.addColorStop(0, `rgba(251, 146, 60, ${glow * 1.4})`);
@@ -375,8 +427,16 @@ export function drawEnemy(ctx, e, time) {
   const x = Math.round(e.x + lungeX);
   const y = Math.round(e.y + lungeY);
   const footY = y + (e.isBoss ? 24 : 14);
+  const shadowFrame = attackAnimTimer > 0.15 ? 3 : isMoving ? Math.floor(time * 9 + (e.id || 0)) % 4 : 0;
 
-  drawShadow(ctx, e.x + lungeX * 0.4, e.y + (e.isBoss ? 24 : 14) + lungeY * 0.4, e.radius * 0.88, e.radius * 0.42);
+  drawShadow(
+    ctx,
+    e.x + lungeX * 0.4,
+    e.y + (e.isBoss ? 24 : 14) + lungeY * 0.4,
+    e.radius * 0.88,
+    e.radius * 0.42,
+    { isBoss: Boolean(e.isBoss), frameIndex: shadowFrame }
+  );
 
   // Si es un enemigo común y su sprite PNG (enemigo_lobo, enemigo_trasgo, enemigo_esqueleto, enemigo_elemental) está cargado:
   const enemyImg = !e.isBoss ? getEnemyAsset(e.kind) : null;
@@ -477,9 +537,14 @@ export function drawEnemy(ctx, e, time) {
         : { aura: 'rgba(147,51,234,0.6)', body: '#2E1065', mid: '#581C87', core: '#C084FC', eye: '#F0ABFC', weapon: '#9333EA' };
 
     ctx.save();
-    // Brillo rojo intenso en Estado de Furia (<30% vida)
+    // Brillo rojo intenso en Estado de Furia (<30% vida) usando fx_aura_furia de 4 cuadros
     if (e.furyActive) {
-      ctx.fillStyle = `rgba(220, 38, 38, ${0.26 + Math.sin(time * 12) * 0.1})`;
+      const furySheet = getAsset('fx_aura_furia');
+      if (furySheet) {
+        const fFrame = Math.floor(time * 10) % 4;
+        drawFootAnchoredSprite(ctx, furySheet, x, footY + 12, 92, { frameIndex: fFrame, alpha: 0.88 });
+      }
+      ctx.fillStyle = `rgba(220, 38, 38, ${0.24 + Math.sin(time * 12) * 0.1})`;
       ctx.beginPath();
       ctx.arc(x, y - 6, e.radius + 18, 0, Math.PI * 2);
       ctx.fill();
@@ -608,13 +673,25 @@ export function drawEnemy(ctx, e, time) {
 
 export function drawCrystal(ctx, c, time) {
   if (c.collected) return;
-  const glow = 0.65 + Math.sin(time * 5 + c.x) * 0.25;
-  ctx.save();
-  ctx.fillStyle = `rgba(147, 51, 234, ${glow * 0.35})`;
-  ctx.beginPath();
-  ctx.arc(c.x, c.y, 18, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  const voidHalo = getAsset('fx_halo_vacio');
+  if (voidHalo) {
+    const hFrame = Math.floor(time * 6 + c.x * 0.05) % 4;
+    drawFootAnchoredSprite(ctx, voidHalo, c.x, c.y + 20, 48, { frameIndex: hFrame, alpha: 0.65 });
+  } else {
+    const glow = 0.65 + Math.sin(time * 5 + c.x) * 0.25;
+    ctx.save();
+    ctx.fillStyle = `rgba(147, 51, 234, ${glow * 0.35})`;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  const crystalSheet = getAsset('prop_cristal_vacio');
+  if (crystalSheet) {
+    const fIdx = Math.floor(time * 5 + c.x * 0.05) % 4;
+    drawFootAnchoredSprite(ctx, crystalSheet, c.x, c.y + 12, 38, { frameIndex: fIdx });
+    return;
+  }
   px(ctx, c.x - 6, c.y - 12, 12, 20, '#0D0A14');
   px(ctx, c.x - 4, c.y - 10, 8, 16, '#7E22CE');
   px(ctx, c.x - 2, c.y - 8, 4, 10, '#E9D5FF');

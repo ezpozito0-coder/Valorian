@@ -32,16 +32,37 @@ export const ASSET_MANIFEST = {
   heroe_mago: { path: './assets/heroe_mago.png', floodFill: true },
   heroe_arquero: { path: './assets/heroe_arquero.png', floodFill: true },
 
-  // NPCs y Entrenamiento en Villa Alba (3)
+  // Variantes de Bando (Los Clanes de Hierro) y Razas (Orco, Lobo Guerrero) en Spritesheets de 4 Cuadros (10)
+  heroe_guerrero_hierro: { path: './assets/heroe_guerrero_hierro.png', floodFill: false },
+  heroina_guerrera_hierro: { path: './assets/heroina_guerrera_hierro.png', floodFill: false },
+  heroe_mago_hierro: { path: './assets/heroe_mago_hierro.png', floodFill: false },
+  heroina_maga_hierro: { path: './assets/heroina_maga_hierro.png', floodFill: false },
+  heroe_arquero_hierro: { path: './assets/heroe_arquero_hierro.png', floodFill: false },
+  heroina_arquera_hierro: { path: './assets/heroina_arquera_hierro.png', floodFill: false },
+  heroe_orco: { path: './assets/heroe_orco.png', floodFill: false },
+  heroina_orca: { path: './assets/heroina_orca.png', floodFill: false },
+  heroe_lobo: { path: './assets/heroe_lobo.png', floodFill: false },
+  heroina_loba: { path: './assets/heroina_loba.png', floodFill: false },
+
+  // NPCs y Entrenamiento en Villa Alba / Campamento Hierro / Desierto (6)
   npc_tabernero: { path: './assets/npc_tabernero.png', floodFill: true },
   npc_herrero: { path: './assets/npc_herrero.png', floodFill: true },
+  npc_mercader: { path: './assets/npc_mercader.png', floodFill: false },
+  npc_guardia_alba: { path: './assets/npc_guardia_alba.png', floodFill: false },
+  npc_guardia_hierro: { path: './assets/npc_guardia_hierro.png', floodFill: false },
   prop_muneco: { path: './assets/prop_muneco.png', floodFill: true },
 
-  // Enemigos Comunes (4)
+  // Enemigos Comunes y Regionales en Spritesheets de 4 Cuadros (10)
   enemigo_lobo: { path: './assets/enemigo_lobo.png', floodFill: true },
+  enemigo_lobo_invernal: { path: './assets/enemigo_lobo_invernal.png', floodFill: false },
   enemigo_trasgo: { path: './assets/enemigo_trasgo.png', floodFill: true },
   enemigo_esqueleto: { path: './assets/enemigo_esqueleto.png', floodFill: true },
+  enemigo_caballero_vacio: { path: './assets/enemigo_caballero_vacio.png', floodFill: false },
   enemigo_elemental: { path: './assets/enemigo_elemental.png', floodFill: true },
+  enemigo_golem_hielo: { path: './assets/enemigo_golem_hielo.png', floodFill: false },
+  enemigo_mago_sombrio: { path: './assets/enemigo_mago_sombrio.png', floodFill: false },
+  enemigo_nomada: { path: './assets/enemigo_nomada.png', floodFill: false },
+  enemigo_escorpion: { path: './assets/enemigo_escorpion.png', floodFill: false },
 
   // Entorno e Iconos (4)
   tile_cesped: { path: './assets/tile_cesped.png', floodFill: false },
@@ -79,7 +100,35 @@ export const ASSET_MANIFEST = {
   prop_vagoneta: { path: './assets/prop_vagoneta.png', floodFill: false },
   prop_caravana: { path: './assets/prop_caravana.png', floodFill: false },
   prop_cristal_hielo: { path: './assets/prop_cristal_hielo.png', floodFill: false },
-  prop_arbusto: { path: './assets/prop_arbusto.png', floodFill: false }
+  prop_arbusto: { path: './assets/prop_arbusto.png', floodFill: false },
+
+  // Efectos Visuales de Luz, Sombras, Movimiento, Clima y Combate en 4 Cuadros (26)
+  fx_halo_calido: { path: './assets/fx_halo_calido.png', floodFill: false },
+  fx_halo_vacio: { path: './assets/fx_halo_vacio.png', floodFill: false },
+  fx_halo_jugador: { path: './assets/fx_halo_jugador.png', floodFill: false },
+  fx_rayos_luz: { path: './assets/fx_rayos_luz.png', floodFill: false },
+  fx_aura_legendaria: { path: './assets/fx_aura_legendaria.png', floodFill: false },
+  fx_aura_furia: { path: './assets/fx_aura_furia.png', floodFill: false },
+  fx_sombra_entidad: { path: './assets/fx_sombra_entidad.png', floodFill: false },
+  fx_sombra_jefe: { path: './assets/fx_sombra_jefe.png', floodFill: false },
+  fx_polvo_pasos: { path: './assets/fx_polvo_pasos.png', floodFill: false },
+  fx_estela_dash: { path: './assets/fx_estela_dash.png', floodFill: false },
+  fx_ondas_agua: { path: './assets/fx_ondas_agua.png', floodFill: false },
+  fx_clima_mariposas: { path: './assets/fx_clima_mariposas.png', floodFill: false },
+  fx_clima_ceniza: { path: './assets/fx_clima_ceniza.png', floodFill: false },
+  fx_clima_nieve: { path: './assets/fx_clima_nieve.png', floodFill: false },
+  fx_clima_vacio: { path: './assets/fx_clima_vacio.png', floodFill: false },
+  fx_tajo_espada: { path: './assets/fx_tajo_espada.png', floodFill: false },
+  fx_proyectil_fuego: { path: './assets/fx_proyectil_fuego.png', floodFill: false },
+  fx_proyectil_arcano: { path: './assets/fx_proyectil_arcano.png', floodFill: false },
+  fx_proyectil_vacio: { path: './assets/fx_proyectil_vacio.png', floodFill: false },
+  fx_proyectil_flecha: { path: './assets/fx_proyectil_flecha.png', floodFill: false },
+  fx_explosion_fuego: { path: './assets/fx_explosion_fuego.png', floodFill: false },
+  fx_nova_escarcha: { path: './assets/fx_nova_escarcha.png', floodFill: false },
+  fx_trampa_raices: { path: './assets/fx_trampa_raices.png', floodFill: false },
+  fx_lluvia_flechas: { path: './assets/fx_lluvia_flechas.png', floodFill: false },
+  fx_impacto_golpe: { path: './assets/fx_impacto_golpe.png', floodFill: false },
+  fx_level_up: { path: './assets/fx_level_up.png', floodFill: false }
 };
 
 // Mapeo de los 16 iconos de iconos_equipo.png (grilla 4x4)
@@ -456,8 +505,8 @@ function synthesizeFourFrameSheet(srcCanvas, key) {
     return srcCanvas;
   }
 
-  const padX = Math.max(4, Math.round(sw * 0.08));
-  const padTop = Math.max(4, Math.round(sh * 0.06));
+  const padX = Math.max(5, Math.round(sw * 0.09));
+  const padTop = Math.max(5, Math.round(sh * 0.07));
   const fw = sw + padX * 2;
   const fh = sh + padTop;
 
@@ -467,127 +516,82 @@ function synthesizeFourFrameSheet(srcCanvas, key) {
   const ctx = sheet.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  // Cortes anatómicos proporcionales (Cabeza / Torso y Brazos / Piernas Izquierda y Derecha)
-  const headH = Math.floor(sh * 0.36);
-  const torsoY = headH;
-  const legY = Math.floor(sh * 0.64);
-  const torsoH = legY - torsoY;
-  const legH = sh - legY;
-  const midX = Math.floor(sw * 0.5);
-  const rightW = sw - midX;
+  // Deformación continua por franjas horizontales y mitades laterales con solapamiento suave (sin partir armas ni túnicas)
+  const srcCtx = srcCanvas.getContext('2d');
+  let srcData = null;
+  try {
+    srcData = srcCtx.getImageData(0, 0, sw, sh).data;
+  } catch {
+    srcData = null;
+  }
 
-  // Escalado de desplazamiento proporcional a la resolución del sprite
-  const stepPx = Math.max(2, Math.round(sw * 0.045));
-  const liftPx = Math.max(2, Math.round(sh * 0.038));
-  const swingPx = Math.max(1, Math.round(sw * 0.025));
+  if (srcData) {
+    const outImg = ctx.createImageData(fw * 4, fh);
+    const dst = outImg.data;
+    const stepAmp = Math.max(2.5, sw * 0.048);
+    const liftAmp = Math.max(2.5, sh * 0.038);
 
-  const drawArticulatedFrame = (
-    frameIdx,
-    {
-      headDx = 0,
-      headDy = 0,
-      torsoDx = 0,
-      torsoDy = 0,
-      leftLegDx = 0,
-      leftLegDy = 0,
-      rightLegDx = 0,
-      rightLegDy = 0
-    }
-  ) => {
-    const ox = frameIdx * fw + padX;
-    const oy = padTop;
+    const renderWarped = (fIdx, warpFn) => {
+      const ox = fIdx * fw + padX;
+      const oy = padTop;
+      for (let dy = -padTop; dy < sh; dy++) {
+        const ny = dy / sh;
+        for (let dx = -padX; dx < sw + padX; dx++) {
+          const nx = dx / sw;
+          const { offX, offY } = warpFn(nx, ny);
+          const sx = Math.round(dx - offX);
+          const sy = Math.round(dy - offY);
+          if (sx < 0 || sx >= sw || sy < 0 || sy >= sh) continue;
+          const sO = (sy * sw + sx) * 4;
+          if (srcData[sO + 3] < 20) continue;
+          const outX = ox + dx;
+          const outY = oy + dy;
+          if (outX < fIdx * fw || outX >= (fIdx + 1) * fw || outY < 0 || outY >= fh) continue;
+          const dO = (outY * (fw * 4) + outX) * 4;
+          dst[dO] = srcData[sO];
+          dst[dO + 1] = srcData[sO + 1];
+          dst[dO + 2] = srcData[sO + 2];
+          dst[dO + 3] = srcData[sO + 3];
+        }
+      }
+    };
 
-    // 1. Pierna trasera primero para evitar huecos
-    ctx.drawImage(
-      srcCanvas,
-      0,
-      legY,
-      midX,
-      legH,
-      ox + leftLegDx,
-      oy + legY + leftLegDy,
-      midX,
-      legH
-    );
-    ctx.drawImage(
-      srcCanvas,
-      midX,
-      legY,
-      rightW,
-      legH,
-      ox + midX + rightLegDx,
-      oy + legY + rightLegDy,
-      rightW,
-      legH
-    );
+    renderWarped(0, () => ({ offX: 0, offY: 0 }));
+    renderWarped(1, (nx, ny) => {
+      const legT = Math.max(0, Math.min(1, (ny - 0.56) / 0.44));
+      const smoothLeg = legT * legT * (3 - 2 * legT);
+      const side = Math.max(-1, Math.min(1, (nx - 0.5) * 3.2));
+      return {
+        offX: (1 - smoothLeg) * (stepAmp * 0.35) + side * smoothLeg * stepAmp * 0.85,
+        offY: -liftAmp * 0.65 - Math.max(0, -side) * smoothLeg * liftAmp * 1.35
+      };
+    });
+    renderWarped(2, (nx, ny) => {
+      const legT = Math.max(0, Math.min(1, (ny - 0.56) / 0.44));
+      const smoothLeg = legT * legT * (3 - 2 * legT);
+      const side = Math.max(-1, Math.min(1, (nx - 0.5) * 3.2));
+      return {
+        offX: -(1 - smoothLeg) * (stepAmp * 0.35) - side * smoothLeg * stepAmp * 0.75,
+        offY: -liftAmp * 0.65 - Math.max(0, side) * smoothLeg * liftAmp * 1.35
+      };
+    });
+    renderWarped(3, (nx, ny) => {
+      const upperT = Math.max(0, Math.min(1, (0.78 - ny) / 0.78));
+      const legT = Math.max(0, Math.min(1, (ny - 0.58) / 0.42));
+      const side = Math.max(-1, Math.min(1, (nx - 0.5) * 3.0));
+      return {
+        offX: upperT * stepAmp * 1.15 + side * legT * stepAmp * 0.7,
+        offY: -upperT * (liftAmp * 0.45)
+      };
+    });
 
-    // 2. Torso, brazos y arma (con solapamiento de 2px sobre la cintura para que nunca se corte)
-    const overlap = Math.min(3, legH);
-    ctx.drawImage(
-      srcCanvas,
-      0,
-      torsoY,
-      sw,
-      torsoH + overlap,
-      ox + torsoDx,
-      oy + torsoY + torsoDy,
-      sw,
-      torsoH + overlap
-    );
+    ctx.putImageData(outImg, 0, 0);
+    return sheet;
+  }
 
-    // 3. Cabeza y hombros (con solapamiento de 2px sobre el cuello)
-    ctx.drawImage(
-      srcCanvas,
-      0,
-      0,
-      sw,
-      headH + 2,
-      ox + headDx,
-      oy + headDy,
-      sw,
-      headH + 2
-    );
-  };
-
-  // Cuadro 0: Postura base / Reposo
-  drawArticulatedFrame(0, {});
-
-  // Cuadro 1: Paso A (Zancada izquierda adelante y arriba, pierna derecha atrás, braceo de torso)
-  drawArticulatedFrame(1, {
-    headDx: swingPx,
-    headDy: -liftPx,
-    torsoDx: swingPx,
-    torsoDy: -liftPx,
-    leftLegDx: -stepPx,
-    leftLegDy: -liftPx,
-    rightLegDx: stepPx,
-    rightLegDy: 0
-  });
-
-  // Cuadro 2: Paso B (Zancada derecha adelante y arriba, pierna izquierda atrás, braceo opuesto)
-  drawArticulatedFrame(2, {
-    headDx: -swingPx,
-    headDy: -liftPx,
-    torsoDx: -swingPx,
-    torsoDy: -liftPx,
-    leftLegDx: -stepPx,
-    leftLegDy: 0,
-    rightLegDx: stepPx,
-    rightLegDy: -liftPx
-  });
-
-  // Cuadro 3: Paso de Impulso / Ataque (Torso y cabeza proyectados al frente, postura de combate)
-  drawArticulatedFrame(3, {
-    headDx: stepPx,
-    headDy: -Math.max(1, Math.floor(liftPx * 0.5)),
-    torsoDx: stepPx + swingPx,
-    torsoDy: -Math.max(1, Math.floor(liftPx * 0.5)),
-    leftLegDx: -stepPx,
-    leftLegDy: 0,
-    rightLegDx: stepPx + 1,
-    rightLegDy: -Math.max(1, Math.floor(liftPx * 0.6))
-  });
-
+  for (let i = 0; i < 4; i++) {
+    ctx.drawImage(srcCanvas, i * fw + padX, padTop);
+  }
   return sheet;
 }
 
@@ -647,38 +651,71 @@ export function getAsset(key) {
 }
 
 /**
- * Obtiene el sprite de héroe o heroína según clase ('guerrero', 'mago', 'arquero') y sexo ('male' | 'female').
+ * Obtiene el sprite de héroe o heroína según clase ('guerrero', 'mago', 'arquero'),
+ * sexo ('male' | 'female'), bando ('alba' | 'hierro') y raza ('Humano', 'Elfo', 'Enano', 'Orco', 'Lobo Guerrero', 'Nómada').
  */
-export function getHeroClassAsset(clase, gender = 'male') {
+export function getHeroClassAsset(clase, gender = 'male', faction = 'alba', race = 'Humano') {
   const isFem = gender === 'female';
+  const isHierro = faction === 'hierro' || race === 'Orco' || race === 'Lobo Guerrero' || race === 'Nómada';
+
+  // Si es Guerrero/Guerrera Orco o Lobo Guerrero, usar sus modelos dedicados de raza
+  if (clase === 'guerrero') {
+    if (race === 'Orco') {
+      return getAsset(isFem ? 'heroina_orca' : 'heroe_orco') || getAsset(isFem ? 'heroina_guerrera_hierro' : 'heroe_guerrero_hierro');
+    }
+    if (race === 'Lobo Guerrero') {
+      return getAsset(isFem ? 'heroina_loba' : 'heroe_lobo') || getAsset(isFem ? 'heroina_guerrera_hierro' : 'heroe_guerrero_hierro');
+    }
+    if (isHierro) {
+      return getAsset(isFem ? 'heroina_guerrera_hierro' : 'heroe_guerrero_hierro') || getAsset(isFem ? 'heroina_guerrera' : 'heroe_guerrero');
+    }
+    return getAsset(isFem ? 'heroina_guerrera' : 'heroe_guerrero') || getAsset('heroina_guerrera');
+  }
+
   if (clase === 'mago') {
+    if (isHierro) {
+      return getAsset(isFem ? 'heroina_maga_hierro' : 'heroe_mago_hierro') || getAsset(isFem ? 'heroina_maga' : 'heroe_mago');
+    }
     return getAsset(isFem ? 'heroina_maga' : 'heroe_mago') || getAsset('heroina_maga');
   }
+
   if (clase === 'arquero') {
+    if (isHierro) {
+      return getAsset(isFem ? 'heroina_arquera_hierro' : 'heroe_arquero_hierro') || getAsset(isFem ? 'heroina_arquera' : 'heroe_arquero');
+    }
     return getAsset(isFem ? 'heroina_arquera' : 'heroe_arquero') || getAsset('heroina_arquera');
   }
+
   return getAsset(isFem ? 'heroina_guerrera' : 'heroe_guerrero') || getAsset('heroina_guerrera');
 }
 
 /**
- * Obtiene el sprite de NPC o muñeco de entrenamiento según kind ('tabernero', 'herrero', 'dummy', etc.).
+ * Obtiene el sprite de NPC o muñeco de entrenamiento según kind ('tabernero', 'herrero', 'mercader', 'guardia_alba', 'guardia_hierro', 'dummy').
  */
 export function getNpcAsset(kind) {
   if (kind === 'dummy') return getAsset('prop_muneco');
   if (kind === 'herrero') return getAsset('npc_herrero');
-  if (kind === 'tabernero' || kind === 'mercader') return getAsset('npc_tabernero');
-  if (kind === 'guardia_alba' || kind === 'guardia_hierro') return getAsset('heroe_guerrero');
+  if (kind === 'mercader') return getAsset('npc_mercader') || getAsset('npc_tabernero');
+  if (kind === 'tabernero') return getAsset('npc_tabernero');
+  if (kind === 'guardia_alba') return getAsset('npc_guardia_alba') || getAsset('heroe_guerrero');
+  if (kind === 'guardia_hierro') return getAsset('npc_guardia_hierro') || getAsset('heroe_orco') || getAsset('heroe_guerrero');
   return null;
 }
 
 /**
- * Obtiene el sprite de enemigo común según kind ('lobo', 'trasgo', 'esqueleto', 'golem_hielo', 'escorpion', etc.).
+ * Obtiene el sprite de enemigo común o regional según kind ('lobo', 'lobo_invernal', 'trasgo', 'mago_sombrio', 'nomada', 'esqueleto', 'caballero_vacio', 'golem_hielo', 'escorpion', 'elemental').
  */
 export function getEnemyAsset(kind) {
-  if (kind === 'lobo' || kind === 'lobo_invernal') return getAsset('enemigo_lobo');
-  if (kind === 'trasgo' || kind === 'mago_sombrio' || kind === 'nomada') return getAsset('enemigo_trasgo');
-  if (kind === 'esqueleto' || kind === 'caballero_vacio') return getAsset('enemigo_esqueleto');
-  if (kind === 'golem_hielo' || kind === 'escorpion' || kind === 'elemental') return getAsset('enemigo_elemental');
+  if (kind === 'lobo_invernal') return getAsset('enemigo_lobo_invernal') || getAsset('enemigo_lobo');
+  if (kind === 'lobo') return getAsset('enemigo_lobo');
+  if (kind === 'mago_sombrio') return getAsset('enemigo_mago_sombrio') || getAsset('enemigo_trasgo');
+  if (kind === 'nomada') return getAsset('enemigo_nomada') || getAsset('enemigo_trasgo');
+  if (kind === 'trasgo') return getAsset('enemigo_trasgo');
+  if (kind === 'caballero_vacio') return getAsset('enemigo_caballero_vacio') || getAsset('enemigo_esqueleto');
+  if (kind === 'esqueleto') return getAsset('enemigo_esqueleto');
+  if (kind === 'golem_hielo') return getAsset('enemigo_golem_hielo') || getAsset('enemigo_elemental');
+  if (kind === 'escorpion') return getAsset('enemigo_escorpion') || getAsset('enemigo_elemental');
+  if (kind === 'elemental') return getAsset('enemigo_elemental');
   return null;
 }
 

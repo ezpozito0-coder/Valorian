@@ -495,10 +495,15 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
     ctx.restore();
   }
 
-  // Si el asset PNG de la clase y sexo (heroe_guerrero/mago/arquero o heroina_guerrera/maga/arquera) está cargado y procesado con Flood-Fill:
-  const heroImg = getHeroClassAsset(state.heroClass || 'guerrero', state.gender || 'male');
+  // Si el asset PNG de la clase, sexo, bando y raza está cargado:
+  const heroImg = getHeroClassAsset(
+    state.heroClass || 'guerrero',
+    state.gender || 'male',
+    state.faction || 'alba',
+    state.race || 'Humano'
+  );
   if (heroImg) {
-    const s = scale;
+    const s = scale * (state.race === 'Enano' ? 0.88 : 1);
     const facingLeft = state.dir === 3;
     const isMoving = Boolean(state.moving);
     const attackTimer = state.attackTimer || 0;
