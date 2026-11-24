@@ -681,11 +681,6 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillRect(350, 844, 160, 4);
     ctx.fillRect(1100, 794, 190, 4);
     ctx.fillRect(530, 413, 100, 3);
-    ctx.strokeStyle = `rgba(249, 115, 22, ${lavaPulse})`;
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.arc(800, 260, 145, 0, Math.PI * 2);
-    ctx.stroke();
   } else if (map.id === 'montanas') {
     ctx.fillStyle = getTexturePattern(ctx, 'snow_ground') || '#CBD5E1';
     ctx.fillRect(0, 0, W, H);

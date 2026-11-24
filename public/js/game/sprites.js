@@ -185,10 +185,6 @@ export function drawBossAltar(ctx, altar, time) {
     px(ctx, x - 10, y - 14, 20, 6, '#94A3B8');
     px(ctx, x - 4, y - 22, 8, 10, '#A855F7');
   }
-  ctx.font = 'bold 11px "Pixelify Sans", monospace';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#FDE047';
-  ctx.fillText('ALTAR DE REVANCHA', x, y + 26);
 }
 
 export function drawCampfire(ctx, fire, time) {
