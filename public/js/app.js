@@ -413,7 +413,10 @@ function updateCampBottomBar() {
     if (delBtn) delBtn.disabled = true;
   }
 
-  if (createBtn) createBtn.disabled = !firstEmptySlot();
+  if (createBtn) {
+    // Siempre permitir abrir la pantalla de Creación de Personaje (si los 3 espacios están llenos, crea/reemplaza en el espacio seleccionado)
+    createBtn.disabled = false;
+  }
 }
 
 function startMenuAnimation() {
@@ -797,8 +800,12 @@ function bindEvents() {
   });
   document.getElementById('btn-camp-create').addEventListener('click', () => {
     const empty = firstEmptySlot();
-    if (empty) navigate('crear', empty);
-    else showToast('Ya tienes los 3 espacios de personaje ocupados.', 'error');
+    if (empty) {
+      navigate('crear', empty);
+    } else {
+      // Si los 3 espacios están ocupados, abrir la pantalla de creación en el espacio actualmente seleccionado
+      navigate('crear', activeSlotKey || 'slot_1');
+    }
   });
   document.getElementById('btn-camp-delete').addEventListener('click', () => {
     const s = getActiveSave();
