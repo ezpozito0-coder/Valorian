@@ -44,6 +44,7 @@ import {
   drawTree,
   drawProp
 } from './sprites.js';
+import { getAsset, getSpriteFrameMetrics, drawFootAnchoredSprite } from './assetLoader.js';
 import { sfx } from '../audio.js';
 
 export class GameEngine {
@@ -892,7 +893,7 @@ export class GameEngine {
       p.hp = p.maxHp;
       p.mp = p.maxMp;
       sfx.playLevelUp();
-      this.addEffect('ring', p.x, p.y, 56, '#FDE047', 0.55);
+      this.addEffect('level_up', p.x, p.y, 72, '#FDE047', 0.72);
       this.addFloatingText(p.x, p.y - 34, `¡NIVEL ${p.level}!`, '#FDE047');
       this.callbacks.onToast?.(`¡Subiste al Nivel ${p.level}! (+1 Punto de Habilidad y Talento)`, 'success');
       this.callbacks.onAutoSave?.(this.exportSave());
@@ -1027,27 +1028,32 @@ export class GameEngine {
       this.addFloatingText(p.x, p.y - 24, `+14 DEF (${5 + skLvl}s)`, '#D9A441');
       this.addEffect('ring', p.x, p.y, 44, '#D9A441', 0.35);
     } else if (skill.id === 'embestida') {
+      const startX = p.x;
+      const startY = p.y;
       for (let step = 0; step < 6; step++) this.moveEntityWithCollisions(p, aim.x * 16, aim.y * 16);
-      this.addEffect('ring', p.x, p.y, 58, '#60A5FA', 0.3);
+      this.addEffect('dash_trail', (startX + p.x) * 0.5, (startY + p.y) * 0.5, 54, '#38BDF8', 0.32, { angle: Math.atan2(aim.y, aim.x) });
+      this.addEffect('hit_spark', p.x, p.y, 48, '#60A5FA', 0.28);
       this.hitEnemiesInRadius(p.x, p.y, 64, Math.round(atk * 1.25 * skMult), (e) => { e.stunTimer = 1.5; });
       this.checkDummyHit(p.x, p.y, 64, Math.round(atk * 1.25 * skMult));
       this.camera.shake = 6;
     } else if (skill.id === 'bola_fuego') {
-      this.spawnProjectile('player', p.x, p.y, aim.x * 320, aim.y * 320, Math.round(atk * 1.65 * skMult), 11, '#F97316', 0.95, { aoeRadius: 72 });
+      this.spawnProjectile('player', p.x, p.y, aim.x * 320, aim.y * 320, Math.round(atk * 1.65 * skMult), 11, '#F97316', 0.95, { aoeRadius: 72, style: 'fire' });
     } else if (skill.id === 'escarcha') {
-      this.addEffect('ring', p.x, p.y, 125, '#38BDF8', 0.45);
+      this.addEffect('frost_nova', p.x, p.y, 125, '#38BDF8', 0.45);
       this.hitEnemiesInRadius(p.x, p.y, 125, Math.round(atk * 0.9 * skMult), (e) => { e.slowTimer = 3.0; });
       this.checkDummyHit(p.x, p.y, 125, Math.round(atk * 0.9 * skMult));
     } else if (skill.id === 'destello') {
-      this.addEffect('ring', p.x, p.y, 28, '#9333EA', 0.25);
+      const startX = p.x;
+      const startY = p.y;
+      this.addEffect('frost_nova', p.x, p.y, 32, '#9333EA', 0.25);
       p.invulnTimer = 0.5;
       for (let step = 0; step < 6; step++) this.moveEntityWithCollisions(p, -aim.x * 18, -aim.y * 18);
-      this.addEffect('ring', p.x, p.y, 32, '#38BDF8', 0.3);
+      this.addEffect('dash_trail', (startX + p.x) * 0.5, (startY + p.y) * 0.5, 48, '#38BDF8', 0.3, { angle: Math.atan2(-aim.y, -aim.x) });
     } else if (skill.id === 'flecha_rapida') {
-      this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75);
+      this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75, { style: 'arrow' });
       setTimeout(() => {
         if (!this.running || this.paused) return;
-        this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75);
+        this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75, { style: 'arrow' });
       }, 130);
     } else if (skill.id === 'trampa_raices') {
       this.traps.push({ x: p.x + aim.x * 34, y: p.y + aim.y * 34, life: 12 });
@@ -1055,7 +1061,7 @@ export class GameEngine {
     } else if (skill.id === 'lluvia_flechas') {
       const tx = p.x + aim.x * 140;
       const ty = p.y + aim.y * 140;
-      this.addEffect('ring', tx, ty, 92, '#EAB308', 0.55);
+      this.addEffect('arrow_rain', tx, ty, 92, '#EAB308', 0.58);
       this.hitEnemiesInRadius(tx, ty, 95, Math.round(atk * 1.55 * skMult));
       this.checkDummyHit(tx, ty, 95, Math.round(atk * 1.55 * skMult));
     }
@@ -1150,7 +1156,7 @@ export class GameEngine {
       e.kbVx = (kdx / klen) * kbForce;
       e.kbVy = (kdy / klen) * kbForce;
     }
-    this.addEffect('ring', e.x, e.y, e.isBoss ? 28 : 18, isCrit ? '#FDE047' : '#F8FAFC', 0.16);
+    this.addEffect('hit_spark', e.x, e.y, e.isBoss ? 32 : 22, isCrit ? '#FDE047' : '#F8FAFC', 0.22);
     sfx.playHit();
     this.addFloatingText(e.x, e.y - 24, isCrit ? `¡-${dmg}!` : `-${dmg}`, isCrit ? '#FDE047' : color);
 
@@ -1304,7 +1310,7 @@ export class GameEngine {
 
       if (pr.life <= 0 || this.collidesWorld(pr.x, pr.y, pr.radius * 0.5)) {
         if (pr.aoeRadius) {
-          this.addEffect('ring', pr.x, pr.y, pr.aoeRadius, '#F97316', 0.3);
+          this.addEffect('fire_explosion', pr.x, pr.y, pr.aoeRadius, '#F97316', 0.36);
           this.hitEnemiesInRadius(pr.x, pr.y, pr.aoeRadius, pr.dmg);
           this.checkDummyHit(pr.x, pr.y, pr.aoeRadius, pr.dmg);
         }
@@ -1318,7 +1324,7 @@ export class GameEngine {
           if (!e.alive) continue;
           if (Math.hypot(e.x - pr.x, e.y - pr.y) < e.radius + pr.radius) {
             if (pr.aoeRadius) {
-              this.addEffect('ring', pr.x, pr.y, pr.aoeRadius, '#F97316', 0.3);
+              this.addEffect('fire_explosion', pr.x, pr.y, pr.aoeRadius, '#F97316', 0.36);
               this.hitEnemiesInRadius(pr.x, pr.y, pr.aoeRadius, pr.dmg);
             } else {
               this.damageEnemy(e, pr.dmg);
@@ -1732,22 +1738,34 @@ export class GameEngine {
     }
 
     for (const tr of this.traps) {
-      ctx.strokeStyle = '#16A34A';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(tr.x, tr.y, 16, 0, Math.PI * 2);
-      ctx.stroke();
+      const trapSheet = getAsset('fx_trampa_raices');
+      if (trapSheet) {
+        const fIdx = Math.floor(this.elapsed * 8) % 4;
+        drawFootAnchoredSprite(ctx, trapSheet, tr.x, tr.y + 18, 44, { frameIndex: fIdx });
+      } else {
+        ctx.strokeStyle = '#16A34A';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tr.x, tr.y, 16, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     for (const d of this.groundDrops) drawGroundDrop(ctx, d, this.elapsed);
 
-    // Partículas de polvo suaves en los pies al caminar
+    // Partículas de polvo animadas en 4 cuadros (fx_polvo_pasos) en los pies al caminar
+    const dustSheet = getAsset('fx_polvo_pasos');
     for (const dp of this.dustParticles) {
       const a = Math.max(0, dp.life / dp.maxLife);
-      ctx.save();
-      ctx.fillStyle = `rgba(214, 199, 178, ${(a * 0.55).toFixed(2)})`;
-      ctx.fillRect(Math.round(dp.x - dp.size / 2), Math.round(dp.y - dp.size / 2), dp.size, dp.size);
-      ctx.restore();
+      if (dustSheet) {
+        const fIdx = Math.min(3, Math.floor((1 - a) * 4));
+        drawFootAnchoredSprite(ctx, dustSheet, dp.x, dp.y + 6, 18, { frameIndex: fIdx, alpha: a * 0.85 });
+      } else {
+        ctx.save();
+        ctx.fillStyle = `rgba(214, 199, 178, ${(a * 0.55).toFixed(2)})`;
+        ctx.fillRect(Math.round(dp.x - dp.size / 2), Math.round(dp.y - dp.size / 2), dp.size, dp.size);
+        ctx.restore();
+      }
     }
 
     // Ordenar entidades por eje Y para profundidad 2.5D
@@ -1785,13 +1803,28 @@ export class GameEngine {
     renderables.sort((a, b) => a.y - b.y);
     for (const r of renderables) r.draw();
 
-    // Proyectiles con estela direccional clara (flechas, bolas de fuego, orbes arcanos)
+    // Proyectiles animados en 4 cuadros con estela direccional (flechas, bolas de fuego, orbes arcanos y del vacío)
     for (const pr of this.projectiles) {
       const ang = Math.atan2(pr.vy || 0, pr.vx || 1);
+      const projAssetKey =
+        pr.style === 'arrow'
+          ? 'fx_proyectil_flecha'
+          : pr.style === 'fire' || pr.aoeRadius || pr.color === '#F97316' || pr.color === '#EA580C'
+          ? 'fx_proyectil_fuego'
+          : pr.owner === 'enemy' || pr.color === '#C084FC' || pr.color === '#E879F9' || pr.color === '#A855F7'
+          ? 'fx_proyectil_vacio'
+          : 'fx_proyectil_arcano';
+      const projSheet = getAsset(projAssetKey);
       ctx.save();
       ctx.translate(pr.x, pr.y);
       ctx.rotate(ang);
-      if (pr.style === 'arrow') {
+      if (projSheet) {
+        ctx.imageSmoothingEnabled = false;
+        const fIdx = Math.floor(this.elapsed * 14) % 4;
+        const m = getSpriteFrameMetrics(projSheet, fIdx);
+        const drawSz = pr.style === 'arrow' ? 32 : Math.max(28, pr.radius * 3.4);
+        ctx.drawImage(projSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -drawSz * 0.58, -drawSz * 0.5, drawSz, drawSz);
+      } else if (pr.style === 'arrow') {
         ctx.fillStyle = 'rgba(253, 224, 71, 0.42)';
         ctx.fillRect(-20, -1.5, 16, 3);
         ctx.fillStyle = pr.color;
@@ -1818,24 +1851,51 @@ export class GameEngine {
     for (const ef of this.effects) {
       const alpha = Math.max(0, ef.life / ef.maxLife);
       const prog = 1 - alpha;
+      const fIdx = Math.min(3, Math.floor(prog * 4));
       ctx.save();
       ctx.globalAlpha = alpha;
       if (ef.kind === 'slash') {
-        // Tajo direccional creciente en forma de media luna con filo blanco
+        const slashSheet = getAsset('fx_tajo_espada');
         const baseAng = ef.angle !== undefined ? ef.angle : 0;
-        const startA = baseAng - 1.15 + prog * 0.4;
-        const endA = baseAng - 0.55 + prog * 1.95;
-        const rad = ef.radius * (0.85 + prog * 0.35);
-        ctx.strokeStyle = ef.color;
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.arc(ef.x, ef.y, rad, startA, endA);
-        ctx.stroke();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(ef.x, ef.y, rad * 0.88, startA + 0.08, endA - 0.05);
-        ctx.stroke();
+        if (slashSheet) {
+          const m = getSpriteFrameMetrics(slashSheet, fIdx);
+          const sz = Math.max(48, ef.radius * 1.9);
+          ctx.translate(ef.x, ef.y);
+          ctx.rotate(baseAng);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(slashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -sz * 0.45, -sz * 0.5, sz, sz);
+        } else {
+          const startA = baseAng - 1.15 + prog * 0.4;
+          const endA = baseAng - 0.55 + prog * 1.95;
+          const rad = ef.radius * (0.85 + prog * 0.35);
+          ctx.strokeStyle = ef.color;
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.arc(ef.x, ef.y, rad, startA, endA);
+          ctx.stroke();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(ef.x, ef.y, rad * 0.88, startA + 0.08, endA - 0.05);
+          ctx.stroke();
+        }
+      } else if (ef.kind === 'fire_explosion' && getAsset('fx_explosion_fuego')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_explosion_fuego'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.65, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'frost_nova' && getAsset('fx_nova_escarcha')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_nova_escarcha'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'arrow_rain' && getAsset('fx_lluvia_flechas')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_lluvia_flechas'), ef.x, ef.y + ef.radius * 0.55, ef.radius * 1.5, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'hit_spark' && getAsset('fx_impacto_golpe')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_impacto_golpe'), ef.x, ef.y + ef.radius * 0.75, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'level_up' && getAsset('fx_level_up')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_level_up'), ef.x, ef.y + 22, 108, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'dash_trail' && getAsset('fx_estela_dash')) {
+        const dashSheet = getAsset('fx_estela_dash');
+        const m = getSpriteFrameMetrics(dashSheet, fIdx);
+        ctx.translate(ef.x, ef.y);
+        ctx.rotate(ef.angle || 0);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(dashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -32, -22, 64, 44);
       } else {
         ctx.strokeStyle = ef.color;
         ctx.lineWidth = 3.5;
@@ -1857,7 +1917,7 @@ export class GameEngine {
 
     ctx.restore();
 
-    // Oscuridad suave con luz radial alrededor del jugador en Cueva del Vacío
+    // Oscuridad suave con luz radial alrededor del jugador en Cueva del Vacío + halo 16-bit fx_halo_jugador
     if (this.map.darkness) {
       const px = this.player.x - this.camera.x;
       const py = this.player.y - this.camera.y;
@@ -1866,6 +1926,11 @@ export class GameEngine {
       grad.addColorStop(1, 'rgba(9, 5, 18, 0.72)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, vw, vh);
+      const lanternSheet = getAsset('fx_halo_jugador');
+      if (lanternSheet) {
+        const lFrame = Math.floor(this.elapsed * 6) % 4;
+        drawFootAnchoredSprite(ctx, lanternSheet, px, py + 76, 160, { frameIndex: lFrame, alpha: 0.42 });
+      }
     } else if (this.timeOfDay > 0.55) {
       // Ciclo Atardecer / Noche Dinámico en exteriores con halo de luz alrededor del jugador
       const px = this.player.x - this.camera.x;
@@ -1880,6 +1945,13 @@ export class GameEngine {
       grad.addColorStop(1, tint);
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, vw, vh);
+      if (isNight) {
+        const lanternSheet = getAsset('fx_halo_jugador');
+        if (lanternSheet) {
+          const lFrame = Math.floor(this.elapsed * 6) % 4;
+          drawFootAnchoredSprite(ctx, lanternSheet, px, py + 72, 148, { frameIndex: lFrame, alpha: 0.34 });
+        }
+      }
     }
 
     drawWeatherOverlay(ctx, this.map, vw, vh, this.elapsed);

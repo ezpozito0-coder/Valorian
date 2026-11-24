@@ -402,19 +402,18 @@ function updateCampBottomBar() {
   const createBtn = document.getElementById('btn-camp-create');
 
   if (s) {
-    const fac = FACTIONS[s.faction] || FACTIONS.alba;
-    sumEl.textContent = `${s.name} · Nv. ${s.level} · ${getClassLabel(s.heroClass, s.gender)} · ${getRaceLabel(s.race, s.gender)} · ${fac.name}`;
-    titleEl.textContent = s.activeTitle && TITLES[s.activeTitle] ? TITLES[s.activeTitle].name : 'Aventurero de Valoria';
-    playBtn.disabled = false;
-    delBtn.disabled = false;
+    if (sumEl) sumEl.textContent = '';
+    if (titleEl) titleEl.textContent = '';
+    if (playBtn) playBtn.disabled = false;
+    if (delBtn) delBtn.disabled = false;
   } else {
-    sumEl.textContent = 'No hay personajes creados todavía';
-    titleEl.textContent = 'Pulsa + Crear Personaje para comenzar';
-    playBtn.disabled = true;
-    delBtn.disabled = true;
+    if (sumEl) sumEl.textContent = '';
+    if (titleEl) titleEl.textContent = '';
+    if (playBtn) playBtn.disabled = true;
+    if (delBtn) delBtn.disabled = true;
   }
 
-  createBtn.disabled = !firstEmptySlot();
+  if (createBtn) createBtn.disabled = !firstEmptySlot();
 }
 
 function startMenuAnimation() {
@@ -1072,7 +1071,7 @@ async function bootstrap() {
     });
 
     navigator.serviceWorker
-      .register('./sw.js?v=29', { updateViaCache: 'none' })
+      .register('./sw.js?v=30', { updateViaCache: 'none' })
       .then((reg) => {
         reg.update().catch(() => {});
         if (reg.waiting) {

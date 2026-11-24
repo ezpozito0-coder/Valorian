@@ -2097,24 +2097,23 @@ body.in-game .app-main {
   max-width: 1040px;
   background: #181d27;
   border-radius: 2px;
-  padding: 9px 16px;
+  padding: 10px 18px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  gap: 14px;
 }
 
 .camp-selected-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: none;
 }
 
 .camp-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 14px;
   flex-wrap: wrap;
 }
 

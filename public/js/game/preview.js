@@ -541,13 +541,35 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
       scaleY *= atkPhase.scaleY;
     }
 
-    // Sombra ovalada siempre anclada en el suelo bajo los pies (footY)
-    ctx.save();
-    ctx.fillStyle = 'rgba(13, 10, 20, 0.42)';
-    ctx.beginPath();
-    ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 11 * s * (1 - stepBounce * 0.08), 4.5 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // Sombra ovalada siempre anclada en el suelo bajo los pies (footY) usando fx_sombra_entidad
+    const shadowSheet = getAsset('fx_sombra_entidad');
+    if (shadowSheet) {
+      const m = getSpriteFrameMetrics(shadowSheet, frameIndex);
+      const sRx = 12 * s * (1 - stepBounce * 0.08);
+      const sRy = 5 * s;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.globalAlpha = 0.76;
+      ctx.drawImage(
+        shadowSheet,
+        m.sx,
+        m.sy,
+        m.frameWidth,
+        m.frameHeight,
+        Math.round(cx + lungeX * 0.4 - sRx),
+        Math.round(footY + lungeY * 0.4 - sRy),
+        Math.round(sRx * 2),
+        Math.round(sRy * 2)
+      );
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.fillStyle = 'rgba(13, 10, 20, 0.42)';
+      ctx.beginPath();
+      ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 11 * s * (1 - stepBounce * 0.08), 4.5 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     drawFootAnchoredSprite(
       ctx,
@@ -1125,12 +1147,33 @@ export function drawPetSprite(ctx, petId, cx, cy, scale, time, opts = {}) {
   const y = cy + bob + lungeY;
   const p = (ox, oy, ow, oh, col) => px(ctx, x + ox * s, y + oy * s, ow * s, oh * s, col);
 
-  ctx.save();
-  ctx.fillStyle = 'rgba(13, 10, 20, 0.38)';
-  ctx.beginPath();
-  ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 9 * s, 3.4 * s, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  const shadowSheet = getAsset('fx_sombra_entidad');
+  if (shadowSheet) {
+    const sFrame = attackTimer > 0.15 ? 3 : isAerial ? 2 : isMoving ? Math.floor(time * 10) % 4 : 0;
+    const m = getSpriteFrameMetrics(shadowSheet, sFrame);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = isAerial ? 0.58 : 0.72;
+    ctx.drawImage(
+      shadowSheet,
+      m.sx,
+      m.sy,
+      m.frameWidth,
+      m.frameHeight,
+      Math.round(cx + lungeX * 0.4 - 10 * s),
+      Math.round(footY + lungeY * 0.4 - 4 * s),
+      Math.round(20 * s),
+      Math.round(8 * s)
+    );
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.fillStyle = 'rgba(13, 10, 20, 0.38)';
+    ctx.beginPath();
+    ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 9 * s, 3.4 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   // Si el asset PNG de la mascota (mascota_lobo, mascota_fantasma, mascota_gato, mascota_dragon) está cargado y procesado con Flood-Fill:
   const petImg = getPetAsset(petId);
@@ -1263,24 +1306,25 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
 
   const campBg = getAsset('bg_campamento');
   if (campBg) {
-    // Dibujar bg_campamento.png a pantalla completa y añadir partículas animadas de fuego y chispas sobre la fogata central
+    // Dibujar bg_campamento.png nítido a pantalla completa y añadir únicamente un halo radial suave y chispas finas (sin bloques opacos que tapen la fogata ilustrada)
     ctx.drawImage(campBg, 0, 0, w, h);
 
     const fx = w * 0.502;
-    const fy = h * 0.77;
-    const glow = 0.22 + Math.sin(time * 8) * 0.08;
+    const fy = h * 0.75;
+    const glow = 0.16 + Math.sin(time * 7) * 0.05;
     ctx.save();
-    ctx.fillStyle = `rgba(249, 115, 22, ${glow})`;
+    const grad = ctx.createRadialGradient(fx, fy - 10, 6, fx, fy - 10, 110);
+    grad.addColorStop(0, `rgba(253, 224, 71, ${glow * 0.9})`);
+    grad.addColorStop(0.45, `rgba(249, 115, 22, ${glow * 0.55})`);
+    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(fx, fy - 18, 95, 0, Math.PI * 2);
+    ctx.arc(fx, fy - 10, 110, 0, Math.PI * 2);
     ctx.fill();
-    const fl = Math.sin(time * 18) * 5;
-    px(ctx, fx - 12, fy - 38 - fl * 0.4, 24, 24, 'rgba(234, 88, 12, 0.55)');
-    px(ctx, fx - 7, fy - 46 - fl, 14, 20, 'rgba(250, 204, 21, 0.72)');
-    for (let i = 0; i < 8; i++) {
-      const spY = ((time * 44 + i * 17) % 72);
-      const spX = Math.sin(time * 5 + i * 1.7) * 18;
-      px(ctx, fx + spX - 2, fy - 28 - spY, 3, 3, i % 2 === 0 ? '#FEF08A' : '#FB923C');
+    for (let i = 0; i < 7; i++) {
+      const spY = ((time * 38 + i * 19) % 75);
+      const spX = Math.sin(time * 4.5 + i * 1.9) * 16;
+      px(ctx, fx + spX - 1, fy - 24 - spY, 2, 2, i % 2 === 0 ? '#FEF08A' : '#FB923C');
     }
     ctx.restore();
   } else {
@@ -1338,11 +1382,11 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
     px(ctx, fx - 4, fy - 20, 8, 16, '#FEF9C3');
   }
 
-  // Posiciones en semicírculo (3 espacios + ranura "+")
+  // Posiciones en semicírculo alrededor de la fogata (3 espacios bien distribuidos)
   const spots = [
-    { key: 'slot_1', x: w * 0.24, y: h * 0.63, anim: 'sit' },
-    { key: 'slot_2', x: w * 0.37, y: h * 0.72, anim: 'idle' },
-    { key: 'slot_3', x: w * 0.67, y: h * 0.70, anim: 'jump' }
+    { key: 'slot_1', x: w * 0.23, y: h * 0.63 },
+    { key: 'slot_2', x: w * 0.37, y: h * 0.72 },
+    { key: 'slot_3', x: w * 0.67, y: h * 0.69 }
   ];
 
   const hitboxes = [];
@@ -1353,50 +1397,62 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
 
     if (rec?.saveData) {
       const s = rec.saveData;
-      // Aro dorado bajo el personaje seleccionado
+      const heroScale = 3.2;
+      const footY = sp.y + 16 * heroScale;
+
+      // Aro dorado luminoso exactamente en la base de los pies del personaje seleccionado
       if (isSel) {
+        const pulse = 0.8 + Math.sin(time * 5) * 0.2;
         ctx.save();
-        ctx.strokeStyle = '#FDE047';
-        ctx.lineWidth = 4;
+        ctx.fillStyle = `rgba(253, 224, 71, ${0.18 * pulse})`;
         ctx.beginPath();
-        ctx.ellipse(sp.x, sp.y + 52, 46, 15, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(253, 224, 71, 0.2)';
+        ctx.ellipse(sp.x, footY, 44, 13, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#FDE047';
+        ctx.lineWidth = 3;
+        ctx.stroke();
         ctx.restore();
       }
 
-      const jumpOff = sp.anim === 'jump' ? -Math.abs(Math.sin(time * 4.5)) * 18 : 0;
       drawDetailedHeroSprite(
         ctx,
         sp.x,
-        sp.y + jumpOff,
-        3.2,
+        sp.y,
+        heroScale,
         {
           faction: s.faction,
           gender: s.gender || 'male',
           race: s.race,
           heroClass: s.heroClass,
           wings: s.gearSlots?.alas || null,
-          dir: 0,
+          dir: sp.x > w * 0.5 ? 3 : 1,
           attackTimer: 0
         },
         time
       );
 
       if (s.activePet) {
-        drawPetSprite(ctx, s.activePet, sp.x + 42, sp.y + 34, 1.8, time);
+        const petOffsetX = sp.x > w * 0.5 ? -46 : 44;
+        drawPetSprite(ctx, s.activePet, sp.x + petOffsetX, sp.y + 36, 1.75, time, {
+          dirX: sp.x > w * 0.5 ? -1 : 1
+        });
       }
 
-      // Nombre flotante
-      ctx.font = 'bold 14px "Pixelify Sans", monospace';
+      // Placa flotante limpia sobre la cabeza del personaje (sin encimarse con el casco/cabello)
+      const labelY = sp.y - 82;
+      ctx.font = 'bold 13px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
+      const nameLabel = `${s.name} · Nv.${s.level || 1}`;
+      const tw = Math.ceil(ctx.measureText(nameLabel).width) + 14;
+      px(ctx, sp.x - tw / 2 - 1, labelY - 13, tw + 2, 18, '#0A0D12');
+      px(ctx, sp.x - tw / 2, labelY - 12, tw, 16, isSel ? '#2A2112' : '#161C28');
+      px(ctx, sp.x - tw / 2, labelY - 12, tw, 2, isSel ? '#FDE047' : '#64748B');
       ctx.fillStyle = '#0D0A14';
-      ctx.fillText(s.name, sp.x + 1, sp.y - 54);
+      ctx.fillText(nameLabel, sp.x + 1, labelY + 1);
       ctx.fillStyle = isSel ? '#FDE047' : '#F8FAFC';
-      ctx.fillText(s.name, sp.x, sp.y - 55);
+      ctx.fillText(nameLabel, sp.x, labelY);
 
-      hitboxes.push({ type: 'select', key: sp.key, x: sp.x - 52, y: sp.y - 68, w: 104, h: 132 });
+      hitboxes.push({ type: 'select', key: sp.key, x: sp.x - 54, y: sp.y - 90, w: 108, h: 152 });
     } else {
       // Ranura vacía con símbolo "+" brillante
       const pulse = 0.65 + Math.sin(time * 4) * 0.25;
