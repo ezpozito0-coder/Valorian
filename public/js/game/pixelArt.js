@@ -498,13 +498,16 @@ export function drawBossPortraitCard(canvas, bossId, time = 0) {
     const pad = 12;
     const maxW = w - pad * 2;
     const maxH = h - pad * 2;
-    const iw = bossImg.width || 128;
-    const ih = bossImg.height || 128;
+    const totalW = bossImg.width || 128;
+    const totalH = bossImg.height || 128;
+    const isSheet = totalW >= totalH * 2.2;
+    const iw = isSheet ? Math.floor(totalW / 4) : totalW;
+    const ih = totalH;
     const ratio = Math.min(maxW / iw, maxH / ih);
     const dw = Math.round(iw * ratio);
     const dh = Math.round(ih * ratio);
     const breathY = Math.sin(time * 4) * 2;
-    ctx.drawImage(bossImg, Math.round((w - dw) / 2), Math.round(h - dh - 8 + breathY), dw, dh);
+    ctx.drawImage(bossImg, 0, 0, iw, ih, Math.round((w - dw) / 2), Math.round(h - dh - 8 + breathY), dw, dh);
     return;
   }
 

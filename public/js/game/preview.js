@@ -504,20 +504,21 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
     const attackTimer = state.attackTimer || 0;
     const footY = cy + 16 * s;
 
-    // Detectar si es spritesheet de 4 cuadros (0=idle, 1=paso A, 2=paso B, 3=ataque) o cuadro único
+    // Ciclo completo de 4 cuadros de movimiento (0=postura base, 1=paso A, 2=paso B, 3=impulso/ataque)
+    const WALK_FRAMES_4 = [0, 1, 2, 3];
     const metrics = getSpriteFrameMetrics(heroImg, 0);
     let frameIndex = 0;
     if (attackTimer > 0.12) {
       frameIndex = 3;
     } else if (isMoving) {
-      frameIndex = Math.floor(time * 9) % 2 === 0 ? 1 : 2;
+      frameIndex = WALK_FRAMES_4[Math.floor(time * 10) % 4];
     }
 
     // Movimiento al caminar anclado en footY SIN rotación ni bamboleo lateral ("tronquito"):
     // Rebote vertical corto y rítmico de paso (2-4 px) + squash & stretch vertical sutil (0.96 a 1.04)
     const stepSin = Math.sin(time * 15);
     const stepBounce = isMoving ? Math.abs(stepSin) : 0;
-    const stepBounceY = (!metrics.isFourFrameSheet && isMoving) ? -stepBounce * 2.8 * s : 0;
+    const stepBounceY = isMoving ? -stepBounce * (metrics.isFourFrameSheet ? 1.4 : 2.8) * s : 0;
     const idleBreathY = !isMoving ? Math.sin(time * 3.8) * 0.016 : 0;
 
     let scaleY = isMoving ? 0.96 + stepBounce * 0.08 : 1 + idleBreathY;
@@ -1129,7 +1130,8 @@ export function drawPetSprite(ctx, petId, cx, cy, scale, time, opts = {}) {
   // Si el asset PNG de la mascota (mascota_lobo, mascota_fantasma, mascota_gato, mascota_dragon) está cargado y procesado con Flood-Fill:
   const petImg = getPetAsset(petId);
   if (petImg) {
-    const frameIndex = attackTimer > 0.15 ? 3 : isMoving ? (Math.floor(time * 9) % 2 === 0 ? 1 : 2) : 0;
+    const WALK_FRAMES_4 = [0, 1, 2, 3];
+    const frameIndex = attackTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 10) % 4] : 0;
     let scaleY = isAerial ? 1 : isMoving ? 0.96 + stepBounce * 0.08 : 1 + Math.sin(time * 4) * 0.015;
     let scaleX = isAerial ? 1 : isMoving ? 1.03 - stepBounce * 0.05 : 1;
     if (attackTimer > 0) {

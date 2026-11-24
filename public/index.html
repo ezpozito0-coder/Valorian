@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=24" />
+  <link rel="stylesheet" href="./css/styles.css?v=25" />
 </head>
 <body>
   <!-- Barra superior metálica para pantallas fuera del mapa -->
@@ -589,6 +589,35 @@
 
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script type="module" src="./js/app.js?v=24"></script>
+  <script>
+    // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v25
+    (function () {
+      var CURRENT_VER = 'cronicas-fractura-v25';
+      try {
+        var storedVer = localStorage.getItem('valoria_app_ver');
+        if (storedVer !== CURRENT_VER) {
+          localStorage.setItem('valoria_app_ver', CURRENT_VER);
+          if ('caches' in window) {
+            caches.keys().then(function (keys) {
+              var deletedAny = false;
+              Promise.all(
+                keys.map(function (k) {
+                  if (k !== CURRENT_VER) {
+                    deletedAny = true;
+                    return caches.delete(k);
+                  }
+                })
+              ).then(function () {
+                if (deletedAny && !window.location.search.includes('v=25')) {
+                  window.location.replace(window.location.pathname + '?v=25' + window.location.hash);
+                }
+              });
+            });
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script type="module" src="./js/app.js?v=25"></script>
 </body>
 </html>

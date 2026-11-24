@@ -422,15 +422,16 @@ export function drawEnemy(ctx, e, time) {
   // Si es un enemigo común y su sprite PNG (enemigo_lobo, enemigo_trasgo, enemigo_esqueleto, enemigo_elemental) está cargado:
   const enemyImg = !e.isBoss ? getEnemyAsset(e.kind) : null;
   if (enemyImg) {
+    const WALK_FRAMES_4 = [0, 1, 2, 3];
     const metrics = getSpriteFrameMetrics(enemyImg, 0);
     const stepSin = Math.sin(time * 13 + (e.id || 0));
     const stepWave = isMoving ? Math.abs(stepSin) : 0;
     const frameIndex = attackAnimTimer > 0.15
       ? 3
       : isMoving
-      ? (Math.floor(time * 8 + (e.id || 0)) % 2 === 0 ? 1 : 2)
+      ? WALK_FRAMES_4[Math.floor(time * 9 + (e.id || 0)) % 4]
       : 0;
-    const bounceY = (!metrics.isFourFrameSheet && isMoving) ? -stepWave * 2.8 : 0;
+    const bounceY = isMoving ? -stepWave * (metrics.isFourFrameSheet ? 1.4 : 2.8) : 0;
     const idleBreathY = !isMoving ? Math.sin(time * 3.8 + (e.id || 0)) * 0.016 : 0;
     let scaleY = isMoving ? 0.96 + stepWave * 0.08 : 1 + idleBreathY;
     let scaleX = isMoving ? 1.03 - stepWave * 0.05 : 1 - idleBreathY * 0.5;
@@ -538,8 +539,9 @@ export function drawEnemy(ctx, e, time) {
     // Si el asset PNG del jefe (jefe_malakor, jefe_ignis, jefe_boreas, jefe_vaelor) está cargado y procesado con Flood-Fill:
     const bossImg = getBossAsset(e.kind);
     if (bossImg) {
+      const WALK_FRAMES_4 = [0, 1, 2, 3];
       const stepWave = isMoving ? Math.abs(Math.sin(time * 11 + (e.id || 0))) : 0;
-      const bounceY = isMoving ? -stepWave * 3.5 : 0;
+      const bounceY = isMoving ? -stepWave * 2.2 : 0;
       const idleBreath = !isMoving ? Math.sin(time * 4.0 + (e.id || 0)) * 0.018 : 0;
       let scaleY = isMoving ? 0.96 + stepWave * 0.07 : 1 + idleBreath;
       let scaleX = isMoving ? 1.03 - stepWave * 0.05 : 1 - idleBreath * 0.5;
@@ -548,7 +550,7 @@ export function drawEnemy(ctx, e, time) {
         scaleY *= atkPhase.scaleY;
       }
       drawFootAnchoredSprite(ctx, bossImg, x, footY + bounceY, 96, {
-        frameIndex: attackAnimTimer > 0.15 ? 3 : isMoving ? (Math.floor(time * 7) % 2 === 0 ? 1 : 2) : 0,
+        frameIndex: attackAnimTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 8) % 4] : 0,
         flipX: Boolean(e.facingRight),
         tiltRad: 0,
         scaleX,

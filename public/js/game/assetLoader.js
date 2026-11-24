@@ -394,6 +394,171 @@ function buildEquipmentIconsCache(img) {
   }
 }
 
+/**
+ * Sintetiza automáticamente un spritesheet horizontal de 4 cuadros reales (4 * frameW x frameH)
+ * a partir de un sprite de 1 cuadro ya recortado con Flood-Fill:
+ *   - Cuadro 0 (Reposo / Postura base): personaje erguido centrado sobre footY.
+ *   - Cuadro 1 (Paso A / Zancada izquierda): pierna izquierda adelantada y elevada (-3px),
+ *     pierna derecha atrasada (+3px), torso/brazos con braceo (+1px) y elevación de paso (-2px).
+ *   - Cuadro 2 (Paso B / Zancada derecha): pierna derecha adelantada y elevada (-3px),
+ *     pierna izquierda atrasada (-3px), torso/brazos con braceo opuesto (-1px) y elevación (-2px).
+ *   - Cuadro 3 (Impulso / Ataque / Acción): torso y arma proyectados hacia adelante (+3px/+5px)
+ *     con guardia abierta en las piernas.
+ */
+function shouldSynthesizeFourFrames(key, canvas) {
+  if (!canvas || canvas.width >= canvas.height * 2.2) return false;
+  return (
+    key.startsWith('heroe_') ||
+    key.startsWith('heroina_') ||
+    key.startsWith('mascota_') ||
+    key.startsWith('enemigo_') ||
+    key.startsWith('jefe_') ||
+    key.startsWith('npc_')
+  );
+}
+
+function synthesizeFourFrameSheet(srcCanvas, key) {
+  const sw = srcCanvas.width || 64;
+  const sh = srcCanvas.height || 64;
+  if (!shouldSynthesizeFourFrames(key, srcCanvas)) {
+    return srcCanvas;
+  }
+
+  const padX = Math.max(4, Math.round(sw * 0.08));
+  const padTop = Math.max(4, Math.round(sh * 0.06));
+  const fw = sw + padX * 2;
+  const fh = sh + padTop;
+
+  const sheet = document.createElement('canvas');
+  sheet.width = fw * 4;
+  sheet.height = fh;
+  const ctx = sheet.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  // Cortes anatómicos proporcionales (Cabeza / Torso y Brazos / Piernas Izquierda y Derecha)
+  const headH = Math.floor(sh * 0.36);
+  const torsoY = headH;
+  const legY = Math.floor(sh * 0.64);
+  const torsoH = legY - torsoY;
+  const legH = sh - legY;
+  const midX = Math.floor(sw * 0.5);
+  const rightW = sw - midX;
+
+  // Escalado de desplazamiento proporcional a la resolución del sprite
+  const stepPx = Math.max(2, Math.round(sw * 0.045));
+  const liftPx = Math.max(2, Math.round(sh * 0.038));
+  const swingPx = Math.max(1, Math.round(sw * 0.025));
+
+  const drawArticulatedFrame = (
+    frameIdx,
+    {
+      headDx = 0,
+      headDy = 0,
+      torsoDx = 0,
+      torsoDy = 0,
+      leftLegDx = 0,
+      leftLegDy = 0,
+      rightLegDx = 0,
+      rightLegDy = 0
+    }
+  ) => {
+    const ox = frameIdx * fw + padX;
+    const oy = padTop;
+
+    // 1. Pierna trasera primero para evitar huecos
+    ctx.drawImage(
+      srcCanvas,
+      0,
+      legY,
+      midX,
+      legH,
+      ox + leftLegDx,
+      oy + legY + leftLegDy,
+      midX,
+      legH
+    );
+    ctx.drawImage(
+      srcCanvas,
+      midX,
+      legY,
+      rightW,
+      legH,
+      ox + midX + rightLegDx,
+      oy + legY + rightLegDy,
+      rightW,
+      legH
+    );
+
+    // 2. Torso, brazos y arma (con solapamiento de 2px sobre la cintura para que nunca se corte)
+    const overlap = Math.min(3, legH);
+    ctx.drawImage(
+      srcCanvas,
+      0,
+      torsoY,
+      sw,
+      torsoH + overlap,
+      ox + torsoDx,
+      oy + torsoY + torsoDy,
+      sw,
+      torsoH + overlap
+    );
+
+    // 3. Cabeza y hombros (con solapamiento de 2px sobre el cuello)
+    ctx.drawImage(
+      srcCanvas,
+      0,
+      0,
+      sw,
+      headH + 2,
+      ox + headDx,
+      oy + headDy,
+      sw,
+      headH + 2
+    );
+  };
+
+  // Cuadro 0: Postura base / Reposo
+  drawArticulatedFrame(0, {});
+
+  // Cuadro 1: Paso A (Zancada izquierda adelante y arriba, pierna derecha atrás, braceo de torso)
+  drawArticulatedFrame(1, {
+    headDx: swingPx,
+    headDy: -liftPx,
+    torsoDx: swingPx,
+    torsoDy: -liftPx,
+    leftLegDx: -stepPx,
+    leftLegDy: -liftPx,
+    rightLegDx: stepPx,
+    rightLegDy: 0
+  });
+
+  // Cuadro 2: Paso B (Zancada derecha adelante y arriba, pierna izquierda atrás, braceo opuesto)
+  drawArticulatedFrame(2, {
+    headDx: -swingPx,
+    headDy: -liftPx,
+    torsoDx: -swingPx,
+    torsoDy: -liftPx,
+    leftLegDx: -stepPx,
+    leftLegDy: 0,
+    rightLegDx: stepPx,
+    rightLegDy: -liftPx
+  });
+
+  // Cuadro 3: Paso de Impulso / Ataque (Torso y cabeza proyectados al frente, postura de combate)
+  drawArticulatedFrame(3, {
+    headDx: stepPx,
+    headDy: -Math.max(1, Math.floor(liftPx * 0.5)),
+    torsoDx: stepPx + swingPx,
+    torsoDy: -Math.max(1, Math.floor(liftPx * 0.5)),
+    leftLegDx: -stepPx,
+    leftLegDy: 0,
+    rightLegDx: stepPx + 1,
+    rightLegDy: -Math.max(1, Math.floor(liftPx * 0.6))
+  });
+
+  return sheet;
+}
+
 function loadSingleAsset(key, config) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -402,7 +567,6 @@ function loadSingleAsset(key, config) {
       loadedAssets.set(key, img);
       if (config.floodFill) {
         const cleanCanvas = removeWhiteBackgroundFloodFill(img);
-        processedSprites.set(key, cleanCanvas);
         try {
           const dataUrl = cleanCanvas.toDataURL('image/png');
           if (key.startsWith('mascota_')) processedPetPortraits.set(key, dataUrl);
@@ -410,6 +574,8 @@ function loadSingleAsset(key, config) {
         } catch {
           // fallback
         }
+        const finalSpriteCanvas = synthesizeFourFrameSheet(cleanCanvas, key);
+        processedSprites.set(key, finalSpriteCanvas);
       } else {
         processedSprites.set(key, img);
       }

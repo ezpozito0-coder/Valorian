@@ -877,12 +877,15 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
       pctx.imageSmoothingEnabled = false;
       pctx.fillStyle = '#151c28';
       pctx.fillRect(0, 0, 68, 68);
-      const iw = npcImg.width || 64;
-      const ih = npcImg.height || 64;
+      const totalW = npcImg.width || 64;
+      const totalH = npcImg.height || 64;
+      const isSheet = totalW >= totalH * 2.2;
+      const iw = isSheet ? Math.floor(totalW / 4) : totalW;
+      const ih = totalH;
       const r = Math.min(60 / iw, 60 / ih);
       const dw = Math.round(iw * r);
       const dh = Math.round(ih * r);
-      pctx.drawImage(npcImg, Math.round((68 - dw) / 2), Math.round((68 - dh) / 2), dw, dh);
+      pctx.drawImage(npcImg, 0, 0, iw, ih, Math.round((68 - dw) / 2), Math.round((68 - dh) / 2), dw, dh);
     }
   };
 
