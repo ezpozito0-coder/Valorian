@@ -130,16 +130,7 @@ export function drawPet(ctx, pet, time) {
 export function drawBossAltar(ctx, altar, time) {
   const x = Math.round(altar.x);
   const y = Math.round(altar.y);
-  const pulse = 0.55 + Math.sin(time * 4) * 0.25;
-  ctx.save();
-  ctx.fillStyle = `rgba(147, 51, 234, ${pulse * 0.3})`;
-  ctx.beginPath();
-  ctx.arc(x, y, 30, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#D9A441';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
+  drawShadow(ctx, x, y + 14, 24, 9);
 
   const altarSheet = getAsset('prop_altar_jefe');
   if (altarSheet) {

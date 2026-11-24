@@ -660,11 +660,6 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.strokeStyle = '#64748B';
     ctx.lineWidth = 3;
     ctx.strokeRect(430, 990, 220, 14);
-    ctx.strokeStyle = `rgba(168, 85, 247, ${0.55 + Math.sin(time * 4) * 0.2})`;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(800, 265, 135, 0, Math.PI * 2);
-    ctx.stroke();
   } else if (map.id === 'desierto') {
     ctx.fillStyle = getTexturePattern(ctx, 'ash_sand') || '#44403C';
     ctx.fillRect(0, 0, W, H);
@@ -722,11 +717,6 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillStyle = `rgba(168, 85, 247, ${vp})`;
     ctx.fillRect(420, 460, 140, 8);
     ctx.fillRect(1040, 460, 140, 8);
-    ctx.strokeStyle = `rgba(192, 132, 252, ${vp})`;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(800, 275, 165, 0, Math.PI * 2);
-    ctx.stroke();
   }
 
   ctx.fillStyle = '#0F172A';
