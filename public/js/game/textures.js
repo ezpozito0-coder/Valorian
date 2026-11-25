@@ -195,6 +195,13 @@ export function getTexturePattern(ctx, name) {
         patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
         return patternCache.get(name);
       }
+      } else if (name === 'grass_corrupt') {
+      const corruptImg = getAsset('tile_corrupto');
+      if (corruptImg) {
+        const tileCanvas = makeImageTile(corruptImg, 128);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
   } else if (name === 'obsidian_floor' || name === 'cave_stone') {
       const caveImg = getAsset('tile_cueva');
       if (caveImg) {
