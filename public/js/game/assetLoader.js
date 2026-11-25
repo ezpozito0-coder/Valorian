@@ -32,6 +32,18 @@ export const ASSET_MANIFEST = {
   heroe_mago: { path: './assets/heroe_mago.png', floodFill: true },
   heroe_arquero: { path: './assets/heroe_arquero.png', floodFill: true },
 
+  // Hojas de Cuerpo Base sin Armadura en Cuadrícula 3x5 (3 ángulos x 5 acciones) (10)
+  base_humano_m: { path: './assets/base_humano_m.png', grid3x5: true },
+  base_humano_f: { path: './assets/base_humano_f.png', grid3x5: true },
+  base_elfo_m: { path: './assets/base_elfo_m.png', grid3x5: true },
+  base_elfo_f: { path: './assets/base_elfo_f.png', grid3x5: true },
+  base_enano_m: { path: './assets/base_enano_m.png', grid3x5: true },
+  base_enana_f: { path: './assets/base_enana_f.png', grid3x5: true },
+  base_orco_m: { path: './assets/base_orco_m.png', grid3x5: true },
+  base_orca_f: { path: './assets/base_orca_f.png', grid3x5: true },
+  base_lobo_m: { path: './assets/base_lobo_m.png', grid3x5: true },
+  base_lobo_f: { path: './assets/base_lobo_f.png', grid3x5: true },
+
   // Variantes de Bando (Los Clanes de Hierro) y Razas (Orco, Lobo Guerrero) en Spritesheets de 4 Cuadros (10)
   heroe_guerrero_hierro: { path: './assets/heroe_guerrero_hierro.png', floodFill: false },
   heroina_guerrera_hierro: { path: './assets/heroina_guerrera_hierro.png', floodFill: false },
@@ -70,6 +82,7 @@ export const ASSET_MANIFEST = {
   prop_arbol: { path: './assets/prop_arbol.png', floodFill: true },
   prop_pino_morado: { path: './assets/prop_pino_morado.png', floodFill: false },
   iconos_equipo: { path: './assets/iconos_equipo.png', floodFill: false },
+  iconos_habilidades: { path: './assets/iconos_habilidades.png', floodFill: false },
 
   // Edificios Medievales Ilustrados (3)
   edificio_taberna: { path: './assets/edificio_taberna.png', floodFill: false },
@@ -181,9 +194,54 @@ export const EQUIP_ICON_GRID_MAP = {
   pergamino_furia: { row: 3, col: 3 }
 };
 
+// Mapeo de los 16 iconos 16-bit de iconos_habilidades.png (grilla 4x4)
+// Fila 0 (Guerrero): [0,0] ataque, [0,1] corte_pesado, [0,2] grito_escudo, [0,3] embestida
+// Fila 1 (Mago):     [1,0] ataque, [1,1] bola_fuego,   [1,2] escarcha,     [1,3] destello
+// Fila 2 (Arquero):  [2,0] ataque, [2,1] flecha_rapida,[2,2] trampa_raices,[2,3] lluvia_flechas
+// Fila 3 (HUD RPG):  [3,0] anvil,  [3,1] coin,         [3,2] backpack,     [3,3] skull
+export const SKILL_ICON_GRID_MAP = {
+  guerrero: { row: 0, col: 0 },
+  guerrero_0: { row: 0, col: 0 },
+  guerrero_1: { row: 0, col: 1 },
+  corte_pesado: { row: 0, col: 1 },
+  guerrero_2: { row: 0, col: 2 },
+  grito_escudo: { row: 0, col: 2 },
+  shield: { row: 0, col: 2 },
+  guerrero_3: { row: 0, col: 3 },
+  embestida: { row: 0, col: 3 },
+  speed: { row: 0, col: 3 },
+
+  mago: { row: 1, col: 0 },
+  mago_0: { row: 1, col: 0 },
+  mago_1: { row: 1, col: 1 },
+  bola_fuego: { row: 1, col: 1 },
+  flame: { row: 1, col: 1 },
+  mago_2: { row: 1, col: 2 },
+  escarcha: { row: 1, col: 2 },
+  mago_3: { row: 1, col: 3 },
+  destello: { row: 1, col: 3 },
+
+  arquero: { row: 2, col: 0 },
+  arquero_0: { row: 2, col: 0 },
+  arquero_1: { row: 2, col: 1 },
+  flecha_rapida: { row: 2, col: 1 },
+  arquero_2: { row: 2, col: 2 },
+  trampa_raices: { row: 2, col: 2 },
+  arquero_3: { row: 2, col: 3 },
+  lluvia_flechas: { row: 2, col: 3 },
+
+  anvil: { row: 3, col: 0 },
+  esencia_hierro: { row: 3, col: 0 },
+  coin: { row: 3, col: 1 },
+  backpack: { row: 3, col: 2 },
+  skull: { row: 3, col: 3 },
+  skull_red: { row: 3, col: 3 }
+};
+
 const loadedAssets = new Map();
 const processedSprites = new Map();
 const croppedIconDataUrls = new Map();
+const croppedSkillIconDataUrls = new Map();
 const processedPetPortraits = new Map();
 const processedBossPortraits = new Map();
 
@@ -484,6 +542,31 @@ function buildEquipmentIconsCache(img) {
 }
 
 /**
+ * Procesa la hoja iconos_habilidades.png (4x4, 384x384 RGBA transparente) y genera DataURLs nítidos 96x96
+ * para los 12 iconos de Ataque y Habilidades de las 3 clases + 4 iconos principales del HUD.
+ */
+function buildSkillIconsCache(img) {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) return;
+
+  const cellW = Math.floor(w / 4);
+  const cellH = Math.floor(h / 4);
+
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      const c = document.createElement('canvas');
+      c.width = cellW;
+      c.height = cellH;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
+      croppedSkillIconDataUrls.set(`${row}_${col}`, c.toDataURL('image/png'));
+    }
+  }
+}
+
+/**
  * Sintetiza automáticamente un spritesheet horizontal de 4 cuadros reales (4 * frameW x frameH)
  * a partir de un sprite de 1 cuadro ya recortado con Flood-Fill:
  *   - Cuadro 0 (Reposo / Postura base): personaje erguido centrado sobre footY.
@@ -603,13 +686,177 @@ function synthesizeFourFrameSheet(srcCanvas, key) {
   return sheet;
 }
 
+/**
+ * Procesa una hoja de personaje en cuadrícula 3x5 (3 filas de ángulo x 5 columnas de acción):
+ * - Divide la imagen original en sus 15 celdas (5 columnas x 3 filas).
+ * - Elimina los bordes/líneas divisorias de la cuadrícula y aplica BFS Flood-Fill exterior
+ *   desde los 4 bordes de cada celda (R>230, G>230, B>230), conservando intactos los detalles
+ *   internos claros (pelaje claro, ojos, colmillos, vendas).
+ * - Alinea cada cuadro horizontalmente al centro de su celda y verticalmente en la línea de los pies (footY),
+ *   manteniendo en la columna 3 (jump) una ligera elevación natural.
+ */
+export function processGrid3x5SpriteSheet(img, threshold = 230) {
+  const totalW = img.naturalWidth || img.width;
+  const totalH = img.naturalHeight || img.height;
+  if (!totalW || !totalH) return img;
+
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = totalW;
+  srcCanvas.height = totalH;
+  const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+  srcCtx.imageSmoothingEnabled = false;
+  srcCtx.drawImage(img, 0, 0);
+
+  const cellW = Math.floor(totalW / 5);
+  const cellH = Math.floor(totalH / 3);
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = cellW * 5;
+  outCanvas.height = cellH * 3;
+  outCanvas.dataset.grid3x5 = 'true';
+  const outCtx = outCanvas.getContext('2d');
+  outCtx.imageSmoothingEnabled = false;
+
+  // Margen perimetral para descartar las líneas negras/grises divisorias de la cuadrícula
+  const borderPadX = Math.max(4, Math.round(cellW * 0.035));
+  const borderPadY = Math.max(4, Math.round(cellH * 0.035));
+
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 5; col++) {
+      const sx = col * cellW;
+      const sy = row * cellH;
+      let cellData;
+      try {
+        cellData = srcCtx.getImageData(sx, sy, cellW, cellH);
+      } catch {
+        return img;
+      }
+
+      const d = cellData.data;
+      const total = cellW * cellH;
+      const visited = new Uint8Array(total);
+      const q = new Int32Array(total);
+      let head = 0;
+      let tail = 0;
+
+      // Limpiar franja de líneas divisorias en los 4 bordes de la celda
+      for (let y = 0; y < cellH; y++) {
+        for (let x = 0; x < cellW; x++) {
+          if (x < borderPadX || x >= cellW - borderPadX || y < borderPadY || y >= cellH - borderPadY) {
+            d[(y * cellW + x) * 4 + 3] = 0;
+          }
+        }
+      }
+
+      const isExteriorWhite = (idx) => {
+        const p = idx * 4;
+        if (d[p + 3] === 0) return true;
+        const r = d[p];
+        const g = d[p + 1];
+        const b = d[p + 2];
+        return r > threshold && g > threshold && b > threshold &&
+          Math.abs(r - g) <= 20 && Math.abs(g - b) <= 20;
+      };
+
+      const enqueue = (x, y) => {
+        if (x < 0 || x >= cellW || y < 0 || y >= cellH) return;
+        const idx = y * cellW + x;
+        if (visited[idx]) return;
+        if (isExteriorWhite(idx)) {
+          visited[idx] = 1;
+          q[tail++] = idx;
+        }
+      };
+
+      for (let x = 0; x < cellW; x++) {
+        enqueue(x, borderPadY);
+        enqueue(x, cellH - 1 - borderPadY);
+      }
+      for (let y = 0; y < cellH; y++) {
+        enqueue(borderPadX, y);
+        enqueue(cellW - 1 - borderPadX, y);
+      }
+
+      while (head < tail) {
+        const idx = q[head++];
+        d[idx * 4 + 3] = 0;
+        const x = idx % cellW;
+        const y = (idx - x) / cellW;
+        if (x > 0) enqueue(x - 1, y);
+        if (x < cellW - 1) enqueue(x + 1, y);
+        if (y > 0) enqueue(x, y - 1);
+        if (y < cellH - 1) enqueue(x, y + 1);
+      }
+
+      // Quitar líneas horizontales sueltas de sombra de piso dibujadas debajo de los pies (1-2px de grosor aislados)
+      for (let y = Math.floor(cellH * 0.82); y < cellH - borderPadY; y++) {
+        let rowOpaque = 0;
+        for (let x = borderPadX; x < cellW - borderPadX; x++) {
+          if (d[(y * cellW + x) * 4 + 3] > 20) rowOpaque++;
+        }
+        if (rowOpaque > 0 && rowOpaque < cellW * 0.35) {
+          // Verificar si la fila de arriba y la de abajo son transparentes (línea fina de suelo)
+          let aboveOpaque = 0;
+          let belowOpaque = 0;
+          for (let x = borderPadX; x < cellW - borderPadX; x++) {
+            if (y > 0 && d[((y - 2) * cellW + x) * 4 + 3] > 20) aboveOpaque++;
+            if (y + 2 < cellH && d[((y + 2) * cellW + x) * 4 + 3] > 20) belowOpaque++;
+          }
+          if (aboveOpaque === 0 && belowOpaque === 0) {
+            for (let dy = -1; dy <= 1; dy++) {
+              const yy = y + dy;
+              if (yy >= 0 && yy < cellH) {
+                for (let x = 0; x < cellW; x++) d[(yy * cellW + x) * 4 + 3] = 0;
+              }
+            }
+          }
+        }
+      }
+
+      // Detectar bounding-box del personaje dentro de la celda para anclarlo exactamente en footY (base de la celda)
+      let minX = cellW, minY = cellH, maxX = 0, maxY = 0, found = false;
+      for (let y = 0; y < cellH; y++) {
+        for (let x = 0; x < cellW; x++) {
+          if (d[(y * cellW + x) * 4 + 3] > 24) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            found = true;
+          }
+        }
+      }
+
+      if (found) {
+        const tmp = document.createElement('canvas');
+        tmp.width = cellW;
+        tmp.height = cellH;
+        tmp.getContext('2d').putImageData(cellData, 0, 0);
+
+        const charW = maxX - minX + 1;
+        const charH = maxY - minY + 1;
+        const dstX = col * cellW + Math.round((cellW - charW) / 2);
+        // En col === 3 (jump) dejamos un pequeño margen inferior para que las piernas encogidas se vean en el aire
+        const bottomMargin = col === 3 ? Math.round(cellH * 0.06) : 2;
+        const dstY = row * cellH + (cellH - charH - bottomMargin);
+        outCtx.drawImage(tmp, minX, minY, charW, charH, dstX, dstY, charW, charH);
+      }
+    }
+  }
+
+  return outCanvas;
+}
+
 function loadSingleAsset(key, config) {
   return new Promise((resolve) => {
     const img = new Image();
     img.decoding = 'async';
     img.onload = () => {
       loadedAssets.set(key, img);
-      if (config.floodFill) {
+      if (config.grid3x5) {
+        const gridCanvas = processGrid3x5SpriteSheet(img, 230);
+        processedSprites.set(key, gridCanvas);
+      } else if (config.floodFill) {
         const cleanCanvas = removeWhiteBackgroundFloodFill(img);
         try {
           const dataUrl = cleanCanvas.toDataURL('image/png');
@@ -626,6 +873,8 @@ function loadSingleAsset(key, config) {
 
       if (key === 'iconos_equipo') {
         buildEquipmentIconsCache(img);
+      } else if (key === 'iconos_habilidades') {
+        buildSkillIconsCache(img);
       }
 
       notifyAssetListeners();
@@ -728,14 +977,52 @@ export function getEnemyAsset(kind) {
 }
 
 /**
- * Detecta automáticamente si un sprite es un spritesheet horizontal de 4 cuadros
- * (cuando su ancho es >= 2.2 veces su alto) o una imagen de 1 solo cuadro.
- * Cuadros en spritesheet de 4 cuadros:
- *   0 = reposo/idle, 1 = paso/movimiento A, 2 = paso/movimiento B, 3 = ataque/acción.
+ * Obtiene la hoja 3x5 de cuerpo base sin armadura según raza ('Humano', 'Elfo', 'Enano', 'Orco', 'Lobo Guerrero')
+ * y sexo ('male' | 'female'). Si la raza aún no tiene hoja propia (ej. 'Nómada'), retorna null para usar el fallback.
  */
-export function getSpriteFrameMetrics(img, frameIndex = 0) {
+export function getBaseRace3x5Asset(race = 'Humano', gender = 'male') {
+  const isFem = gender === 'female';
+  const r = String(race || '').toLowerCase();
+  if (r.includes('human')) return getAsset(isFem ? 'base_humano_f' : 'base_humano_m');
+  if (r.includes('elf')) return getAsset(isFem ? 'base_elfo_f' : 'base_elfo_m');
+  if (r.includes('enan')) return getAsset(isFem ? 'base_enana_f' : 'base_enano_m');
+  if (r.includes('orc')) return getAsset(isFem ? 'base_orca_f' : 'base_orco_m');
+  if (r.includes('lobo')) return getAsset(isFem ? 'base_lobo_f' : 'base_lobo_m');
+  return null;
+}
+
+/**
+ * Detecta automáticamente si un sprite es:
+ *  1) Una hoja en cuadrícula 3x5 (5 columnas de acción × 3 filas de ángulo: row 0=frente, 1=lado, 2=espalda;
+ *     col 0=idle, 1=walk_1, 2=walk_2, 3=jump, 4=attack),
+ *  2) Un spritesheet horizontal de 4 cuadros (ancho >= 2.2 * alto), o
+ *  3) Una imagen de 1 solo cuadro.
+ */
+export function getSpriteFrameMetrics(img, frameIndex = 0, rowIndex = 0) {
   const totalW = img.naturalWidth || img.width || 64;
   const totalH = img.naturalHeight || img.height || 64;
+  const isGrid3x5 =
+    img?.dataset?.grid3x5 === 'true' ||
+    (totalW >= 500 && totalH >= 300 && Math.abs(totalW / totalH - 1024 / 571) < 0.22);
+
+  if (isGrid3x5) {
+    const frameWidth = Math.floor(totalW / 5);
+    const frameHeight = Math.floor(totalH / 3);
+    const clampedCol = Math.max(0, Math.min(4, Math.floor(frameIndex)));
+    const clampedRow = Math.max(0, Math.min(2, Math.floor(rowIndex)));
+    return {
+      isGrid3x5: true,
+      isFourFrameSheet: false,
+      frameCount: 5,
+      rowCount: 3,
+      frameWidth,
+      frameHeight,
+      sx: clampedCol * frameWidth,
+      sy: clampedRow * frameHeight,
+      aspect: frameWidth / Math.max(1, frameHeight)
+    };
+  }
+
   const isFourFrameSheet = totalW >= totalH * 2.2;
   const frameCount = isFourFrameSheet ? 4 : 1;
   const frameWidth = isFourFrameSheet ? Math.floor(totalW / 4) : totalW;
@@ -743,8 +1030,10 @@ export function getSpriteFrameMetrics(img, frameIndex = 0) {
   const clampedFrame = isFourFrameSheet ? Math.max(0, Math.min(3, Math.floor(frameIndex))) : 0;
   const sx = clampedFrame * frameWidth;
   return {
+    isGrid3x5: false,
     isFourFrameSheet,
     frameCount,
+    rowCount: 1,
     frameWidth,
     frameHeight,
     sx,
@@ -754,9 +1043,9 @@ export function getSpriteFrameMetrics(img, frameIndex = 0) {
 }
 
 /**
- * Dibuja un sprite (tanto si es spritesheet de 4 cuadros como si es de 1 cuadro)
- * anclado exactamente en la base de los pies (footX, footY), con soporte de espejo horizontal,
- * inclinación de paso (tiltRad), squash-and-stretch (scaleX, scaleY) y filtro opcional.
+ * Dibuja un sprite (cuadrícula 3x5, spritesheet de 4 cuadros o imagen de 1 cuadro)
+ * anclado exactamente en la base de los pies (footX, footY), con soporte de fila de ángulo (rowIndex),
+ * columna de acción (frameIndex), espejo horizontal (flipX), squash-and-stretch (scaleX, scaleY) y filtro.
  */
 export function drawFootAnchoredSprite(
   ctx,
@@ -766,6 +1055,7 @@ export function drawFootAnchoredSprite(
   targetHeight,
   {
     frameIndex = 0,
+    rowIndex = 0,
     flipX = false,
     tiltRad = 0,
     scaleX = 1,
@@ -775,7 +1065,7 @@ export function drawFootAnchoredSprite(
   } = {}
 ) {
   if (!img) return null;
-  const m = getSpriteFrameMetrics(img, frameIndex);
+  const m = getSpriteFrameMetrics(img, frameIndex, rowIndex);
   const drawH = targetHeight * scaleY;
   const drawW = targetHeight * m.aspect * scaleX;
 
@@ -799,7 +1089,7 @@ export function drawFootAnchoredSprite(
     Math.round(drawH)
   );
   ctx.restore();
-  return { drawW, drawH, isFourFrameSheet: m.isFourFrameSheet };
+  return { drawW, drawH, isFourFrameSheet: m.isFourFrameSheet, isGrid3x5: m.isGrid3x5 };
 }
 
 /**
@@ -855,12 +1145,29 @@ export function getBossPortraitDataUrl(bossKey) {
 }
 
 /**
- * Obtiene el DataURL de un icono recortado de la hoja 4x4 iconos_equipo.png según slotKey o itemId.
+ * Obtiene el DataURL de un icono recortado de iconos_equipo.png o iconos_habilidades.png según clave.
  */
 export function getEquipIconUrl(keyOrItemId) {
   const cell = EQUIP_ICON_GRID_MAP[keyOrItemId];
+  if (cell) {
+    const url = croppedIconDataUrls.get(`${cell.row}_${cell.col}`);
+    if (url) return url;
+  }
+  const skillCell = SKILL_ICON_GRID_MAP[keyOrItemId];
+  if (skillCell) {
+    return croppedSkillIconDataUrls.get(`${skillCell.row}_${skillCell.col}`) || null;
+  }
+  return null;
+}
+
+/**
+ * Obtiene el DataURL 16-bit de ataque o habilidad desde iconos_habilidades.png según clase y ranura (0..3) o id.
+ */
+export function getSkillIconUrl(heroClassOrId, slot = null) {
+  const lookupKey = slot !== null ? `${heroClassOrId}_${slot}` : heroClassOrId;
+  const cell = SKILL_ICON_GRID_MAP[lookupKey];
   if (!cell) return null;
-  return croppedIconDataUrls.get(`${cell.row}_${cell.col}`) || null;
+  return croppedSkillIconDataUrls.get(`${cell.row}_${cell.col}`) || null;
 }
 
 // Disparar precarga de inmediato al importar el módulo

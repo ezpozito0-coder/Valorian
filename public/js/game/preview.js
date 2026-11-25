@@ -11,6 +11,7 @@ import {
   getAsset,
   getHeroClassAsset,
   getPetAsset,
+  getSkillIconUrl,
   getSpriteFrameMetrics,
   drawFootAnchoredSprite
 } from './assetLoader.js';
@@ -1027,7 +1028,11 @@ export function getPixelIconSvg(kind, { race = 'Humano', gender = 'male' } = {})
   }
 
   if (kind === 'class_guerrero') {
-    // Dos espadas cruzadas
+    const url = getSkillIconUrl('guerrero', 0);
+    if (url) {
+      return `<img src="${url}" width="44" height="44" class="pixel-icon-svg skill-art-img" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
+    }
+    // Fallback dos espadas cruzadas
     return wrap(`
       <rect x="2" y="2" width="2" height="2" fill="#F8FAFC"/>
       <rect x="4" y="4" width="2" height="2" fill="#E2E8F0"/>
@@ -1044,7 +1049,11 @@ export function getPixelIconSvg(kind, { race = 'Humano', gender = 'male' } = {})
   }
 
   if (kind === 'class_mago') {
-    // Báculo mágico brillante
+    const url = getSkillIconUrl('mago', 0);
+    if (url) {
+      return `<img src="${url}" width="44" height="44" class="pixel-icon-svg skill-art-img" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
+    }
+    // Fallback báculo mágico brillante
     return wrap(`
       <rect x="7" y="6" width="2" height="9" fill="#92400E"/>
       <rect x="6" y="2" width="4" height="4" fill="#38BDF8"/>
@@ -1057,7 +1066,11 @@ export function getPixelIconSvg(kind, { race = 'Humano', gender = 'male' } = {})
   }
 
   if (kind === 'class_arquero') {
-    // Arco con flecha
+    const url = getSkillIconUrl('arquero', 0);
+    if (url) {
+      return `<img src="${url}" width="44" height="44" class="pixel-icon-svg skill-art-img" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
+    }
+    // Fallback arco con flecha
     return wrap(`
       <rect x="4" y="2" width="3" height="2" fill="#92400E"/>
       <rect x="3" y="4" width="2" height="8" fill="#B45309"/>
@@ -1124,9 +1137,15 @@ export function getPixelIconSvg(kind, { race = 'Humano', gender = 'male' } = {})
 /* =========================================================
    ICONOS PIXEL ART DE HABILIDADES PARA BOTONES DE COMBATE
    ========================================================= */
-export function getSkillIconSvg(heroClass, slot) {
+export function getSkillIconSvg(heroClass, slot, size = 40) {
+  const cls = heroClass || 'guerrero';
+  const skillImgUrl = getSkillIconUrl(cls, slot);
+  if (skillImgUrl) {
+    return `<img src="${skillImgUrl}" width="${size}" height="${size}" class="pixel-icon-svg skill-art-img" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
+  }
+
   const wrap = (inner) =>
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges" class="pixel-icon-svg">${inner}</svg>`;
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="${size}" height="${size}" shape-rendering="crispEdges" class="pixel-icon-svg">${inner}</svg>`;
 
   if (slot === 0) {
     if (heroClass === 'mago') return getPixelIconSvg('class_mago');

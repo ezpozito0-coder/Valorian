@@ -39,7 +39,7 @@ import {
   drawBossPortraitCard,
   drawPetPortraitBackdrop
 } from './pixelArt.js';
-import { onAssetsUpdated, getNpcAsset } from './assetLoader.js';
+import { onAssetsUpdated, getNpcAsset, getPetPortraitDataUrl } from './assetLoader.js';
 
 let lastIconClass = null;
 let lastPetIconKey = null;
@@ -89,10 +89,10 @@ export function updateHudDom(snap) {
   if (lastIconClass !== snap.heroClass) {
     lastIconClass = snap.heroClass;
     const icoEl = document.getElementById('hud-class-icon');
-    if (icoEl) icoEl.innerHTML = pixelIcon(snap.heroClass, 24);
+    if (icoEl) icoEl.innerHTML = pixelIcon(snap.heroClass, 32);
     for (let i = 0; i < 4; i++) {
       const ico = document.getElementById(`ico-skill-${i}`);
-      if (ico) ico.innerHTML = getSkillIconSvg(snap.heroClass, i);
+      if (ico) ico.innerHTML = getSkillIconSvg(snap.heroClass, i, 44);
     }
   }
 
@@ -122,7 +122,12 @@ export function updateHudDom(snap) {
   if (lastPetIconKey !== petKey) {
     lastPetIconKey = petKey;
     const petIcoEl = document.getElementById('hud-pet-icon');
-    if (petIcoEl) petIcoEl.innerHTML = pixelIcon(petKey, 20);
+    if (petIcoEl) {
+      const petPortrait = petObj ? getPetPortraitDataUrl(petKey) : null;
+      petIcoEl.innerHTML = petPortrait
+        ? `<img src="${petPortrait}" width="22" height="22" class="pixel-icon-svg" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`
+        : pixelIcon(petKey, 20);
+    }
   }
   if (petObj) {
     document.getElementById('hud-pet-name').textContent = petObj.name;
@@ -383,7 +388,7 @@ export function renderCharacterModal(engine, activeTab, { onToast, onSave, onOpe
       row.className = 'skill-upgrade-row';
       row.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="talent-ico-frame">${getSkillIconSvg(p.heroClass, idx + 1)}</div>
+          <div class="talent-ico-frame">${getSkillIconSvg(p.heroClass, idx + 1, 28)}</div>
           <div>
             <strong>${sk.name}</strong> <span style="color:#FDE047">Nv.${lvl}/5</span><br/>
             <small>${sk.desc}</small><br/>
