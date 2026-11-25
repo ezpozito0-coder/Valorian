@@ -585,7 +585,7 @@
   <script>
     // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v33
     (function () {
-      var CURRENT_VER = 'cronicas-fractura-v33';
+      var CURRENT_VER = 'cronicas-fractura-v40';
       try {
         var storedVer = localStorage.getItem('valoria_app_ver');
         if (storedVer !== CURRENT_VER) {
@@ -601,8 +601,8 @@
                   }
                 })
               ).then(function () {
-                if (deletedAny && !window.location.search.includes('v=33')) {
-                  window.location.replace(window.location.pathname + '?v=33' + window.location.hash);
+                if (deletedAny && !window.location.search.includes('v=40')) {
+                  window.location.replace(window.location.pathname + '?v=40' + window.location.hash);
                 }
               });
             });
@@ -611,6 +611,7 @@
       } catch (e) {}
     })();
   </script>
-  <script type="module" src="./js/app.js?v=33"></script>
+  <script type="module" src="./js/app.js?v=40"></script>
+  <script src="./js/wow-actionbar.js"></script>
 </body>
 </html>
