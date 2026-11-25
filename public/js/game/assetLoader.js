@@ -5,9 +5,10 @@
  */
 
 export const ASSET_MANIFEST = {
-  // Fondos (3)
+  // Fondos (4)
   bg_campamento: { path: './assets/bg_campamento.png', floodFill: false },
-  bg_creacion: { path: './assets/bg_creacion.png', floodFill: false },
+  bg_creacion_alba: { path: './assets/bg_creacion_alba.png', floodFill: false },
+  bg_creacion_hierro: { path: './assets/bg_creacion_hierro.png', floodFill: false },
   mapa_valoria: { path: './assets/mapa_valoria.png', floodFill: false },
 
   // Jefes (4)
