@@ -3205,3 +3205,11 @@ body.in-game .app-main {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
+/* Mover barra de chat / consola GM a la izquierda en computador */
+@media (min-width: 769px) {
+  #hud-chat-panel {
+    left: 14px !important;
+    right: auto !important;
+    transform: none !important;
+  }
+}
