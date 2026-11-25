@@ -53,6 +53,7 @@ const APP_ASSETS = [
   './assets/tile_cesped.png',
   './assets/tile_adoquin.png',
   './assets/tile_cueva.png',
+  './assets/tile_corrupto.png',
   './assets/prop_arbol.png',
   './assets/prop_pino_morado.png',
   './assets/prop_pino_nevado.png',
