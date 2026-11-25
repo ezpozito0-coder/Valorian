@@ -541,7 +541,7 @@ function renderCreatePickers() {
     btn.type = 'button';
     btn.title = `${label} · ${cls.weapon}`;
     btn.className = `pixel-choice-tile class-tile ${cls.id === creatorState.heroClass ? 'selected' : ''}`;
-    btn.innerHTML = `<img src="${imgPath}" alt="${label}" class="creator-tile-img class-fig-img" width="60" height="60" /><span class="tile-caption">${label}</span><small class="tile-subcaption">${cls.weapon}</small>`;
+    btn.innerHTML = `<img src="${imgPath}" alt="${label}" class="creator-tile-img class-fig-img" width="60" height="60" /><span class="tile-caption">${label}</span>`;
     btn.addEventListener('click', () => { creatorState.heroClass = cls.id; renderCreatePickers(); });
     classWrap.appendChild(btn);
   }
