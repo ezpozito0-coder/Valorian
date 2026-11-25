@@ -480,18 +480,57 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
     const glow = isVoid ? '#F0ABFC' : '#FEF08A';
     ctx.save();
     if (isVoid) {
-      ctx.fillStyle = 'rgba(147, 51, 234, 0.28)';
+      ctx.fillStyle = 'rgba(147, 51, 234, 0.18)';
       ctx.beginPath();
-      ctx.arc(cx, cy - 2 * scale, 18 * scale, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy - 2 * scale, 22 * scale, 16 * scale, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Ala izquierda y derecha
-    px(ctx, cx - 17 * scale, cy - 12 * scale - flap, 11 * scale, 14 * scale, outer);
-    px(ctx, cx - 15 * scale, cy - 10 * scale - flap, 8 * scale, 10 * scale, mid);
-    px(ctx, cx - 13 * scale, cy - 8 * scale - flap, 4 * scale, 6 * scale, glow);
-    px(ctx, cx + 6 * scale, cy - 12 * scale - flap, 11 * scale, 14 * scale, outer);
-    px(ctx, cx + 7 * scale, cy - 10 * scale - flap, 8 * scale, 10 * scale, mid);
-    px(ctx, cx + 9 * scale, cy - 8 * scale - flap, 4 * scale, 6 * scale, glow);
+    // Alas emplumadas (izquierda y derecha) con plumas escalonadas, aleteo suave y contorno oscuro
+    const drawWing = (side) => {
+      const lift = flap * 0.6;
+      const feathers = [
+        { len: 24, ang: -1.05, w: 4.6 },
+        { len: 27, ang: -0.72, w: 5.0 },
+        { len: 26, ang: -0.38, w: 5.0 },
+        { len: 22, ang: -0.04, w: 4.6 },
+        { len: 17, ang: 0.3, w: 4.0 }
+      ];
+      const ox = cx + side * 5 * scale;
+      const oy = cy - 7 * scale;
+      for (let i = feathers.length - 1; i >= 0; i--) {
+        const f = feathers[i];
+        const a = f.ang + (-lift / (20 * scale)) * (1 - i * 0.12);
+        const dx = Math.cos(a) * f.len * scale * side;
+        const dy = Math.sin(a) * f.len * scale;
+        const nx = -Math.sin(a) * f.w * scale * 0.5 * side * -1;
+        const ny = Math.cos(a) * f.w * scale * 0.5;
+        const path = () => {
+          ctx.beginPath();
+          ctx.moveTo(ox + nx, oy + ny);
+          ctx.lineTo(ox + dx + nx * 0.5, oy + dy + ny * 0.5);
+          ctx.lineTo(ox + dx * 1.04, oy + dy * 1.04);
+          ctx.lineTo(ox + dx - nx * 0.5, oy + dy - ny * 0.5);
+          ctx.lineTo(ox - nx, oy - ny);
+          ctx.closePath();
+        };
+        ctx.fillStyle = '#0D0A14';
+        path();
+        ctx.fill();
+        ctx.save();
+        ctx.translate(ox, oy);
+        ctx.scale(0.86, 0.86);
+        ctx.translate(-ox, -oy);
+        ctx.fillStyle = i % 2 === 0 ? outer : mid;
+        path();
+        ctx.fill();
+        ctx.restore();
+      }
+      // Brillo en la base del ala
+      ctx.fillStyle = glow;
+      ctx.fillRect(Math.round(ox - side * 2 * scale - 1), Math.round(oy - 2 * scale), 3 * scale, 3 * scale);
+    };
+    drawWing(-1);
+    drawWing(1);
     ctx.restore();
   }
 

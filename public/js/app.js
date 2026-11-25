@@ -1078,7 +1078,7 @@ async function bootstrap() {
     });
 
     navigator.serviceWorker
-      .register('./sw.js?v=31', { updateViaCache: 'none' })
+      .register('./sw.js?v=32', { updateViaCache: 'none' })
       .then((reg) => {
         reg.update().catch(() => {});
         if (reg.waiting) {

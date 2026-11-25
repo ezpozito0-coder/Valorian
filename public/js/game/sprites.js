@@ -106,13 +106,22 @@ export function drawHero(ctx, p, time) {
   }
 
   if (p.shieldBuffTimer > 0) {
-    ctx.save();
-    ctx.strokeStyle = '#D9A441';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 24 + Math.sin(time * 10) * 2, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+    const shieldSheet = getAsset('fx_escudo_baluarte');
+    if (shieldSheet) {
+      const fIdx = Math.floor(time * 9) % 4;
+      drawFootAnchoredSprite(ctx, shieldSheet, x, y + 18, 62, {
+        frameIndex: fIdx,
+        alpha: 0.88
+      });
+    } else {
+      ctx.save();
+      ctx.strokeStyle = '#D9A441';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 24 + Math.sin(time * 10) * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // Renderizado unificado 16-bit 4-direcciones (Masculino y Femenino) anclado a la base de los pies (footY)

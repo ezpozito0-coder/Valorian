@@ -652,7 +652,15 @@ export class GameEngine {
       h.timer -= dt;
       if (h.timer <= 0) {
         sfx.playBossWave();
-        this.addEffect('ring', h.x, h.y, h.radius, h.color, 0.4);
+        const fxKind =
+          h.color === '#9333EA' || h.color === '#A855F7'
+            ? 'void_wave'
+            : h.color === '#F97316' || h.color === '#EA580C'
+            ? 'fire_explosion'
+            : h.color === '#38BDF8'
+            ? 'frost_nova'
+            : 'ring';
+        this.addEffect(fxKind, h.x, h.y, h.radius, h.color, 0.45);
         if (Math.hypot(p.x - h.x, p.y - h.y) <= h.radius) {
           this.damagePlayer(h.dmg);
           if (h.slow) p.slowedTimer = 2.5;
@@ -781,7 +789,7 @@ export class GameEngine {
             { aoeRadius: 48, style: 'orb' }
           );
         } else if (p.activePet === 'fantasma_hoz') {
-          // Fantasma con Hoz: Guadaña Espectral que drena vida
+          // Fantasma con Hoz: Guadaña Espectral giratoria que drena vida
           this.spawnProjectile(
             'player',
             pet.x,
@@ -789,17 +797,17 @@ export class GameEngine {
             (edx / elen) * 360,
             (edy / elen) * 360,
             Math.round(baseAtk * 0.58),
-            7,
+            8,
             '#C084FC',
-            0.8,
-            { style: 'orb' }
+            0.85,
+            { style: 'scythe' }
           );
           if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 8);
         } else if (p.activePet === 'gato_volador') {
           // Gato Gigante Volador: Bendición Celestial (cura + rayo de luz)
           if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 14);
           if (p.mp < p.maxMp) p.mp = Math.min(p.maxMp, p.mp + 10);
-          this.addEffect('ring', p.x, p.y, 34, '#FDE047', 0.28);
+          this.addEffect('celestial_blessing', p.x, p.y, 44, '#FDE047', 0.42);
           this.spawnProjectile(
             'player',
             pet.x,
@@ -815,7 +823,7 @@ export class GameEngine {
         } else {
           // Lobo Blanco: Mordisco Invernal que ralentiza
           const ang = Math.atan2(edy, edx);
-          this.addEffect('slash', pet.x + (edx / elen) * 20, pet.y + (edy / elen) * 20, 22, '#BAE6FD', 0.22, { angle: ang });
+          this.addEffect('claw_swipe', pet.x + (edx / elen) * 20, pet.y + (edy / elen) * 20, 24, '#BAE6FD', 0.25, { angle: ang });
           if (nearestDist <= 95) {
             nearestEnemy.slowTimer = Math.max(nearestEnemy.slowTimer || 0, 1.8);
             this.damageEnemy(nearestEnemy, Math.round(baseAtk * 0.5), '#BAE6FD');
@@ -1021,12 +1029,12 @@ export class GameEngine {
     sfx.playSkill(p.gender);
 
     if (skill.id === 'corte_pesado') {
-      this.performMeleeArc(p.x, p.y, aim.x, aim.y, 76, Math.round(atk * 1.8 * skMult), '#D9A441');
+      this.performMeleeArc(p.x, p.y, aim.x, aim.y, 76, Math.round(atk * 1.8 * skMult), '#D9A441', 'heavy_slash');
       this.camera.shake = 5;
     } else if (skill.id === 'grito_escudo') {
       p.shieldBuffTimer = 5.0 + skLvl;
       this.addFloatingText(p.x, p.y - 24, `+14 DEF (${5 + skLvl}s)`, '#D9A441');
-      this.addEffect('ring', p.x, p.y, 44, '#D9A441', 0.35);
+      this.addEffect('shield_bulwark', p.x, p.y, 48, '#D9A441', 0.48);
     } else if (skill.id === 'embestida') {
       const startX = p.x;
       const startY = p.y;
@@ -1045,10 +1053,11 @@ export class GameEngine {
     } else if (skill.id === 'destello') {
       const startX = p.x;
       const startY = p.y;
-      this.addEffect('frost_nova', p.x, p.y, 32, '#9333EA', 0.25);
+      this.addEffect('arcane_blink', p.x, p.y, 38, '#9333EA', 0.32);
       p.invulnTimer = 0.5;
       for (let step = 0; step < 6; step++) this.moveEntityWithCollisions(p, -aim.x * 18, -aim.y * 18);
       this.addEffect('dash_trail', (startX + p.x) * 0.5, (startY + p.y) * 0.5, 48, '#38BDF8', 0.3, { angle: Math.atan2(-aim.y, -aim.x) });
+      this.addEffect('arcane_blink', p.x, p.y, 34, '#38BDF8', 0.28);
     } else if (skill.id === 'flecha_rapida') {
       this.spawnProjectile('player', p.x, p.y, aim.x * 490, aim.y * 490, Math.round(atk * 0.95 * skMult), 6, '#FACC15', 0.75, { style: 'arrow' });
       setTimeout(() => {
@@ -1095,11 +1104,11 @@ export class GameEngine {
     return { x: p.dirX || 0, y: p.dirY || -1 };
   }
 
-  performMeleeArc(x, y, ax, ay, range, dmg, color) {
+  performMeleeArc(x, y, ax, ay, range, dmg, color, effectKind = 'slash') {
     const hitX = x + ax * (range * 0.58);
     const hitY = y + ay * (range * 0.58);
     const angle = Math.atan2(ay, ax);
-    this.addEffect('slash', hitX, hitY, range * 0.68, color, 0.24, { angle });
+    this.addEffect(effectKind, hitX, hitY, range * 0.68, color, 0.26, { angle });
     this.hitEnemiesInRadius(hitX, hitY, range * 0.75, dmg);
     this.checkDummyHit(hitX, hitY, range * 0.75, dmg);
   }
@@ -1449,7 +1458,13 @@ export class GameEngine {
             this.spawnProjectile('enemy', e.x, e.y, (dx / len) * 270, (dy / len) * 270, e.atk, 6, e.projColor || '#C084FC', 1.15, { style: 'orb' });
           } else {
             const angle = Math.atan2(dy, dx);
-            this.addEffect('slash', e.x + (dx / len) * 18, e.y + (dy / len) * 18, e.isBoss ? 34 : 22, '#F43F5E', 0.22, { angle });
+            const meleeKind =
+              e.kind === 'vaelor' || e.kind === 'caballero_vacio'
+                ? 'dimensional_slash'
+                : e.isBoss || e.kind === 'esqueleto' || e.kind === 'golem_hielo'
+                ? 'heavy_slash'
+                : 'claw_swipe';
+            this.addEffect(meleeKind, e.x + (dx / len) * 18, e.y + (dy / len) * 18, e.isBoss ? 36 : 24, '#F43F5E', 0.24, { angle });
             this.damagePlayer(e.atk, e.x, e.y);
           }
         }
@@ -1809,6 +1824,8 @@ export class GameEngine {
       const projAssetKey =
         pr.style === 'arrow'
           ? 'fx_proyectil_flecha'
+          : pr.style === 'scythe'
+          ? 'fx_proyectil_hoz'
           : pr.style === 'fire' || pr.aoeRadius || pr.color === '#F97316' || pr.color === '#EA580C'
           ? 'fx_proyectil_fuego'
           : pr.owner === 'enemy' || pr.color === '#C084FC' || pr.color === '#E879F9' || pr.color === '#A855F7'
@@ -1854,12 +1871,20 @@ export class GameEngine {
       const fIdx = Math.min(3, Math.floor(prog * 4));
       ctx.save();
       ctx.globalAlpha = alpha;
-      if (ef.kind === 'slash') {
-        const slashSheet = getAsset('fx_tajo_espada');
+      if (ef.kind === 'slash' || ef.kind === 'heavy_slash' || ef.kind === 'dimensional_slash' || ef.kind === 'claw_swipe') {
+        const sheetKey =
+          ef.kind === 'heavy_slash'
+            ? 'fx_golpe_furia'
+            : ef.kind === 'dimensional_slash'
+            ? 'fx_corte_dimensional'
+            : ef.kind === 'claw_swipe'
+            ? 'fx_zarpazo_enemigo'
+            : 'fx_tajo_espada';
+        const slashSheet = getAsset(sheetKey) || getAsset('fx_tajo_espada');
         const baseAng = ef.angle !== undefined ? ef.angle : 0;
         if (slashSheet) {
           const m = getSpriteFrameMetrics(slashSheet, fIdx);
-          const sz = Math.max(48, ef.radius * 1.9);
+          const sz = Math.max(48, ef.radius * (ef.kind === 'heavy_slash' || ef.kind === 'dimensional_slash' ? 2.15 : 1.9));
           ctx.translate(ef.x, ef.y);
           ctx.rotate(baseAng);
           ctx.imageSmoothingEnabled = false;
@@ -1879,6 +1904,14 @@ export class GameEngine {
           ctx.arc(ef.x, ef.y, rad * 0.88, startA + 0.08, endA - 0.05);
           ctx.stroke();
         }
+      } else if (ef.kind === 'void_wave' && getAsset('fx_onda_vacio')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_onda_vacio'), ef.x, ef.y + ef.radius * 0.55, ef.radius * 1.65, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'shield_bulwark' && getAsset('fx_escudo_baluarte')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_escudo_baluarte'), ef.x, ef.y + 18, 74, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'arcane_blink' && getAsset('fx_destello_arcano')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_destello_arcano'), ef.x, ef.y + 18, 68, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'celestial_blessing' && getAsset('fx_bendicion_celestial')) {
+        drawFootAnchoredSprite(ctx, getAsset('fx_bendicion_celestial'), ef.x, ef.y + 18, 72, { frameIndex: fIdx, alpha });
       } else if (ef.kind === 'fire_explosion' && getAsset('fx_explosion_fuego')) {
         drawFootAnchoredSprite(ctx, getAsset('fx_explosion_fuego'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.65, { frameIndex: fIdx, alpha });
       } else if (ef.kind === 'frost_nova' && getAsset('fx_nova_escarcha')) {

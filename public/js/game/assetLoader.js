@@ -102,7 +102,7 @@ export const ASSET_MANIFEST = {
   prop_cristal_hielo: { path: './assets/prop_cristal_hielo.png', floodFill: false },
   prop_arbusto: { path: './assets/prop_arbusto.png', floodFill: false },
 
-  // Efectos Visuales de Luz, Sombras, Movimiento, Clima y Combate en 4 Cuadros (26)
+  // Efectos Visuales de Luz, Sombras, Movimiento, Clima y Combate en 4 Cuadros (34)
   fx_halo_calido: { path: './assets/fx_halo_calido.png', floodFill: false },
   fx_halo_vacio: { path: './assets/fx_halo_vacio.png', floodFill: false },
   fx_halo_jugador: { path: './assets/fx_halo_jugador.png', floodFill: false },
@@ -119,6 +119,14 @@ export const ASSET_MANIFEST = {
   fx_clima_nieve: { path: './assets/fx_clima_nieve.png', floodFill: false },
   fx_clima_vacio: { path: './assets/fx_clima_vacio.png', floodFill: false },
   fx_tajo_espada: { path: './assets/fx_tajo_espada.png', floodFill: false },
+  fx_golpe_furia: { path: './assets/fx_golpe_furia.png', floodFill: false },
+  fx_escudo_baluarte: { path: './assets/fx_escudo_baluarte.png', floodFill: false },
+  fx_destello_arcano: { path: './assets/fx_destello_arcano.png', floodFill: false },
+  fx_zarpazo_enemigo: { path: './assets/fx_zarpazo_enemigo.png', floodFill: false },
+  fx_onda_vacio: { path: './assets/fx_onda_vacio.png', floodFill: false },
+  fx_corte_dimensional: { path: './assets/fx_corte_dimensional.png', floodFill: false },
+  fx_bendicion_celestial: { path: './assets/fx_bendicion_celestial.png', floodFill: false },
+  fx_proyectil_hoz: { path: './assets/fx_proyectil_hoz.png', floodFill: false },
   fx_proyectil_fuego: { path: './assets/fx_proyectil_fuego.png', floodFill: false },
   fx_proyectil_arcano: { path: './assets/fx_proyectil_arcano.png', floodFill: false },
   fx_proyectil_vacio: { path: './assets/fx_proyectil_vacio.png', floodFill: false },
