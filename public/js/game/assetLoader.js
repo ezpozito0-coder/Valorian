@@ -81,6 +81,7 @@ export const ASSET_MANIFEST = {
   tile_cesped: { path: './assets/tile_cesped.png', floodFill: false },
   tile_adoquin: { path: './assets/tile_adoquin.png', floodFill: false },
   tile_cueva: { path: './assets/tile_cueva.png', floodFill: false },
+  tile_corrupto: { path: './assets/tile_corrupto.png', floodFill: false },
   prop_arbol: { path: './assets/prop_arbol.png', floodFill: true },
   prop_pino_morado: { path: './assets/prop_pino_morado.png', floodFill: false },
   iconos_equipo: { path: './assets/iconos_equipo.png', floodFill: false },
