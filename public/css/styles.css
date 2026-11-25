@@ -3223,7 +3223,7 @@ body.in-game .app-main {
     display: none !important;
   }
 
-  body.in-game #wow-actionbar {
+  #wow-actionbar.is-visible {
     position: fixed;
     bottom: 14px;
     left: 50%;
