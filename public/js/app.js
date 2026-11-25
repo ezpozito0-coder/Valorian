@@ -464,24 +464,38 @@ function stopMenuAnimation() {
 }
 
 /* =========================================================
-   CREACIÓN DE PERSONAJE 16:9
+   CREACIÓN DE PERSONAJE 16:9 CON RETRATOS E ICONOS PNG ILUSTRADOS
    ========================================================= */
+function getRaceSlug(raceId) {
+  const map = {
+    Humano: 'humano',
+    Elfo: 'elfo',
+    Enano: 'enano',
+    Orco: 'orco',
+    'Lobo Guerrero': 'lobo',
+    'Nómada': 'nomada'
+  };
+  return map[raceId] || 'humano';
+}
+
 function renderCreatePickers() {
   const idx = Math.max(0, SLOT_KEYS.indexOf(creatorState.slotKey)) + 1;
   document.getElementById('create-slot-label').textContent = `Espacio ${idx}`;
   document.getElementById('preview-dir-label').textContent = DIR_LABELS[creatorState.dir];
+  const gCode = creatorState.gender === 'female' ? 'f' : 'm';
+  const fCode = creatorState.faction === 'hierro' ? 'hierro' : 'alba';
 
   const factionWrap = document.getElementById('faction-picker');
   factionWrap.innerHTML = '';
   [
-    { id: 'alba', label: 'Alba', title: 'La Guardia del Alba', icon: 'shield_alba' },
-    { id: 'hierro', label: 'Hierro', title: 'Los Clanes de Hierro', icon: 'shield_hierro' }
+    { id: 'alba', label: 'Alba', title: 'La Guardia del Alba', img: './assets/ui/emblema_alba.png' },
+    { id: 'hierro', label: 'Hierro', title: 'Los Clanes de Hierro', img: './assets/ui/emblema_hierro.png' }
   ].forEach((f) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.title = f.title;
     btn.className = `pixel-choice-tile ${creatorState.faction === f.id ? 'selected' : ''}`;
-    btn.innerHTML = `${getPixelIconSvg(f.icon)}<span class="tile-caption">${f.label}</span>`;
+    btn.innerHTML = `<img src="${f.img}" alt="${f.label}" class="creator-tile-img" width="52" height="52" /><span class="tile-caption">${f.label}</span>`;
     btn.addEventListener('click', () => { creatorState.faction = f.id; renderCreatePickers(); });
     factionWrap.appendChild(btn);
   });
@@ -489,14 +503,14 @@ function renderCreatePickers() {
   const genderWrap = document.getElementById('gender-picker');
   genderWrap.innerHTML = '';
   [
-    { id: 'male', label: 'Masc.', title: 'Masculino', icon: 'gender_male' },
-    { id: 'female', label: 'Fem.', title: 'Femenino', icon: 'gender_female' }
+    { id: 'male', label: 'Masc.', title: 'Masculino', img: './assets/ui/sexo_m.png' },
+    { id: 'female', label: 'Fem.', title: 'Femenino', img: './assets/ui/sexo_f.png' }
   ].forEach((g) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.title = g.title;
     btn.className = `pixel-choice-tile ${creatorState.gender === g.id ? 'selected' : ''}`;
-    btn.innerHTML = `${getPixelIconSvg(g.icon)}<span class="tile-caption">${g.label}</span>`;
+    btn.innerHTML = `<img src="${g.img}" alt="${g.label}" class="creator-tile-img portrait-frame" width="52" height="52" /><span class="tile-caption">${g.label}</span>`;
     btn.addEventListener('click', () => { creatorState.gender = g.id; renderCreatePickers(); });
     genderWrap.appendChild(btn);
   });
@@ -507,11 +521,13 @@ function renderCreatePickers() {
   raceWrap.innerHTML = '';
   for (const r of races) {
     const label = getRaceLabel(r.id, creatorState.gender);
+    const slug = getRaceSlug(r.id);
+    const imgPath = `./assets/ui/raza_${slug}_${gCode}.png`;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.title = `${label}: ${r.desc}`;
     btn.className = `pixel-choice-tile ${r.id === creatorState.race ? 'selected' : ''}`;
-    btn.innerHTML = `${getPixelIconSvg('portrait', { race: r.id, gender: creatorState.gender })}<span class="tile-caption">${label}</span>`;
+    btn.innerHTML = `<img src="${imgPath}" alt="${label}" class="creator-tile-img portrait-frame" width="56" height="56" /><span class="tile-caption">${label}</span>`;
     btn.addEventListener('click', () => { creatorState.race = r.id; renderCreatePickers(); });
     raceWrap.appendChild(btn);
   }
@@ -520,11 +536,12 @@ function renderCreatePickers() {
   classWrap.innerHTML = '';
   for (const cls of Object.values(CLASSES)) {
     const label = getClassLabel(cls.id, creatorState.gender);
+    const imgPath = `./assets/ui/clase_${cls.id}_${gCode}_${fCode}.png`;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.title = `${label} · ${cls.weapon}`;
-    btn.className = `pixel-choice-tile ${cls.id === creatorState.heroClass ? 'selected' : ''}`;
-    btn.innerHTML = `${getPixelIconSvg('class_' + cls.id)}<span class="tile-caption">${label}</span>`;
+    btn.className = `pixel-choice-tile class-tile ${cls.id === creatorState.heroClass ? 'selected' : ''}`;
+    btn.innerHTML = `<img src="${imgPath}" alt="${label}" class="creator-tile-img class-fig-img" width="60" height="60" /><span class="tile-caption">${label}</span><small class="tile-subcaption">${cls.weapon}</small>`;
     btn.addEventListener('click', () => { creatorState.heroClass = cls.id; renderCreatePickers(); });
     classWrap.appendChild(btn);
   }

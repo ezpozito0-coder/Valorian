@@ -904,6 +904,254 @@ function buildLevelUpSheet() {
   return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
 }
 
+// 4i. Golpe de Furia (Guerrero) — Tajo Pesado Doble Media Luna Carmesí-Oro con Esquirlas
+function buildHeavySlashSheet() {
+  const FW = 96, FH = 96;
+  const c = new PixelCanvas(FW * 4, FH);
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 36;
+    const cy = 48;
+    const aStart = -1.45 + f * 0.25;
+    const aEnd = -0.25 + f * 0.6;
+    // Arco exterior carmesí-furia + dorado real
+    for (let r = 20; r <= 40; r++) {
+      for (let a = aStart; a <= aEnd; a += 0.025) {
+        const px = cx + Math.cos(a) * r;
+        const py = cy + Math.sin(a) * r;
+        const isEdge = r <= 21 || r >= 39 || a <= aStart + 0.05 || a >= aEnd - 0.05;
+        const isCore = r >= 30 && r <= 35;
+        const isInner = r >= 23 && r <= 27;
+        const col = isEdge
+          ? '#0D0A14'
+          : isCore
+          ? '#FFFFFF'
+          : r > 28
+          ? '#FDE047'
+          : isInner
+          ? '#EF4444'
+          : '#D9A441';
+        c.pset(px, py, col);
+      }
+    }
+    // Segundo arco interno de eco de furia
+    for (let r = 11; r <= 16; r++) {
+      for (let a = aStart + 0.15; a <= aEnd - 0.12; a += 0.04) {
+        const px = cx + Math.cos(a) * r;
+        const py = cy + Math.sin(a) * r;
+        c.pset(px, py, r === 11 || r === 16 ? '#0D0A14' : '#FB923C');
+      }
+    }
+    // Esquirlas incandescentes y grieta de impacto
+    for (let i = 0; i < 5; i++) {
+      const ang = aStart + ((aEnd - aStart) * i) / 4;
+      const sx = cx + Math.cos(ang) * (41 + f * 2);
+      const sy = cy + Math.sin(ang) * (41 + f * 2);
+      c.outlinedRect(sx - 2, sy - 2, 5, 5, i % 2 === 0 ? '#FEF08A' : '#EF4444', '#0D0A14');
+    }
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4j. Baluarte de Hierro (Guerrero) — Domo Rúnico + 3 Escudos Dorados Orbitando en 4 Cuadros
+function buildShieldBulwarkSheet() {
+  const FW = 80, FH = 80;
+  const c = new PixelCanvas(FW * 4, FH);
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 40;
+    const cy = 44;
+    const pulseR = 28 + (f % 2) * 2;
+    // Anillo rúnico en el suelo
+    c.ellipse(cx, cy + 12, pulseR, 11, '#D9A441', '#0D0A14', 185);
+    c.ellipse(cx, cy + 12, pulseR - 4, 7, '#FEF08A', null, 210);
+    // Domo protector translúcido
+    c.ring(cx, cy - 2, 26, 23, '#FDE047', '#92400E', 135);
+    // 3 Escudos de templario orbitando alrededor del guerrero
+    for (let s = 0; s < 3; s++) {
+      const ang = (f / 4) * Math.PI * 2 + (s * Math.PI * 2) / 3;
+      const sx = Math.round(cx + Math.cos(ang) * 24);
+      const sy = Math.round(cy + Math.sin(ang) * 12);
+      c.outlinedRect(sx - 5, sy - 6, 10, 11, '#1E4E8C', '#0D0A14');
+      c.outlinedRect(sx - 4, sy - 5, 8, 9, '#D9A441', '#0D0A14');
+      c.rect(sx - 1, sy - 3, 2, 5, '#FFFFFF');
+      c.rect(sx - 2, sy - 1, 4, 2, '#FFFFFF');
+    }
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4k. Destello Arcano (Mago) — Portal de Teletransporte Dimensional en 4 Cuadros
+function buildArcaneBlinkSheet() {
+  const FW = 72, FH = 72;
+  const c = new PixelCanvas(FW * 4, FH);
+  const radii = [12, 22, 28, 18];
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 36;
+    const cy = 36;
+    const r = radii[f];
+    c.radialGlow(cx, cy, r + 4, r + 4, [
+      { minDist: 0.0, maxDist: 0.32, color: '#FFFFFF', alpha: 235, solid: true },
+      { minDist: 0.32, maxDist: 0.65, color: '#38BDF8', alpha: 190, solid: false },
+      { minDist: 0.65, maxDist: 1.0, color: '#A855F7', alpha: 140, solid: false }
+    ]);
+    // Estrella arcana de 4 puntas
+    const arm = 10 + (3 - Math.abs(f - 1)) * 5;
+    c.outlinedRect(cx - arm, cy - 3, arm * 2, 6, '#E0F2FE', '#0D0A14');
+    c.outlinedRect(cx - 3, cy - arm, 6, arm * 2, '#E0F2FE', '#0D0A14');
+    c.rect(cx - arm + 2, cy - 1, (arm - 2) * 2, 2, '#FFFFFF');
+    c.rect(cx - 1, cy - arm + 2, 2, (arm - 2) * 2, '#FFFFFF');
+    // Partículas dimensionales
+    for (let i = 0; i < 4; i++) {
+      const ang = Math.PI / 4 + (i * Math.PI) / 2 + f * 0.25;
+      const px = cx + Math.cos(ang) * (r - 2);
+      const py = cy + Math.sin(ang) * (r - 2);
+      c.outlinedRect(px - 2, py - 2, 5, 5, '#F0ABFC', '#4C1D95');
+    }
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4l. Zarpazo Enemigo / Mordisco Salvaje (Enemigos Melee y Lobo Blanco) en 4 Cuadros
+function buildClawSwipeSheet() {
+  const FW = 64, FH = 64;
+  const c = new PixelCanvas(FW * 4, FH);
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 26;
+    const cy = 32;
+    const aStart = -1.1 + f * 0.22;
+    const aEnd = -0.15 + f * 0.45;
+    // 3 surcos paralelos de garras afiladas
+    for (const rBase of [13, 19, 25]) {
+      for (let a = aStart; a <= aEnd; a += 0.035) {
+        const px = cx + Math.cos(a) * rBase;
+        const py = cy + Math.sin(a) * rBase;
+        c.outlinedRect(px - 1, py - 1, 4, 4, '#F43F5E', '#0D0A14');
+        c.pset(px, py, '#FFE4E6');
+      }
+    }
+    // Gotas de energía carmesí
+    c.outlinedRect(cx + 16 + f * 3, cy - 10 + f * 5, 4, 4, '#FB7185', '#0D0A14');
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4m. Onda y Púas del Vacío (Jefes Malakor y Vaelor Fase 2) en 4 Cuadros
+function buildVoidWaveSheet() {
+  const FW = 112, FH = 112;
+  const c = new PixelCanvas(FW * 4, FH);
+  const radii = [22, 34, 44, 50];
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 56;
+    const cy = 58;
+    const r = radii[f];
+    c.ring(cx, cy, r, Math.max(6, r - 9), '#9333EA', '#0D0A14');
+    c.ring(cx, cy, r - 2, Math.max(8, r - 7), '#E879F9');
+    if (f < 3) {
+      c.ellipse(cx, cy, Math.round(r * 0.48), Math.round(r * 0.32), '#3B0764', '#0D0A14', 180);
+    }
+    // 8 Púas monolíticas del Vacío brotando en círculo
+    for (let i = 0; i < 8; i++) {
+      const ang = (i * Math.PI) / 4 + f * 0.08;
+      const px = Math.round(cx + Math.cos(ang) * (r - 2));
+      const py = Math.round(cy + Math.sin(ang) * (r - 2));
+      const spikeH = 12 + (f === 1 || f === 2 ? 6 : 0);
+      c.outlinedRect(px - 4, py - spikeH, 8, spikeH + 4, '#581C87', '#0D0A14');
+      c.rect(px - 2, py - spikeH + 2, 4, spikeH - 2, '#C084FC');
+      c.rect(px - 1, py - spikeH + 2, 2, 5, '#FFFFFF');
+    }
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4n. Corte Dimensional Abisal (Jefe Final Vaelor y Caballero del Vacío) en 4 Cuadros
+function buildDimensionalSlashSheet() {
+  const FW = 96, FH = 96;
+  const c = new PixelCanvas(FW * 4, FH);
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 34;
+    const cy = 48;
+    const aStart = -1.4 + f * 0.24;
+    const aEnd = -0.2 + f * 0.58;
+    for (let r = 18; r <= 39; r++) {
+      for (let a = aStart; a <= aEnd; a += 0.025) {
+        const px = cx + Math.cos(a) * r;
+        const py = cy + Math.sin(a) * r;
+        const isEdge = r <= 19 || r >= 38 || a <= aStart + 0.05 || a >= aEnd - 0.05;
+        const isRift = r >= 28 && r <= 32;
+        const col = isEdge
+          ? '#0D0A14'
+          : isRift
+          ? '#FFFFFF'
+          : r > 32
+          ? '#F0ABFC'
+          : r > 24
+          ? '#A855F7'
+          : '#3B0764';
+        c.pset(px, py, col);
+      }
+    }
+    // Fragmentos de grieta dimensional
+    for (let i = 0; i < 4; i++) {
+      const ang = aStart + ((aEnd - aStart) * i) / 3;
+      const sx = cx + Math.cos(ang) * (40 + f * 2);
+      const sy = cy + Math.sin(ang) * (40 + f * 2);
+      c.outlinedRect(sx - 2, sy - 2, 5, 5, '#F0ABFC', '#0D0A14');
+    }
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4o. Bendición Celestial (Mascota Gato Gigante Volador / Curación) en 4 Cuadros
+function buildCelestialBlessingSheet() {
+  const FW = 80, FH = 80;
+  const c = new PixelCanvas(FW * 4, FH);
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 40;
+    const cy = 46;
+    const r = 16 + f * 5;
+    c.ellipse(cx, cy + 8, r, Math.round(r * 0.45), '#4ADE80', '#0D0A14', 185);
+    c.ellipse(cx, cy + 8, Math.max(4, r - 4), Math.max(2, Math.round((r - 4) * 0.45)), '#FEF08A', null, 220);
+    // Cruces de curación y plumas doradas ascendiendo
+    const crosses = [[-14, -4], [14, -8], [0, -16], [-8, 6], [10, 4]];
+    crosses.forEach(([ox, oy], idx) => {
+      const py = cy + oy - f * 4 - (idx % 2) * 2;
+      const px = cx + ox;
+      const col = idx % 2 === 0 ? '#4ADE80' : '#FDE047';
+      c.outlinedRect(px - 4, py - 1, 8, 3, col, '#0D0A14');
+      c.outlinedRect(px - 1, py - 4, 3, 8, col, '#0D0A14');
+      c.pset(px, py, '#FFFFFF');
+    });
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
+// 4p. Guadaña Espectral (Mascota Fantasma con Hoz) — Proyectil Giratorio en 4 Cuadros
+function buildSpectralScytheSheet() {
+  const FW = 48, FH = 48;
+  const c = new PixelCanvas(FW * 4, FH);
+  for (let f = 0; f < 4; f++) {
+    const cx = f * FW + 24;
+    const cy = 24;
+    const baseA = (f * Math.PI) / 2;
+    // Estela circular fantasmagórica
+    c.ring(cx, cy, 16, 12, '#9333EA', '#0D0A14', 180);
+    c.ring(cx, cy, 14, 13, '#F0ABFC', null, 220);
+    // Dos hojas de guadaña curvadas opuestas girando
+    for (let b = 0; b < 2; b++) {
+      const a0 = baseA + b * Math.PI;
+      for (let r = 6; r <= 18; r++) {
+        for (let da = -0.35; da <= 0.45; da += 0.08) {
+          const px = cx + Math.cos(a0 + da) * r;
+          const py = cy + Math.sin(a0 + da) * r;
+          c.pset(px, py, r >= 15 ? '#FFFFFF' : '#E879F9');
+        }
+      }
+    }
+    c.ellipse(cx, cy, 5, 5, '#3B0764', '#0D0A14');
+    c.ellipse(cx, cy, 3, 3, '#FFFFFF');
+  }
+  return { canvas: c, frameW: FW, frameH: FH, frameCount: 4 };
+}
+
 /* =========================================================
    5. GIFs ANIMADOS DE 4 CUADROS PARA LOS 19 PERSONAJES, MASCOTAS Y JEFES BASE
    ========================================================= */
@@ -1083,6 +1331,14 @@ function main() {
 
   // 4. Efectos de Combate, Habilidades, Proyectiles e Impactos
   saveSheetAndGif('fx_tajo_espada', buildSwordSlashSheet(), 8);
+  saveSheetAndGif('fx_golpe_furia', buildHeavySlashSheet(), 8);
+  saveSheetAndGif('fx_escudo_baluarte', buildShieldBulwarkSheet(), 11);
+  saveSheetAndGif('fx_destello_arcano', buildArcaneBlinkSheet(), 8);
+  saveSheetAndGif('fx_zarpazo_enemigo', buildClawSwipeSheet(), 8);
+  saveSheetAndGif('fx_onda_vacio', buildVoidWaveSheet(), 9);
+  saveSheetAndGif('fx_corte_dimensional', buildDimensionalSlashSheet(), 8);
+  saveSheetAndGif('fx_bendicion_celestial', buildCelestialBlessingSheet(), 10);
+  saveSheetAndGif('fx_proyectil_hoz', buildSpectralScytheSheet(), 8);
   saveSheetAndGif('fx_proyectil_fuego', buildProjectileSheet('fire'), 9);
   saveSheetAndGif('fx_proyectil_arcano', buildProjectileSheet('arcane'), 9);
   saveSheetAndGif('fx_proyectil_vacio', buildProjectileSheet('void'), 9);

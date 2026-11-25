@@ -583,9 +583,9 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <script>
-    // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v31
+    // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v33
     (function () {
-      var CURRENT_VER = 'cronicas-fractura-v32';
+      var CURRENT_VER = 'cronicas-fractura-v33';
       try {
         var storedVer = localStorage.getItem('valoria_app_ver');
         if (storedVer !== CURRENT_VER) {
@@ -601,8 +601,8 @@
                   }
                 })
               ).then(function () {
-                if (deletedAny && !window.location.search.includes('v=32')) {
-                  window.location.replace(window.location.pathname + '?v=32' + window.location.hash);
+                if (deletedAny && !window.location.search.includes('v=33')) {
+                  window.location.replace(window.location.pathname + '?v=33' + window.location.hash);
                 }
               });
             });
@@ -611,6 +611,6 @@
       } catch (e) {}
     })();
   </script>
-  <script type="module" src="./js/app.js?v=32"></script>
+  <script type="module" src="./js/app.js?v=33"></script>
 </body>
 </html>
