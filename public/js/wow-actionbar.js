@@ -220,8 +220,13 @@
     });
   }
 
+const isPlaying = () =>
+    location.hash === '#jugar' ||
+    document.body.classList.contains('in-game') ||
+    Boolean(document.querySelector('#hud-chat-panel')?.offsetParent);
+
   window.addEventListener('keydown', (e) => {
-    if (!document.body.classList.contains('in-game')) return;
+    if (!isPlaying()) return;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
     const num = parseInt(e.key, 10);
     if (num >= 1 && num <= TOTAL_SLOTS) {
@@ -230,7 +235,9 @@
   });
 
   setInterval(() => {
-    if (!document.body.classList.contains('in-game')) return;
+    const active = isPlaying();
+    bar.classList.toggle('is-visible', active);
+    if (!active) return;
     bindDraggableSources();
     renderBar();
   }, 150);
