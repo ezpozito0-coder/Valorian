@@ -888,7 +888,7 @@ export function drawCreatorPreviewCanvas(canvas, state, time) {
   const h = canvas.height;
   ctx.imageSmoothingEnabled = false;
 
-  const creacionBg = getAsset('bg_creacion');
+ const creacionBg = getAsset(state.faction === 'hierro' ? 'bg_creacion_hierro' : 'bg_creacion_alba') || getAsset('bg_creacion');
   if (creacionBg) {
     // Dibujar bg_creacion.png a pantalla completa y colocar al personaje y su mascota sobre el pedestal de piedra con un halo rúnico sutil
     ctx.drawImage(creacionBg, 0, 0, w, h);
