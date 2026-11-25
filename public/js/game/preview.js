@@ -893,20 +893,7 @@ export function drawCreatorPreviewCanvas(canvas, state, time) {
     // Dibujar bg_creacion.png a pantalla completa y colocar al personaje y su mascota sobre el pedestal de piedra con un halo rúnico sutil
     ctx.drawImage(creacionBg, 0, 0, w, h);
     const pedX = w * 0.255;
-    const pedY = h * 0.675;
-
-    // Halo mágico suave sobre el pedestal según el bando elegido
-    const isHierro = state.faction === 'hierro';
-    const pulse = 0.22 + Math.sin(time * 4) * 0.06;
-    ctx.save();
-    ctx.fillStyle = isHierro ? `rgba(239, 68, 68, ${pulse})` : `rgba(56, 189, 248, ${pulse})`;
-    ctx.beginPath();
-    ctx.ellipse(pedX + 6, pedY + 6, 86, 22, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = isHierro ? 'rgba(251, 146, 60, 0.55)' : 'rgba(253, 224, 71, 0.55)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
+  const pedY = state.faction === 'hierro' ? h * 0.725 : h * 0.675;
 
     drawDetailedHeroSprite(ctx, pedX - 18, pedY - 62, 4.1, state, time);
     drawPetSprite(ctx, 'lobo_blanco', pedX + 58, pedY - 12, 2.3, time);
