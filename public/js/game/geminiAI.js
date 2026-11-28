@@ -93,8 +93,29 @@ export const AI_CHARACTERS_DEFS = {
 };
 
 /* =========================================================
-   GESTIÓN SEGURA DE API KEY EN EL NAVEGADOR
+   GESTIÓN SEGURA DE API KEY EN EL NAVEGADOR + AUTO-CARGA DESDE .env LOCAL
    ========================================================= */
+let envKeyFetched = false;
+export async function syncLocalEnvGeminiKey() {
+  if (envKeyFetched) return getGeminiApiKey();
+  envKeyFetched = true;
+  try {
+    if (getGeminiApiKey()) return getGeminiApiKey();
+    const res = await fetch('./api/gemini-config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.apiKey && data.apiKey.trim().length >= 16) {
+        setGeminiApiKey(data.apiKey.trim());
+        return data.apiKey.trim();
+      }
+    }
+  } catch {
+    // Si se abre en GitHub Pages sin servidor local, usa localStorage normal
+  }
+  return getGeminiApiKey();
+}
+syncLocalEnvGeminiKey();
+
 export function getGeminiApiKey() {
   try {
     return (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim();
@@ -338,10 +359,18 @@ async function callGeminiFlashJson(systemInstruction, userPrompt, timeoutMs = 65
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const isBearer = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.');
+    const url = isBearer
+      ? `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+      : `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const headers = { 'Content-Type': 'application/json' };
+    if (isBearer) {
+      headers.Authorization = `Bearer ${apiKey}`;
+      headers['x-goog-api-key'] = apiKey;
+    }
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: controller.signal,
       body: JSON.stringify({
         systemInstruction: {

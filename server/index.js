@@ -95,6 +95,10 @@ app.get('/api/npc-reports', async (_req, res) => {
   }
 });
 
+app.get('/api/gemini-config', (_req, res) => {
+  res.json({ apiKey: process.env.GEMINI_API_KEY || '' });
+});
+
 // Archivos estáticos con caché inteligente
 app.use(
   express.static(PUBLIC_DIR, {

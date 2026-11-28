@@ -16,7 +16,7 @@ import {
 } from './game/data.js';
 import { GameEngine } from './game/engine.js';
 import { preloadAllGameAssets } from './game/assetLoader.js';
-import { getGeminiApiKey, setGeminiApiKey, hasGeminiApiKey } from './game/geminiAI.js';
+import { getGeminiApiKey, setGeminiApiKey, hasGeminiApiKey, syncLocalEnvGeminiKey } from './game/geminiAI.js';
 import {
   drawHomeValoriaBg,
   drawCreatorPreviewCanvas,
@@ -1119,10 +1119,12 @@ function bindEvents() {
     }
   };
   refreshGeminiKeyUi();
+  syncLocalEnvGeminiKey().then(() => refreshGeminiKeyUi());
   document.getElementById('btn-save-gemini-key')?.addEventListener('click', () => {
     const val = document.getElementById('input-gemini-key')?.value || '';
     setGeminiApiKey(val);
     refreshGeminiKeyUi();
+  syncLocalEnvGeminiKey().then(() => refreshGeminiKeyUi());
     showToast(hasGeminiApiKey() ? 'Clave de Gemini Flash guardada en tu navegador.' : 'Clave eliminada. Usando IA Local.', 'success');
   });
   document.getElementById('btn-touch-stealth')?.addEventListener('click', () => {
