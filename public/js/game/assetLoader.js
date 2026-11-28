@@ -1220,183 +1220,185 @@ export function processGrid3x5SpriteSheet(img, threshold = 230) {
       let head = 0;
       let tail = 0;
 
-      // 1. Detectar líneas divisorias negras/grises desplazadas dentro del margen exterior (hasta 16% X / 14% Y)
-      let effLeftPad = borderPadX;
-      let effRightPad = borderPadX;
-      let effTopPad = borderPadY;
-      let effBottomPad = borderPadY;
+      // 1. Detectar líneas divisorias negras/grises desplazadas y limpiar fondo blanco solo si la hoja no tiene transparencia nativa
+      let effLeftPad = hasNativeTransparency ? 0 : borderPadX;
+      let effRightPad = hasNativeTransparency ? 0 : borderPadX;
+      let effTopPad = hasNativeTransparency ? 0 : borderPadY;
+      let effBottomPad = hasNativeTransparency ? 0 : borderPadY;
 
-      for (let x = 0; x < maxGridMarginX; x++) {
-        let darkCount = 0;
-        for (let y = 0; y < cellH; y++) {
-          const p = (y * cellW + x) * 4;
-          if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
-        }
-        if (darkCount > cellH * 0.42) effLeftPad = Math.max(effLeftPad, x + 2);
-      }
-      for (let x = cellW - 1; x >= cellW - maxGridMarginX; x--) {
-        let darkCount = 0;
-        for (let y = 0; y < cellH; y++) {
-          const p = (y * cellW + x) * 4;
-          if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
-        }
-        if (darkCount > cellH * 0.42) effRightPad = Math.max(effRightPad, cellW - x + 1);
-      }
-      for (let y = 0; y < maxGridMarginY; y++) {
-        let darkCount = 0;
-        for (let x = 0; x < cellW; x++) {
-          const p = (y * cellW + x) * 4;
-          if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
-        }
-        if (darkCount > cellW * 0.42) effTopPad = Math.max(effTopPad, y + 2);
-      }
-      for (let y = cellH - 1; y >= cellH - maxGridMarginY; y--) {
-        let darkCount = 0;
-        for (let x = 0; x < cellW; x++) {
-          const p = (y * cellW + x) * 4;
-          if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
-        }
-        if (darkCount > cellW * 0.42) effBottomPad = Math.max(effBottomPad, cellH - y + 1);
-      }
-
-      // Limpiar franja de líneas divisorias en los 4 bordes de la celda
-      for (let y = 0; y < cellH; y++) {
-        for (let x = 0; x < cellW; x++) {
-          if (x < effLeftPad || x >= cellW - effRightPad || y < effTopPad || y >= cellH - effBottomPad) {
-            d[(y * cellW + x) * 4 + 3] = 0;
+      if (!hasNativeTransparency) {
+        for (let x = 0; x < maxGridMarginX; x++) {
+          let darkCount = 0;
+          for (let y = 0; y < cellH; y++) {
+            const p = (y * cellW + x) * 4;
+            if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
           }
+          if (darkCount > cellH * 0.42) effLeftPad = Math.max(effLeftPad, x + 2);
         }
-      }
-
-      const isExteriorWhite = (idx) => {
-        const p = idx * 4;
-        if (d[p + 3] === 0) return true;
-        const r = d[p];
-        const g = d[p + 1];
-        const b = d[p + 2];
-        return r > threshold && g > threshold && b > threshold &&
-          Math.abs(r - g) <= 20 && Math.abs(g - b) <= 20;
-      };
-
-      const enqueue = (x, y) => {
-        if (x < 0 || x >= cellW || y < 0 || y >= cellH) return;
-        const idx = y * cellW + x;
-        if (visited[idx]) return;
-        if (isExteriorWhite(idx)) {
-          visited[idx] = 1;
-          q[tail++] = idx;
-        }
-      };
-
-      for (let x = 0; x < cellW; x++) {
-        enqueue(x, effTopPad);
-        enqueue(x, cellH - 1 - effBottomPad);
-      }
-      for (let y = 0; y < cellH; y++) {
-        enqueue(effLeftPad, y);
-        enqueue(cellW - 1 - effRightPad, y);
-      }
-
-      while (head < tail) {
-        const idx = q[head++];
-        d[idx * 4 + 3] = 0;
-        const x = idx % cellW;
-        const y = (idx - x) / cellW;
-        if (x > 0) enqueue(x - 1, y);
-        if (x < cellW - 1) enqueue(x + 1, y);
-        if (y > 0) enqueue(x, y - 1);
-        if (y < cellH - 1) enqueue(x, y + 1);
-      }
-
-      // Limpiar huecos blancos internos cerrados (ej. entre piernas al caminar de lado o entre brazos y torso)
-      const isStrictPureWhite = (idx) => {
-        const p = idx * 4;
-        if (d[p + 3] === 0) return false;
-        const r = d[p];
-        const g = d[p + 1];
-        const b = d[p + 2];
-        return (
-          r > 236 &&
-          g > 236 &&
-          b > 236 &&
-          Math.abs(r - g) <= 14 &&
-          Math.abs(g - b) <= 14 &&
-          Math.abs(r - b) <= 14
-        );
-      };
-
-      const innerVisited = new Uint8Array(total);
-      for (let y = borderPadY; y < cellH - borderPadY; y++) {
-        for (let x = borderPadX; x < cellW - borderPadX; x++) {
-          const startIdx = y * cellW + x;
-          if (visited[startIdx] || innerVisited[startIdx] || !isStrictPureWhite(startIdx)) continue;
-
-          const compPixels = [];
-          const cq = [startIdx];
-          innerVisited[startIdx] = 1;
-          let touchesOutline = false;
-
-          while (cq.length > 0) {
-            const cIdx = cq.pop();
-            compPixels.push(cIdx);
-            const cx = cIdx % cellW;
-            const cy = (cIdx - cx) / cellW;
-            const neighbors = [];
-            if (cx > 0) neighbors.push(cIdx - 1);
-            if (cx < cellW - 1) neighbors.push(cIdx + 1);
-            if (cy > 0) neighbors.push(cIdx - cellW);
-            if (cy < cellH - 1) neighbors.push(cIdx + cellW);
-
-            for (let n = 0; n < neighbors.length; n++) {
-              const nIdx = neighbors[n];
-              const np = nIdx * 4;
-              if (d[np + 3] === 0) {
-                touchesOutline = true;
-                continue;
-              }
-              const nr = d[np];
-              const ng = d[np + 1];
-              const nb = d[np + 2];
-              const luma = (nr + ng + nb) / 3;
-              if (luma < 175) touchesOutline = true;
-              if (!visited[nIdx] && !innerVisited[nIdx] && isStrictPureWhite(nIdx)) {
-                innerVisited[nIdx] = 1;
-                cq.push(nIdx);
-              }
-            }
+        for (let x = cellW - 1; x >= cellW - maxGridMarginX; x--) {
+          let darkCount = 0;
+          for (let y = 0; y < cellH; y++) {
+            const p = (y * cellW + x) * 4;
+            if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
           }
+          if (darkCount > cellH * 0.42) effRightPad = Math.max(effRightPad, cellW - x + 1);
+        }
+        for (let y = 0; y < maxGridMarginY; y++) {
+          let darkCount = 0;
+          for (let x = 0; x < cellW; x++) {
+            const p = (y * cellW + x) * 4;
+            if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
+          }
+          if (darkCount > cellW * 0.42) effTopPad = Math.max(effTopPad, y + 2);
+        }
+        for (let y = cellH - 1; y >= cellH - maxGridMarginY; y--) {
+          let darkCount = 0;
+          for (let x = 0; x < cellW; x++) {
+            const p = (y * cellW + x) * 4;
+            if (d[p + 3] > 40 && (d[p] + d[p + 1] + d[p + 2]) / 3 < 135) darkCount++;
+          }
+          if (darkCount > cellW * 0.42) effBottomPad = Math.max(effBottomPad, cellH - y + 1);
+        }
 
-          if (compPixels.length >= 4 && touchesOutline) {
-            for (let k = 0; k < compPixels.length; k++) {
-              d[compPixels[k] * 4 + 3] = 0;
+        // Limpiar franja de líneas divisorias en los 4 bordes de la celda
+        for (let y = 0; y < cellH; y++) {
+          for (let x = 0; x < cellW; x++) {
+            if (x < effLeftPad || x >= cellW - effRightPad || y < effTopPad || y >= cellH - effBottomPad) {
+              d[(y * cellW + x) * 4 + 3] = 0;
             }
           }
         }
-      }
 
-      // Suavizado de halo blanco residual en bordes (2 pasadas)
-      for (let pass = 0; pass < 2; pass++) {
-        const toClear = [];
+        const isExteriorWhite = (idx) => {
+          const p = idx * 4;
+          if (d[p + 3] === 0) return true;
+          const r = d[p];
+          const g = d[p + 1];
+          const b = d[p + 2];
+          return r > threshold && g > threshold && b > threshold &&
+            Math.abs(r - g) <= 20 && Math.abs(g - b) <= 20;
+        };
+
+        const enqueue = (x, y) => {
+          if (x < 0 || x >= cellW || y < 0 || y >= cellH) return;
+          const idx = y * cellW + x;
+          if (visited[idx]) return;
+          if (isExteriorWhite(idx)) {
+            visited[idx] = 1;
+            q[tail++] = idx;
+          }
+        };
+
+        for (let x = 0; x < cellW; x++) {
+          enqueue(x, effTopPad);
+          enqueue(x, cellH - 1 - effBottomPad);
+        }
+        for (let y = 0; y < cellH; y++) {
+          enqueue(effLeftPad, y);
+          enqueue(cellW - 1 - effRightPad, y);
+        }
+
+        while (head < tail) {
+          const idx = q[head++];
+          d[idx * 4 + 3] = 0;
+          const x = idx % cellW;
+          const y = (idx - x) / cellW;
+          if (x > 0) enqueue(x - 1, y);
+          if (x < cellW - 1) enqueue(x + 1, y);
+          if (y > 0) enqueue(x, y - 1);
+          if (y < cellH - 1) enqueue(x, y + 1);
+        }
+
+        // Limpiar huecos blancos internos cerrados (ej. entre piernas al caminar de lado o entre brazos y torso)
+        const isStrictPureWhite = (idx) => {
+          const p = idx * 4;
+          if (d[p + 3] === 0) return false;
+          const r = d[p];
+          const g = d[p + 1];
+          const b = d[p + 2];
+          return (
+            r > 236 &&
+            g > 236 &&
+            b > 236 &&
+            Math.abs(r - g) <= 14 &&
+            Math.abs(g - b) <= 14 &&
+            Math.abs(r - b) <= 14
+          );
+        };
+
+        const innerVisited = new Uint8Array(total);
         for (let y = borderPadY; y < cellH - borderPadY; y++) {
           for (let x = borderPadX; x < cellW - borderPadX; x++) {
-            const idx = y * cellW + x;
-            const p = idx * 4;
-            if (d[p + 3] === 0) continue;
-            const r = d[p];
-            const g = d[p + 1];
-            const b = d[p + 2];
-            if (r > 208 && g > 208 && b > 208 && Math.abs(r - g) <= 18 && Math.abs(g - b) <= 18) {
-              const hasTransparentNeighbor =
-                d[(idx - 1) * 4 + 3] === 0 ||
-                d[(idx + 1) * 4 + 3] === 0 ||
-                d[(idx - cellW) * 4 + 3] === 0 ||
-                d[(idx + cellW) * 4 + 3] === 0;
-              if (hasTransparentNeighbor) toClear.push(p);
+            const startIdx = y * cellW + x;
+            if (visited[startIdx] || innerVisited[startIdx] || !isStrictPureWhite(startIdx)) continue;
+
+            const compPixels = [];
+            const cq = [startIdx];
+            innerVisited[startIdx] = 1;
+            let touchesOutline = false;
+
+            while (cq.length > 0) {
+              const cIdx = cq.pop();
+              compPixels.push(cIdx);
+              const cx = cIdx % cellW;
+              const cy = (cIdx - cx) / cellW;
+              const neighbors = [];
+              if (cx > 0) neighbors.push(cIdx - 1);
+              if (cx < cellW - 1) neighbors.push(cIdx + 1);
+              if (cy > 0) neighbors.push(cIdx - cellW);
+              if (cy < cellH - 1) neighbors.push(cIdx + cellW);
+
+              for (let n = 0; n < neighbors.length; n++) {
+                const nIdx = neighbors[n];
+                const np = nIdx * 4;
+                if (d[np + 3] === 0) {
+                  touchesOutline = true;
+                  continue;
+                }
+                const nr = d[np];
+                const ng = d[np + 1];
+                const nb = d[np + 2];
+                const luma = (nr + ng + nb) / 3;
+                if (luma < 175) touchesOutline = true;
+                if (!visited[nIdx] && !innerVisited[nIdx] && isStrictPureWhite(nIdx)) {
+                  innerVisited[nIdx] = 1;
+                  cq.push(nIdx);
+                }
+              }
+            }
+
+            if (compPixels.length >= 4 && touchesOutline) {
+              for (let k = 0; k < compPixels.length; k++) {
+                d[compPixels[k] * 4 + 3] = 0;
+              }
             }
           }
         }
-        for (let k = 0; k < toClear.length; k++) {
-          d[toClear[k] + 3] = 0;
+
+        // Suavizado de halo blanco residual en bordes (2 pasadas)
+        for (let pass = 0; pass < 2; pass++) {
+          const toClear = [];
+          for (let y = borderPadY; y < cellH - borderPadY; y++) {
+            for (let x = borderPadX; x < cellW - borderPadX; x++) {
+              const idx = y * cellW + x;
+              const p = idx * 4;
+              if (d[p + 3] === 0) continue;
+              const r = d[p];
+              const g = d[p + 1];
+              const b = d[p + 2];
+              if (r > 208 && g > 208 && b > 208 && Math.abs(r - g) <= 18 && Math.abs(g - b) <= 18) {
+                const hasTransparentNeighbor =
+                  d[(idx - 1) * 4 + 3] === 0 ||
+                  d[(idx + 1) * 4 + 3] === 0 ||
+                  d[(idx - cellW) * 4 + 3] === 0 ||
+                  d[(idx + cellW) * 4 + 3] === 0;
+                if (hasTransparentNeighbor) toClear.push(p);
+              }
+            }
+          }
+          for (let k = 0; k < toClear.length; k++) {
+            d[toClear[k] + 3] = 0;
+          }
         }
       }
 
