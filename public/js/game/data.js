@@ -118,32 +118,37 @@ export const BOSS_META = {
 
 export const MAPS_META = {
   aldea: {
-    id: 'aldea', order: 1, name: 'Aldea Inicial', levelRange: 'Zona Segura', reqLevel: 1,
-    color: '#22C55E', spawnX: 800, spawnY: 700, mapX: 0.24, mapY: 0.64, bossId: null,
-    desc: 'Refugio seguro con Fogata, Taberna, Herrería y Zona de Entrenamiento.'
+    id: 'aldea', order: 1, name: 'Villa Alba', levelRange: 'Territorio Guardia del Alba', reqLevel: 1,
+    color: '#22C55E', spawnX: 800, spawnY: 700, mapX: 0.20, mapY: 0.64, bossId: null,
+    desc: 'Capital de la Guardia del Alba con Fuente Real, Taberna, Herrería, Zona de Entrenamiento y Portal al Mapa de Hielo.'
+  },
+  aldea_hierro: {
+    id: 'aldea_hierro', order: 2, name: 'Bastión de Hierro', levelRange: 'Territorio Clanes de Hierro', reqLevel: 1,
+    color: '#DC2626', spawnX: 800, spawnY: 700, mapX: 0.84, mapY: 0.44, bossId: null,
+    desc: 'Fortaleza de los Clanes de Hierro al otro lado del Portal de Hielo. Si eres del Alba puedes invadirlo o infiltrarte.'
   },
   bosque: {
-    id: 'bosque', order: 2, name: 'Bosque de la Fractura', levelRange: 'Niveles 1–15', reqLevel: 1,
+    id: 'bosque', order: 3, name: 'Bosque de la Fractura', levelRange: 'Niveles 1–15', reqLevel: 1,
     color: '#16A34A', spawnX: 800, spawnY: 1140, mapX: 0.34, mapY: 0.38, bossId: null,
     desc: 'Sendero Sur, Río con puente, Ruinas y acceso a la cueva corrupta.'
   },
   cueva: {
-    id: 'cueva', order: 3, name: 'Cueva del Vacío', levelRange: 'Niveles 15–30', reqLevel: 1,
+    id: 'cueva', order: 4, name: 'Cueva del Vacío', levelRange: 'Niveles 15–30', reqLevel: 1,
     color: '#9333EA', spawnX: 800, spawnY: 1140, mapX: 0.49, mapY: 0.72, bossId: 'malakor',
     desc: 'Túneles oscuros, Paso del Abismo y el Altar del jefe Malakor.'
   },
   desierto: {
-    id: 'desierto', order: 4, name: 'Desierto de Ceniza', levelRange: 'Niveles 30–50', reqLevel: 30,
+    id: 'desierto', order: 5, name: 'Desierto de Ceniza', levelRange: 'Niveles 30–50', reqLevel: 30,
     color: '#EA580C', spawnX: 800, spawnY: 1140, mapX: 0.71, mapY: 0.66, bossId: 'ignis',
     desc: 'Tierras quemadas con ceniza, lava y el Cráter de Ignis.'
   },
   montanas: {
-    id: 'montanas', order: 5, name: 'Montañas Heladas', levelRange: 'Niveles 50–70', reqLevel: 50,
+    id: 'montanas', order: 6, name: 'Montañas Heladas', levelRange: 'Niveles 50–70 · Frontera', reqLevel: 1,
     color: '#38BDF8', spawnX: 800, spawnY: 1140, mapX: 0.69, mapY: 0.33, bossId: 'boreas',
-    desc: 'Cordilleras nevadas, lago congelado resbaladizo y la Cima de Boreas.'
+    desc: 'Cordilleras nevadas, Portal Mágico Vigilado entre Villa Alba y Bastión de Hierro, y la Cima de Boreas.'
   },
   fortaleza: {
-    id: 'fortaleza', order: 6, name: 'Fortaleza del Vacío', levelRange: 'Niveles 70–90', reqLevel: 70,
+    id: 'fortaleza', order: 7, name: 'Fortaleza del Vacío', levelRange: 'Niveles 70–90', reqLevel: 70,
     color: '#7E22CE', spawnX: 800, spawnY: 1140, mapX: 0.52, mapY: 0.21, bossId: 'vaelor',
     desc: 'Origen de la Fractura y Salón del Trono de Vaelor.'
   }
@@ -402,6 +407,7 @@ function defaultGearSlots() {
 
 export function createInitialSave({ name, faction, gender = 'male', race, heroClass }) {
   const cls = CLASSES[heroClass] || CLASSES.guerrero;
+  const homeMap = faction === 'hierro' ? 'aldea_hierro' : 'aldea';
   return {
     version: 4,
     name: name.trim().slice(0, 15) || 'Héroe',
@@ -411,8 +417,8 @@ export function createInitialSave({ name, faction, gender = 'male', race, heroCl
     heroClass,
     level: 1,
     xp: 0,
-    currentMap: 'aldea',
-    visitedMaps: ['aldea'],
+    currentMap: homeMap,
+    visitedMaps: [homeMap],
     defeatedBosses: [],
     unlockedTitles: [],
     activeTitle: null,
@@ -465,9 +471,11 @@ const LEGACY_PET_MAP = {
 export function normalizeSave(raw) {
   if (!raw) return null;
   const cls = CLASSES[raw.heroClass] || CLASSES.guerrero;
-  const validMap = MAPS_META[raw.currentMap] ? raw.currentMap : 'aldea';
-  const visited = Array.isArray(raw.visitedMaps) && raw.visitedMaps.length > 0 ? [...raw.visitedMaps] : ['aldea'];
+  const homeMap = raw.faction === 'hierro' ? 'aldea_hierro' : 'aldea';
+  const validMap = MAPS_META[raw.currentMap] ? raw.currentMap : homeMap;
+  const visited = Array.isArray(raw.visitedMaps) && raw.visitedMaps.length > 0 ? [...raw.visitedMaps] : [homeMap];
   if (!visited.includes(validMap)) visited.push(validMap);
+  if (!visited.includes(homeMap)) visited.push(homeMap);
 
   const migratedPets = (Array.isArray(raw.ownedPets) ? raw.ownedPets : ['lobo_blanco'])
     .map((id) => LEGACY_PET_MAP[id] || id)

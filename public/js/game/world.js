@@ -38,12 +38,15 @@ export function spawnEnemy(kind, x, y) {
 }
 
 export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [], openedChests = [], crystalsCollected = 0 } = {}) {
+  const isVillageMap = mapId === 'aldea' || mapId === 'aldea_hierro';
+  const villageFaction = mapId === 'aldea_hierro' ? 'hierro' : 'alba';
   const base = {
     id: mapId,
-    name: mapId === 'aldea' ? (FACTIONS[faction]?.villageName || 'Aldea Inicial') : MAPS_META[mapId]?.name || 'Valoria',
+    name: mapId === 'aldea' ? 'Villa Alba' : mapId === 'aldea_hierro' ? 'Bastión de Hierro' : MAPS_META[mapId]?.name || 'Valoria',
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
-    safeZone: mapId === 'aldea',
+    safeZone: (mapId === 'aldea' && faction === 'alba') || (mapId === 'aldea_hierro' && faction === 'hierro'),
+    villageFaction: isVillageMap ? villageFaction : null,
     darkness: mapId === 'cueva',
     weather: mapId === 'bosque' ? 'butterflies' : mapId === 'desierto' ? 'ash' : mapId === 'montanas' ? 'snow' : mapId === 'fortaleza' ? 'void_storm' : 'none',
     buildings: [],
@@ -99,8 +102,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     { x: MAP_WIDTH - wall, y: 0, w: wall, h: MAP_HEIGHT }
   );
 
-  if (mapId === 'aldea') {
-    const isAlba = faction === 'alba';
+  if (mapId === 'aldea' || mapId === 'aldea_hierro') {
+    const isAlba = mapId === 'aldea';
     base.buildings.push(
       {
         id: 'taberna',
@@ -132,12 +135,49 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     base.campfires.push({ x: 800, y: 690, radius: 85 });
 
     base.npcs.push(
-      { id: 'tabernero', kind: 'tabernero', name: 'Tabernero', x: 452, y: 515, radius: 18, marker: '!' },
-      { id: 'herrero', kind: 'herrero', name: 'Herrero', x: 1120, y: 515, radius: 18, marker: '' },
+      { id: 'tabernero', kind: 'tabernero', name: isAlba ? 'Tabernero de Villa Alba' : 'Tabernero del Bastión', faction: isAlba ? 'alba' : 'hierro', x: 452, y: 515, radius: 18, marker: '!' },
+      { id: 'herrero', kind: 'herrero', name: isAlba ? 'Maestro Herrero (Alba)' : 'Forjador de Hierro', faction: isAlba ? 'alba' : 'hierro', x: 1120, y: 515, radius: 18, marker: '' },
+      { id: 'mercader_aldea', kind: 'mercader', name: isAlba ? 'Mercader Real (Alba)' : 'Mercader del Clan (Hierro)', faction: isAlba ? 'alba' : 'hierro', x: 540, y: 785, radius: 18, marker: '' },
       { id: 'dummy1', kind: 'dummy', name: 'Muñeco de Entrenamiento', x: 1130, y: 800, radius: 18, hitFlash: 0 },
       { id: 'dummy2', kind: 'dummy', name: 'Muñeco de Entrenamiento', x: 1210, y: 800, radius: 18, hitFlash: 0 },
-      { id: 'guard1', kind: isAlba ? 'guardia_alba' : 'guardia_hierro', name: isAlba ? 'Guardia del Alba' : 'Guerrero de Hierro', x: 700, y: 240, radius: 18 },
-      { id: 'guard2', kind: isAlba ? 'guardia_alba' : 'guardia_hierro', name: isAlba ? 'Guardia del Alba' : 'Guerrero de Hierro', x: 900, y: 240, radius: 18 }
+      {
+        id: 'guard1',
+        kind: isAlba ? 'guardia_alba' : 'guardia_hierro',
+        name: isAlba ? 'Guardia del Alba' : 'Centinela de Hierro',
+        faction: isAlba ? 'alba' : 'hierro',
+        isPortalGuard: true,
+        x: 700,
+        y: 240,
+        homeX: 700,
+        homeY: 240,
+        hp: 460,
+        maxHp: 460,
+        atk: 38,
+        def: 18,
+        speed: 135,
+        radius: 18,
+        emotion: 'neutral',
+        hostile: false
+      },
+      {
+        id: 'guard2',
+        kind: isAlba ? 'guardia_alba' : 'guardia_hierro',
+        name: isAlba ? 'Guardia del Alba' : 'Centinela de Hierro',
+        faction: isAlba ? 'alba' : 'hierro',
+        isPortalGuard: true,
+        x: 900,
+        y: 240,
+        homeX: 900,
+        homeY: 240,
+        hp: 460,
+        maxHp: 460,
+        atk: 38,
+        def: 18,
+        speed: 135,
+        radius: 18,
+        emotion: 'neutral',
+        hostile: false
+      }
     );
 
     // Decoración por bando
@@ -264,7 +304,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     );
 
     base.portals.push(
-      { id: 'back_aldea', x: 800, y: 1225, targetMap: 'aldea', targetX: 800, targetY: 200, label: 'Volver a Aldea', color: '#38BDF8', reqLevel: 1 },
+      { id: 'back_aldea', x: 710, y: 1225, targetMap: 'aldea', targetX: 800, targetY: 200, label: 'Villa Alba (Guardia del Alba)', color: '#38BDF8', reqLevel: 1 },
+      { id: 'back_aldea_hierro', x: 890, y: 1225, targetMap: 'aldea_hierro', targetX: 800, targetY: 200, label: 'Bastión de Hierro (Clanes de Hierro)', color: '#EF4444', reqLevel: 1 },
       { id: 'to_cueva', x: 800, y: 125, targetMap: 'cueva', targetX: 800, targetY: 1140, label: 'Cueva del Vacío', color: '#9333EA', reqLevel: 1 }
     );
 
@@ -571,17 +612,18 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     base.solids.push({ x: 748, y: 145, w: 104, h: 64 });
   }
 
-  // Portal Mágico Vigilado en el Mapa de Hielo que conecta la Guardia del Alba con los Clanes de Hierro
-  if (mapId === 'aldea') {
+  // Portal Mágico Vigilado en el Mapa de Hielo que conecta Villa Alba (Guardia del Alba) con Bastión de Hierro (Clanes de Hierro)
+  if (mapId === 'aldea' || mapId === 'aldea_hierro') {
+    const isAlbaMap = mapId === 'aldea';
     base.portals.push({
       id: 'portal_hielo_frontera',
       x: 250,
       y: 560,
       targetMap: 'montanas',
-      targetX: 800,
+      targetX: isAlbaMap ? 680 : 920,
       targetY: 900,
-      label: 'Portal al Mapa de Hielo (Frontera Vigilada)',
-      color: '#38BDF8',
+      label: isAlbaMap ? 'Portal de Hielo → Invadir Bastión de Hierro' : 'Portal de Hielo → Invadir Villa Alba',
+      color: isAlbaMap ? '#38BDF8' : '#EF4444',
       reqLevel: 1,
       isGuardedIcePortal: true
     });
@@ -591,32 +633,47 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { id: 'res_stone_1', itemId: 'piedra_runica', x: 1295, y: 580, collected: false, respawnTimer: 0 }
     );
   } else if (mapId === 'montanas') {
-    const oppositeFactionName = faction === 'alba' ? 'Campamento Hierro' : 'Villa Alba';
-    base.portals.push({
-      id: 'portal_cruce_bandos',
-      x: 800,
-      y: 830,
-      targetMap: 'aldea',
-      targetX: 250,
-      targetY: 615,
-      label: `Portal Vigilado → Territorio ${oppositeFactionName}`,
-      color: '#38BDF8',
-      reqLevel: 1,
-      isGuardedIcePortal: true
-    });
-    // Guardias permanentes custodiando el Portal de Hielo
-    const guardFaction = faction === 'alba' ? 'hierro' : 'alba';
+    // Dos portales en la frontera del Mapa de Hielo: Occidente (Villa Alba) y Oriente (Bastión de Hierro)
+    base.portals.push(
+      {
+        id: 'portal_cruce_alba',
+        x: 680,
+        y: 830,
+        targetMap: 'aldea',
+        targetX: 250,
+        targetY: 615,
+        label: 'Portal Vigilado → Villa Alba (Guardia del Alba)',
+        color: '#38BDF8',
+        reqLevel: 1,
+        guardFaction: 'alba',
+        isGuardedIcePortal: true
+      },
+      {
+        id: 'portal_cruce_hierro',
+        x: 920,
+        y: 830,
+        targetMap: 'aldea_hierro',
+        targetX: 250,
+        targetY: 615,
+        label: 'Portal Vigilado → Bastión de Hierro (Clanes de Hierro)',
+        color: '#EF4444',
+        reqLevel: 1,
+        guardFaction: 'hierro',
+        isGuardedIcePortal: true
+      }
+    );
+    // Guardias permanentes de ambos bandos custodiando su respectivo Portal en el Mapa de Hielo
     base.npcs.push(
       {
         id: 'guard_portal_1',
-        kind: guardFaction === 'alba' ? 'guardia_alba' : 'guardia_hierro',
-        name: guardFaction === 'alba' ? 'Centinela del Portal (Alba)' : 'Centinela del Portal (Hierro)',
-        faction: guardFaction,
+        kind: 'guardia_alba',
+        name: 'Centinela del Portal (Alba)',
+        faction: 'alba',
         isPortalGuard: true,
-        x: 735,
-        y: 840,
-        homeX: 735,
-        homeY: 840,
+        x: 640,
+        y: 845,
+        homeX: 640,
+        homeY: 845,
         hp: 420,
         maxHp: 420,
         atk: 36,
@@ -628,14 +685,14 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       },
       {
         id: 'guard_portal_2',
-        kind: guardFaction === 'alba' ? 'guardia_alba' : 'guardia_hierro',
-        name: guardFaction === 'alba' ? 'Custodio Rúnico (Alba)' : 'Custodio Rúnico (Hierro)',
-        faction: guardFaction,
+        kind: 'guardia_hierro',
+        name: 'Centinela del Portal (Hierro)',
+        faction: 'hierro',
         isPortalGuard: true,
-        x: 865,
-        y: 840,
-        homeX: 865,
-        homeY: 840,
+        x: 960,
+        y: 845,
+        homeX: 960,
+        homeY: 845,
         hp: 420,
         maxHp: 420,
         atk: 36,
@@ -663,11 +720,13 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     );
   }
 
-  // Instanciar a los 4 Personajes Principales con IA Mixta (Gemini Flash + Motor Reactivo Local)
+  // Instanciar a los 4 Personajes Principales con IA Mixta en sus territorios separados
   const aiPositionsByMap = {
     aldea: {
       paladina_alba: { x: 640, y: 590 },
-      explorador_alba: { x: 560, y: 740 },
+      explorador_alba: { x: 560, y: 740 }
+    },
+    aldea_hierro: {
       guerrero_hierro: { x: 980, y: 610 },
       chamana_hierro: { x: 960, y: 750 }
     },
@@ -680,10 +739,10 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       chamana_hierro: { x: 840, y: 1045 }
     },
     montanas: {
-      paladina_alba: { x: 670, y: 960 },
-      explorador_alba: { x: 610, y: 1030 },
-      guerrero_hierro: { x: 930, y: 960 },
-      chamana_hierro: { x: 990, y: 1030 }
+      paladina_alba: { x: 650, y: 950 },
+      explorador_alba: { x: 590, y: 1020 },
+      guerrero_hierro: { x: 950, y: 950 },
+      chamana_hierro: { x: 1010, y: 1020 }
     }
   };
 
@@ -735,7 +794,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
   }
 
   // Bandera de control territorial disputado en cada mapa
-  const owner = getAiState().territoryOwner?.[mapId] || (faction === 'hierro' ? 'hierro' : 'alba');
+  const defaultTerritoryOwner = mapId === 'aldea_hierro' || mapId === 'desierto' ? 'hierro' : mapId === 'aldea' || mapId === 'bosque' ? 'alba' : (faction === 'hierro' ? 'hierro' : 'alba');
+  const owner = getAiState().territoryOwner?.[mapId] || defaultTerritoryOwner;
   base.territoryFaction = owner;
 
   return base;
@@ -831,8 +891,8 @@ export function drawMapGround(ctx, map, faction, time) {
     }
   };
 
-  if (map.id === 'aldea') {
-    const isAlba = faction === 'alba';
+  if (map.id === 'aldea' || map.id === 'aldea_hierro') {
+    const isAlba = map.id === 'aldea';
     ctx.fillStyle = getTexturePattern(ctx, isAlba ? 'grass_lush' : 'dirt_hierro') || (isAlba ? '#3B6E3A' : '#6B4226');
     ctx.fillRect(0, 0, W, H);
 
@@ -1368,6 +1428,7 @@ export function drawMinimap(mmCanvas, map, player) {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle =
     map.id === 'aldea' ? '#244C26' :
+    map.id === 'aldea_hierro' ? '#451A03' :
     map.id === 'bosque' ? '#1E3E29' :
     map.id === 'cueva' ? '#1A1326' :
     map.id === 'desierto' ? '#44403C' :
@@ -1375,8 +1436,8 @@ export function drawMinimap(mmCanvas, map, player) {
   ctx.fillRect(0, 0, w, h);
 
   // Caminos y plaza en el minimapa táctico
-  if (map.id === 'aldea') {
-    ctx.fillStyle = '#64748B';
+  if (map.id === 'aldea' || map.id === 'aldea_hierro') {
+    ctx.fillStyle = map.id === 'aldea_hierro' ? '#78350F' : '#64748B';
     ctx.fillRect(340 * sx, 420 * sy, 920 * sx, 480 * sy);
     ctx.fillRect(735 * sx, 100 * sy, 130 * sx, 330 * sy);
   } else if (map.id === 'bosque') {

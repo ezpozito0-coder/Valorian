@@ -1098,8 +1098,9 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
       }
     );
 
-    // Si usamos la hoja base 3x5 sin armadura, renderizar las capas modulares de equipo y arma encima
-    if (metrics.isGrid3x5) {
+    // Por solicitud del usuario, ocultamos por ahora las piezas de armadura procedurales sobre el cuerpo
+    // mientras se diseñan sus sprites dedicados, manteniendo solo el arma en mano si corresponde.
+    if (metrics.isGrid3x5 && state.showProceduralArmor) {
       drawHeroEquipmentLayers(ctx, spriteFootX, spriteFootY, s, state, {
         rowIndex,
         colIndex: frameIndex,

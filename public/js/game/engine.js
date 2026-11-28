@@ -603,15 +603,16 @@ export class GameEngine {
       for (const pt of this.map.portals) {
         if (Math.hypot(p.x - pt.x, p.y - pt.y) < 38) {
           if (pt.isGuardedIcePortal && this.map.id === 'montanas') {
-            const guard = this.map.npcs.find((n) => n.isPortalGuard && !n.fleeing);
-            if (guard && !this.isPlayerAllowedAtFactionPortal(guard.faction)) {
+            const reqFaction = pt.guardFaction || (pt.targetMap === 'aldea_hierro' ? 'hierro' : 'alba');
+            const guard = this.map.npcs.find((n) => n.isPortalGuard && !n.fleeing && (!pt.guardFaction || n.faction === reqFaction));
+            if (guard && !this.isPlayerAllowedAtFactionPortal(reqFaction)) {
               guard.hostile = true;
               guard.emotion = 'enojo';
               this.callFactionReinforcements(guard);
               if (this.portalLockMsgCooldown <= 0) {
                 this.portalLockMsgCooldown = 2.8;
                 this.callbacks.onToast?.(
-                  '¡Guardias del Portal te bloquean el paso! Usa Sigilo (Tecla X), viste un Disfraz de Bando o sube tu reputación.',
+                  `¡Centinelas de ${reqFaction === 'hierro' ? 'Bastión de Hierro' : 'Villa Alba'} bloquean el Portal! Derrota al centinela, usa Sigilo (Tecla X) o equipa un Disfraz del Bando Contrario.`,
                   'error'
                 );
               }
@@ -1062,17 +1063,17 @@ export class GameEngine {
         continue;
       }
 
-      // B) Guardias permanentes del Portal de Hielo: vigilan intrusos sin permiso, sin disfraz y sin sigilo
-      if (npc.isPortalGuard) {
+      // B) Guardias permanentes del Portal de Hielo y Aldeas: vigilan intrusos del bando contrario sin permiso, sin disfraz y sin sigilo
+      if (npc.isPortalGuard || (npc.isAiHero && (this.map.id === 'aldea' || this.map.id === 'aldea_hierro'))) {
         const distToPlayer = Math.hypot(p.x - npc.x, p.y - npc.y);
-        if (distToPlayer < 120 && !this.isPlayerAllowedAtFactionPortal(npc.faction)) {
+        if (distToPlayer < 145 && npc.faction && npc.faction !== p.faction && !this.isPlayerAllowedAtFactionPortal(npc.faction)) {
           if (!npc.hostile) {
             npc.hostile = true;
             npc.emotion = 'enojo';
-            this.addFloatingText(npc.x, npc.y - 28, '¡Intruso en el Portal!', '#EF4444');
+            this.addFloatingText(npc.x, npc.y - 28, this.map.id === 'montanas' ? '¡Intruso en el Portal!' : '¡Invasor en nuestro territorio!', '#EF4444');
             this.callFactionReinforcements(npc);
           }
-        } else if (npc.hostile && (distToPlayer > 280 || this.isPlayerAllowedAtFactionPortal(npc.faction))) {
+        } else if (npc.hostile && (distToPlayer > 310 || this.isPlayerAllowedAtFactionPortal(npc.faction))) {
           npc.hostile = false;
           npc.emotion = 'neutral';
         }
@@ -2142,8 +2143,9 @@ export class GameEngine {
     if (item.teleportVillage) {
       if (!this.consumeItem(itemId, 1)) return false;
       sfx.playTeleport();
-      this.loadMap('aldea', 800, 740, true);
-      this.callbacks.onToast?.('Teletransportado a la Aldea Inicial.', 'success');
+      const homeMap = this.player.faction === 'hierro' ? 'aldea_hierro' : 'aldea';
+      this.loadMap(homeMap, 800, 740, true);
+      this.callbacks.onToast?.(`Teletransportado a ${homeMap === 'aldea_hierro' ? 'Bastión de Hierro' : 'Villa Alba'}.`, 'success');
       return true;
     }
 

@@ -1138,35 +1138,49 @@ export function processGrid3x5SpriteSheet(img, threshold = 230) {
   srcCtx.imageSmoothingEnabled = false;
   srcCtx.drawImage(img, 0, 0, totalW, totalH);
 
-  // Eliminar líneas divisorias de cuadrícula que atraviesan la hoja completa (evita el cuadrado parpadeante al moverse)
+  // Detectar si la hoja 3x5 ya viene pre-recortada con fondo transparente (alpha === 0 en esquinas/bordes)
+  let hasNativeTransparency = false;
   try {
     const fullImg = srcCtx.getImageData(0, 0, totalW, totalH);
     const fd = fullImg.data;
-    const clearCols = [];
-    for (let x = 0; x < totalW; x++) {
-      let dark = 0;
-      for (let y = 0; y < totalH; y += 2) {
-        const p = (y * totalW + x) * 4;
-        if (fd[p + 3] > 20 && fd[p] < 95 && fd[p + 1] < 95 && fd[p + 2] < 95) dark++;
+    let transparentSamples = 0;
+    const sampleStepX = Math.max(1, Math.floor(totalW / 20));
+    const sampleStepY = Math.max(1, Math.floor(totalH / 12));
+    for (let sy = 0; sy < totalH; sy += sampleStepY) {
+      for (let sx = 0; sx < totalW; sx += sampleStepX) {
+        if (fd[(sy * totalW + sx) * 4 + 3] < 16) transparentSamples++;
       }
-      if (dark > (totalH * 0.5) * 0.45) clearCols.push(x);
     }
-    const clearRows = [];
-    for (let y = 0; y < totalH; y++) {
-      let dark = 0;
-      for (let x = 0; x < totalW; x += 2) {
-        const p = (y * totalW + x) * 4;
-        if (fd[p + 3] > 20 && fd[p] < 95 && fd[p + 1] < 95 && fd[p + 2] < 95) dark++;
+    hasNativeTransparency = transparentSamples > 40;
+
+    // Eliminar líneas divisorias de cuadrícula solo en hojas con fondo opaco
+    if (!hasNativeTransparency) {
+      const clearCols = [];
+      for (let x = 0; x < totalW; x++) {
+        let dark = 0;
+        for (let y = 0; y < totalH; y += 2) {
+          const p = (y * totalW + x) * 4;
+          if (fd[p + 3] > 20 && fd[p] < 95 && fd[p + 1] < 95 && fd[p + 2] < 95) dark++;
+        }
+        if (dark > (totalH * 0.5) * 0.45) clearCols.push(x);
       }
-      if (dark > (totalW * 0.5) * 0.45) clearRows.push(y);
+      const clearRows = [];
+      for (let y = 0; y < totalH; y++) {
+        let dark = 0;
+        for (let x = 0; x < totalW; x += 2) {
+          const p = (y * totalW + x) * 4;
+          if (fd[p + 3] > 20 && fd[p] < 95 && fd[p + 1] < 95 && fd[p + 2] < 95) dark++;
+        }
+        if (dark > (totalW * 0.5) * 0.45) clearRows.push(y);
+      }
+      for (const x of clearCols) {
+        for (let y = 0; y < totalH; y++) fd[(y * totalW + x) * 4 + 3] = 0;
+      }
+      for (const y of clearRows) {
+        for (let x = 0; x < totalW; x++) fd[(y * totalW + x) * 4 + 3] = 0;
+      }
+      if (clearCols.length || clearRows.length) srcCtx.putImageData(fullImg, 0, 0);
     }
-    for (const x of clearCols) {
-      for (let y = 0; y < totalH; y++) fd[(y * totalW + x) * 4 + 3] = 0;
-    }
-    for (const y of clearRows) {
-      for (let x = 0; x < totalW; x++) fd[(y * totalW + x) * 4 + 3] = 0;
-    }
-    if (clearCols.length || clearRows.length) srcCtx.putImageData(fullImg, 0, 0);
   } catch {
     // ignore
   }

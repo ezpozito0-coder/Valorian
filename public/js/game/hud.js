@@ -45,6 +45,7 @@ import {
   getCharacterMemory,
   getAiState,
   chatWithAiCharacter,
+  decideCharacterNextGoal,
   getDynamicPriceMultiplier,
   hasGeminiApiKey
 } from './geminiAI.js';
@@ -1248,7 +1249,7 @@ export function renderWorldMapModal(engine, onClose) {
 
     bar.innerHTML = `
       <div>
-        <strong>${m.order}. ${m.id === 'aldea' ? (FACTIONS[p.faction]?.villageName || m.name) : m.name}</strong>
+        <strong>${m.order}. ${m.name}</strong>
         <span class="worldmap-lvl">${m.levelRange}</span>
         ${boss ? `<small style="margin-left:8px;color:${bossDone ? '#FDE047' : '#FCA5A5'};display:inline-flex;align-items:center;gap:4px">${pixelIcon(bossDone ? 'crown' : 'skull', 14)} Jefe: ${boss.name} (${bossDone ? 'Vencido' : 'Pendiente'})</small>` : ''}
         <p style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">${m.desc}</p>
@@ -1717,13 +1718,16 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
   }
 
   // Diálogo interactivo con Gemini Flash + IA Local para los 4 héroes IA, guardias del portal y mercader
-  const mem = getCharacterMemory(npc.id);
+  const player = engine.player;
+  const mem = getCharacterMemory(npc.aiId || npc.id);
   const aiState = getAiState();
   const factionKey = npc.faction || player.faction || 'alba';
   const factionName = factionKey === 'alba' ? 'Guardia del Alba' : 'Clanes de Hierro';
   const rep = aiState.factionReputation?.[factionKey] ?? 15;
-  const priceMult = getDynamicPriceMultiplier(factionKey, npc.id);
-  const def = AI_CHARACTERS_DEFS[npc.id];
+  const priceMult = getDynamicPriceMultiplier(factionKey, npc.aiId || npc.id);
+  const def = AI_CHARACTERS_DEFS[npc.aiId || npc.id];
+
+  setDialogWithPortrait(npc.dialog || def?.personality || 'Saludos, viajero de Valoria.');
 
   const aiPanel = document.createElement('div');
   aiPanel.style.cssText = 'margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(15,23,42,0.88);border:1px solid rgba(245,158,11,0.35);font-size:11px;color:#e2e8f0;';
@@ -1731,47 +1735,47 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
     <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;margin-bottom:6px;">
       <span><strong>Bando:</strong> ${factionName} (Rep: ${rep})</span>
       <span><strong>Amistad:</strong> ${mem.friendship ?? 15}/100</span>
-      <span><strong>Oficio:</strong> ${npc.job || def?.job || 'Habitante'}</span>
+      <span><strong>Oficio:</strong> ${npc.profession || def?.profession || 'Habitante'}</span>
       <span><strong>Economía:</strong> x${priceMult.toFixed(2)}</span>
       <span style="color:${hasGeminiApiKey() ? '#4ade80' : '#fbbf24'};"><strong>IA:</strong> ${hasGeminiApiKey() ? 'Gemini Flash Activo' : 'IA Local (Configura clave en Pausa)'}</span>
     </div>
-    ${npc.isAiHero ? `<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">PV: ${Math.round(npc.hp || 1800)}/${npc.maxHp || 1800} · Hambre: ${Math.round(npc.hunger || 18)}% · Energía: ${Math.round(npc.energy || 85)}% · Tarea: ${npc.currentGoal || 'patrullar'}</div>` : ''}
+    ${npc.isAiHero ? `<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">PV: ${Math.round(npc.hp || 1800)}/${npc.maxHp || 1800} · Hambre: ${Math.round(mem.hunger || 18)}% · Energía: ${Math.round(mem.energy || 85)}% · Tarea: ${npc.goal || 'patrullar'}</div>` : ''}
     <div style="display:flex;gap:6px;">
       <input id="npc-ai-chat-input" type="text" placeholder="Escribe para conversar, regatear, pedir misión o ayuda..." style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:12px;" />
       <button id="npc-ai-chat-send" class="btn btn-gold btn-xs" type="button">Hablar</button>
     </div>
   `;
-  textEl.appendChild(aiPanel);
+  bodyEl.appendChild(aiPanel);
 
-  const replyBox = document.createElement('div');
-  replyBox.style.cssText = 'margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(30,41,59,0.75);color:#fef08a;font-size:12px;';
-  replyBox.textContent = `"${npc.dialog || def?.personality || 'Saludos, viajero de Valoria.'}"`;
-  textEl.insertBefore(replyBox, aiPanel);
+  const replyBox = document.getElementById('dialog-msg-span') || bodyEl;
 
   const sendChatMessage = async (msgText) => {
     const clean = (msgText || '').trim();
     if (!clean) return;
     replyBox.textContent = 'Pensando...';
-    const res = await chatWithAiCharacter(npc, player, clean, {
+    const res = await chatWithAiCharacter(npc.aiId || npc.id, clean, {
+      playerName: player.name,
+      playerFaction: player.faction,
+      playerLevel: player.level,
+      mapName: engine.map?.name || 'Valoria',
       weather: engine.map?.weather || 'clear',
-      mapName: engine.map?.name || 'Valoria'
+      npcHp: npc.hp,
+      npcMaxHp: npc.maxHp
     });
     replyBox.textContent = `"${res.reply}"`;
-    if (res.action === 'hostile') {
-      npc.hostileToPlayer = true;
+    if (res.becomeHostile) {
+      npc.hostile = true;
       npc.emotion = 'enojo';
-      npc.emotionTimer = 20;
-    } else if (res.action === 'follow') {
-      npc.followingPlayer = true;
-      npc.followTimer = 180;
+      engine.callFactionReinforcements(npc);
+    } else if (res.becomeCompanion) {
+      npc.isCompanion = true;
       npc.emotion = 'siguiendo';
-      npc.emotionTimer = 180;
       engine.addFloatingText(npc.x, npc.y - 26, '¡Te acompaño!', '#38bdf8');
-    } else if (res.action === 'discount') {
+    } else if (res.discount > 0) {
       engine.addFloatingText(npc.x, npc.y - 26, '¡Descuento otorgado!', '#4ade80');
-    } else if (res.action === 'quest' && res.questOffer) {
-      npc.activeDynamicQuest = res.questOffer;
-      engine.addChatMessage('Misión IA', `${npc.name}: ${res.questOffer.title} (Recompensa: ${res.questOffer.rewardGold} Oro)`, '#fbbf24');
+    } else if (res.offerQuest) {
+      npc.activeDynamicQuest = res.offerQuest;
+      engine.callbacks.onToast?.(`Nueva misión de ${npc.shortName || npc.name}: ${res.offerQuest.title}`, 'info');
     }
   };
 
@@ -1799,20 +1803,29 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
   const activeQ = npc.activeDynamicQuest || mem.activeQuest;
   questBtn.textContent = activeQ ? `Entregar: ${activeQ.title}` : 'Pedir Misión';
   questBtn.addEventListener('click', () => {
-    const q = npc.activeDynamicQuest || mem.activeQuest;
-    if (q) {
-      const slot = player.inventory.find(i => i.id === q.itemId && i.qty >= (q.qty || 1));
-      if (slot) {
-        slot.qty -= (q.qty || 1);
-        if (slot.qty <= 0) player.inventory = player.inventory.filter(i => i !== slot);
-        player.gold += (q.rewardGold || 140);
+    const qObj = npc.activeDynamicQuest || mem.activeQuest;
+    if (qObj) {
+      const reqId = qObj.reqItem || qObj.itemId;
+      const reqQty = qObj.reqQty || qObj.qty || 2;
+      if (reqId && engine.getItemQty(reqId) >= reqQty) {
+        engine.consumeItem(reqId, reqQty);
+        player.gold += (qObj.rewardGold || 140);
+        if (qObj.rewardItem) engine.addItemToBackpack(qObj.rewardItem, 1);
         npc.activeDynamicQuest = null;
         mem.activeQuest = null;
-        replyBox.textContent = `"¡Excelente trabajo! Aquí tienes tus ${q.rewardGold || 140} de Oro."`;
-        engine.addFloatingText(player.x, player.y - 26, `+${q.rewardGold || 140} Oro`, '#fbbf24');
+        replyBox.textContent = `"¡Excelente trabajo! Aquí tienes tus ${qObj.rewardGold || 140} de Oro."`;
+        engine.addFloatingText(player.x, player.y - 26, `+${qObj.rewardGold || 140} Oro`, '#fbbf24');
         questBtn.textContent = 'Pedir Misión';
+        onSave?.();
+      } else if (!reqId) {
+        player.gold += (qObj.rewardGold || 160);
+        npc.activeDynamicQuest = null;
+        mem.activeQuest = null;
+        replyBox.textContent = `"¡Gracias por defender la zona! Toma ${qObj.rewardGold || 160} de Oro."`;
+        questBtn.textContent = 'Pedir Misión';
+        onSave?.();
       } else {
-        replyBox.textContent = `"Aún te falta conseguir ${q.qty || 2}x ${ITEMS[q.itemId]?.name || q.itemId}."`;
+        replyBox.textContent = `"Aún te falta conseguir ${reqQty}x ${ITEMS[reqId]?.name || reqId}."`;
       }
     } else {
       sendChatMessage('¿Tienes alguna misión o necesitas madera, mineral o ayuda?');
@@ -1833,21 +1846,22 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
   if (npc.isAiHero) {
     const followBtn = document.createElement('button');
     followBtn.className = 'btn btn-secondary btn-xs';
-    followBtn.textContent = npc.followingPlayer ? 'Dejar de Seguirme' : 'Acompañarme (60 Oro / Amistad)';
+    followBtn.textContent = npc.isCompanion ? 'Dejar de Seguirme' : 'Acompañarme (60 Oro / Amistad)';
     followBtn.addEventListener('click', () => {
-      if (npc.followingPlayer) {
-        npc.followingPlayer = false;
+      if (npc.isCompanion) {
+        npc.isCompanion = false;
+        mem.companionUntil = 0;
         npc.emotion = 'feliz';
         replyBox.textContent = '"De acuerdo, volveré a mis labores en la zona."';
         followBtn.textContent = 'Acompañarme (60 Oro / Amistad)';
-      } else if ((mem.friendship || 0) >= 25 || player.gold >= 60) {
-        if ((mem.friendship || 0) < 25) player.gold -= 60;
-        npc.followingPlayer = true;
-        npc.followTimer = 180;
+      } else if ((mem.friendship || 0) >= 20 || player.gold >= 60) {
+        if ((mem.friendship || 0) < 20) player.gold -= 60;
+        npc.isCompanion = true;
+        mem.companionUntil = Date.now() + 180000;
         npc.emotion = 'siguiendo';
-        npc.emotionTimer = 180;
-        replyBox.textContent = '"¡Cuenta con mi arma! Te cubriré las espaldas."';
+        replyBox.textContent = '"¡Cuenta con mi arma! Te cubriré las espaldas en cualquier mapa."';
         followBtn.textContent = 'Dejar de Seguirme';
+        onSave?.();
       } else {
         replyBox.textContent = '"Necesitas al menos 60 de Oro o mayor amistad conmigo para que te escolte."';
       }
@@ -1860,7 +1874,11 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
     reportBtn.textContent = 'Guardar Reporte en mejoras_npc.md';
     reportBtn.addEventListener('click', async () => {
       replyBox.textContent = 'Observando el mundo y guardando sugerencia en mejoras_npc.md...';
-      await engine.generateCharacterSelfReport(npc);
+      await decideCharacterNextGoal(npc, {
+        weather: engine.map?.weather,
+        severeWeather: engine.weatherSevere,
+        mapName: engine.map?.name
+      });
       replyBox.textContent = '"He anotado mis observaciones y deseos de mejora en mejoras_npc.md para Antigravity."';
     });
     actionsEl.appendChild(reportBtn);
@@ -1873,7 +1891,7 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
     shopBtn.textContent = 'Abrir Tienda';
     shopBtn.addEventListener('click', () => {
       onClose();
-      renderShopModal(engine);
+      renderShopModal(engine, 'consumables', engine.callbacks.onToast, onSave, () => {});
       document.getElementById('modal-shop')?.classList.remove('hidden');
     });
     actionsEl.appendChild(shopBtn);
@@ -1887,11 +1905,11 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
         replyBox.textContent = '"Necesitas 120 de Oro para adquirir este disfraz de infiltración."';
         return;
       }
-      player.gold -= 120;
-      const slot = player.inventory.find(i => i.id === disguiseId);
-      if (slot) slot.qty += 1;
-      else player.inventory.push({ id: disguiseId, qty: 1 });
-      replyBox.textContent = `"Aquí tienes tu ${ITEMS[disguiseId]?.name}. Úsalo desde la mochila para cruzar el Portal de Hielo sin ser atacado."`;
+      if (engine.addItemToBackpack(disguiseId, 1)) {
+        player.gold -= 120;
+        onSave?.();
+        replyBox.textContent = `"Aquí tienes tu ${ITEMS[disguiseId]?.name}. Equípalo desde la mochila (B) para cruzar el Portal de Hielo e infiltrarte en ${player.faction === 'alba' ? 'Bastión de Hierro' : 'Villa Alba'} sin ser atacado."`;
+      }
     });
     actionsEl.appendChild(disgBtn);
   }
