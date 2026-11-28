@@ -315,7 +315,10 @@ export const SEAMLESS_TILES_ATLAS = {
   ice_full: { x: 712, y: 18, w: 266, h: 263 },
   ice_seamless: { x: 750, y: 54, w: 190, h: 190 },
   alfombra_continua: { x: 92, y: 290, w: 163, h: 268 },
-  rio_cesped: { x: 378, y: 326, w: 600, h: 204 }
+  rio_cesped: { x: 378, y: 326, w: 600, h: 204 },
+  rio_orilla_top: { x: 378, y: 326, w: 600, h: 52 },
+  rio_agua_centro: { x: 378, y: 374, w: 600, h: 112 },
+  rio_orilla_bot: { x: 378, y: 484, w: 600, h: 46 }
 };
 
 // Coordenadas de recorte (x, y, w, h) de public/assets/props_y_estructuras_sheet.png (1024x764)
@@ -992,18 +995,17 @@ function buildSkillIconsCache(img) {
 }
 
 /**
- * Sintetiza automáticamente un spritesheet horizontal de 4 cuadros reales (4 * frameW x frameH)
- * a partir de un sprite de 1 cuadro ya recortado con Flood-Fill:
- *   - Cuadro 0 (Reposo / Postura base): personaje erguido centrado sobre footY.
- *   - Cuadro 1 (Paso A / Zancada izquierda): pierna izquierda adelantada y elevada (-3px),
- *     pierna derecha atrasada (+3px), torso/brazos con braceo (+1px) y elevación de paso (-2px).
- *   - Cuadro 2 (Paso B / Zancada derecha): pierna derecha adelantada y elevada (-3px),
- *     pierna izquierda atrasada (-3px), torso/brazos con braceo opuesto (-1px) y elevación (-2px).
- *   - Cuadro 3 (Impulso / Ataque / Acción): torso y arma proyectados hacia adelante (+3px/+5px)
- *     con guardia abierta en las piernas.
+ * Sintetiza automáticamente una hoja en cuadrícula 3x5 (5 columnas de acción x 3 filas de dirección:
+ * row 0 = frente/sur, row 1 = perfil/este-oeste con flipX, row 2 = espalda/norte;
+ * col 0 = idle, col 1 = walk_1, col 2 = walk_2, col 3 = jump/alerta, col 4 = attack/acción)
+ * a partir de un sprite de 1 cuadro o un spritesheet horizontal de 4 cuadros, para que todos los
+ * PNC, guardias, monstruos, mascotas y jefes se vean con movimiento y orientación real en las 4 direcciones.
  */
-function shouldSynthesizeFourFrames(key, canvas) {
-  if (!canvas || canvas.width >= canvas.height * 2.2) return false;
+function shouldSynthesizeMultiDir3x5(key, canvas) {
+  if (!canvas || canvas.dataset?.grid3x5 === 'true') return false;
+  const w = canvas.naturalWidth || canvas.width || 0;
+  const h = canvas.naturalHeight || canvas.height || 0;
+  if (w >= 500 && h >= 300 && Math.abs(w / h - 1024 / 571) < 0.22) return false;
   return (
     key.startsWith('heroe_') ||
     key.startsWith('heroina_') ||
@@ -1015,99 +1017,176 @@ function shouldSynthesizeFourFrames(key, canvas) {
 }
 
 function synthesizeFourFrameSheet(srcCanvas, key) {
-  const sw = srcCanvas.width || 64;
-  const sh = srcCanvas.height || 64;
-  if (!shouldSynthesizeFourFrames(key, srcCanvas)) {
+  if (!shouldSynthesizeMultiDir3x5(key, srcCanvas)) {
     return srcCanvas;
   }
 
-  const padX = Math.max(5, Math.round(sw * 0.09));
-  const padTop = Math.max(5, Math.round(sh * 0.07));
-  const fw = sw + padX * 2;
-  const fh = sh + padTop;
+  const totalW = srcCanvas.naturalWidth || srcCanvas.width || 64;
+  const totalH = srcCanvas.naturalHeight || srcCanvas.height || 64;
+  const isFourFrames = totalW >= totalH * 2.2;
+  const rawFw = isFourFrames ? Math.floor(totalW / 4) : totalW;
+  const rawFh = totalH;
+
+  // Escalar cada cuadro fuente a máx 112px para mantener fluidez de 60 FPS en móvil y escritorio
+  const maxCellDim = 112;
+  const scale = Math.min(1, maxCellDim / Math.max(rawFw, rawFh));
+  const sw = Math.max(16, Math.round(rawFw * scale));
+  const sh = Math.max(16, Math.round(rawFh * scale));
+
+  // Extraer los 4 cuadros base (idle, walk1, walk2, attack) o el cuadro único
+  const baseFrames = [];
+  const count = isFourFrames ? 4 : 1;
+  for (let i = 0; i < count; i++) {
+    const fc = document.createElement('canvas');
+    fc.width = sw;
+    fc.height = sh;
+    const fctx = fc.getContext('2d', { willReadFrequently: true });
+    fctx.imageSmoothingEnabled = false;
+    fctx.drawImage(srcCanvas, i * rawFw, 0, rawFw, rawFh, 0, 0, sw, sh);
+    try {
+      baseFrames.push(fctx.getImageData(0, 0, sw, sh).data);
+    } catch {
+      return srcCanvas;
+    }
+  }
+
+  const padX = Math.max(6, Math.round(sw * 0.1));
+  const padTop = Math.max(6, Math.round(sh * 0.08));
+  const cellW = sw + padX * 2;
+  const cellH = sh + padTop;
 
   const sheet = document.createElement('canvas');
-  sheet.width = fw * 4;
-  sheet.height = fh;
+  sheet.width = cellW * 5;
+  sheet.height = cellH * 3;
+  sheet.dataset.grid3x5 = 'true';
   const ctx = sheet.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  // Deformación continua por franjas horizontales y mitades laterales con solapamiento suave (sin partir armas ni túnicas)
-  const srcCtx = srcCanvas.getContext('2d');
-  let srcData = null;
-  try {
-    srcData = srcCtx.getImageData(0, 0, sw, sh).data;
-  } catch {
-    srcData = null;
-  }
+  const outImg = ctx.createImageData(sheet.width, sheet.height);
+  const dst = outImg.data;
+  const stepAmp = Math.max(2.5, sw * 0.052);
+  const liftAmp = Math.max(2.5, sh * 0.042);
 
-  if (srcData) {
-    const outImg = ctx.createImageData(fw * 4, fh);
-    const dst = outImg.data;
-    const stepAmp = Math.max(2.5, sw * 0.048);
-    const liftAmp = Math.max(2.5, sh * 0.038);
+  const renderCell = (row, col, srcData, warpFn) => {
+    const cellOx = col * cellW + padX;
+    const cellOy = row * cellH + padTop;
+    // En fila 1 (perfil lateral): ligera compresión horizontal en perspectiva 3/4 (0.91x) e inclinación de avance
+    const sideSquashX = row === 1 ? 0.91 : 1.0;
 
-    const renderWarped = (fIdx, warpFn) => {
-      const ox = fIdx * fw + padX;
-      const oy = padTop;
-      for (let dy = -padTop; dy < sh; dy++) {
-        const ny = dy / sh;
-        for (let dx = -padX; dx < sw + padX; dx++) {
-          const nx = dx / sw;
-          const { offX, offY } = warpFn(nx, ny);
-          const sx = Math.round(dx - offX);
-          const sy = Math.round(dy - offY);
-          if (sx < 0 || sx >= sw || sy < 0 || sy >= sh) continue;
-          const sO = (sy * sw + sx) * 4;
-          if (srcData[sO + 3] < 20) continue;
-          const outX = ox + dx;
-          const outY = oy + dy;
-          if (outX < fIdx * fw || outX >= (fIdx + 1) * fw || outY < 0 || outY >= fh) continue;
-          const dO = (outY * (fw * 4) + outX) * 4;
-          dst[dO] = srcData[sO];
-          dst[dO + 1] = srcData[sO + 1];
-          dst[dO + 2] = srcData[sO + 2];
-          dst[dO + 3] = srcData[sO + 3];
+    for (let dy = -padTop; dy < sh; dy++) {
+      const ny = dy / sh;
+      for (let dx = -padX; dx < sw + padX; dx++) {
+        const centeredX = (dx - sw * 0.5) / sideSquashX + sw * 0.5;
+        const nx = centeredX / sw;
+        const { offX, offY } = warpFn(nx, ny, row);
+        const sx = Math.round(centeredX - offX);
+        const sy = Math.round(dy - offY);
+        if (sx < 0 || sx >= sw || sy < 0 || sy >= sh) continue;
+        const sO = (sy * sw + sx) * 4;
+        const a = srcData[sO + 3];
+        if (a < 20) continue;
+
+        const outX = cellOx + dx;
+        const outY = cellOy + dy;
+        if (outX < col * cellW || outX >= (col + 1) * cellW || outY < row * cellH || outY >= (row + 1) * cellH) continue;
+        const dO = (outY * sheet.width + outX) * 4;
+
+        let r = srcData[sO];
+        let g = srcData[sO + 1];
+        let b = srcData[sO + 2];
+
+        // En fila 2 (vista de espaldas / caminando hacia el norte):
+        // ocultar facciones faciales frontales (ojos/boca en la zona central de la cabeza) y aplicar sombreado dorsal
+        if (row === 2) {
+          const isInnerHead = ny >= 0.11 && ny <= 0.36 && nx >= 0.30 && nx <= 0.70;
+          if (isInnerHead) {
+            // Tomar el color de cabello/casco/capucha de la parte superior de la cabeza para cubrir el rostro visto desde atrás
+            const crownY = Math.max(2, Math.min(sh - 1, Math.round(sh * 0.13)));
+            const crownO = (crownY * sw + sx) * 4;
+            if (srcData[crownO + 3] > 40) {
+              r = Math.round(srcData[crownO] * 0.86);
+              g = Math.round(srcData[crownO + 1] * 0.86);
+              b = Math.round(srcData[crownO + 2] * 0.88);
+            } else {
+              r = Math.round(r * 0.72);
+              g = Math.round(g * 0.72);
+              b = Math.round(b * 0.76);
+            }
+          } else {
+            r = Math.round(r * 0.88);
+            g = Math.round(g * 0.88);
+            b = Math.round(b * 0.91);
+          }
         }
-      }
-    };
 
-    renderWarped(0, () => ({ offX: 0, offY: 0 }));
-    renderWarped(1, (nx, ny) => {
-      const legT = Math.max(0, Math.min(1, (ny - 0.56) / 0.44));
+        dst[dO] = r;
+        dst[dO + 1] = g;
+        dst[dO + 2] = b;
+        dst[dO + 3] = a;
+      }
+    }
+  };
+
+  for (let row = 0; row < 3; row++) {
+    // Col 0: Idle / Reposo
+    renderCell(row, 0, baseFrames[0], (nx, ny, r) => ({
+      offX: r === 1 ? (0.8 - ny) * 1.4 : 0,
+      offY: 0
+    }));
+
+    // Col 1: Walk 1 (Zancada A)
+    renderCell(row, 1, baseFrames[isFourFrames ? 1 : 0], (nx, ny, r) => {
+      if (isFourFrames && r === 1) {
+        return { offX: 0.8, offY: -liftAmp * 0.45 };
+      }
+      const legT = Math.max(0, Math.min(1, (ny - 0.54) / 0.46));
       const smoothLeg = legT * legT * (3 - 2 * legT);
       const side = Math.max(-1, Math.min(1, (nx - 0.5) * 3.2));
       return {
-        offX: (1 - smoothLeg) * (stepAmp * 0.35) + side * smoothLeg * stepAmp * 0.85,
-        offY: -liftAmp * 0.65 - Math.max(0, -side) * smoothLeg * liftAmp * 1.35
+        offX: (1 - smoothLeg) * (stepAmp * 0.35) + side * smoothLeg * stepAmp * (r === 1 ? 1.15 : 0.78),
+        offY: -liftAmp * 0.65 - Math.max(0, -side) * smoothLeg * liftAmp * 1.38
       };
     });
-    renderWarped(2, (nx, ny) => {
-      const legT = Math.max(0, Math.min(1, (ny - 0.56) / 0.44));
+
+    // Col 2: Walk 2 (Zancada B opuesta)
+    renderCell(row, 2, baseFrames[isFourFrames ? 2 : 0], (nx, ny, r) => {
+      if (isFourFrames && r === 1) {
+        return { offX: -0.8, offY: -liftAmp * 0.45 };
+      }
+      const legT = Math.max(0, Math.min(1, (ny - 0.54) / 0.46));
       const smoothLeg = legT * legT * (3 - 2 * legT);
       const side = Math.max(-1, Math.min(1, (nx - 0.5) * 3.2));
       return {
-        offX: -(1 - smoothLeg) * (stepAmp * 0.35) - side * smoothLeg * stepAmp * 0.75,
-        offY: -liftAmp * 0.65 - Math.max(0, side) * smoothLeg * liftAmp * 1.35
+        offX: -(1 - smoothLeg) * (stepAmp * 0.35) - side * smoothLeg * stepAmp * (r === 1 ? 1.05 : 0.78),
+        offY: -liftAmp * 0.65 - Math.max(0, side) * smoothLeg * liftAmp * 1.38
       };
     });
-    renderWarped(3, (nx, ny) => {
+
+    // Col 3: Salto / Alerta rápida
+    renderCell(row, 3, baseFrames[isFourFrames ? 1 : 0], (nx, ny) => {
+      const legT = Math.max(0, Math.min(1, (ny - 0.58) / 0.42));
+      return {
+        offX: 0,
+        offY: -liftAmp * 1.15 - legT * liftAmp * 0.75
+      };
+    });
+
+    // Col 4: Ataque / Acción de trabajo
+    renderCell(row, 4, baseFrames[isFourFrames ? 3 : 0], (nx, ny, r) => {
+      if (isFourFrames && r === 1) {
+        return { offX: stepAmp * 0.55, offY: -liftAmp * 0.25 };
+      }
       const upperT = Math.max(0, Math.min(1, (0.78 - ny) / 0.78));
       const legT = Math.max(0, Math.min(1, (ny - 0.58) / 0.42));
       const side = Math.max(-1, Math.min(1, (nx - 0.5) * 3.0));
       return {
-        offX: upperT * stepAmp * 1.15 + side * legT * stepAmp * 0.7,
-        offY: -upperT * (liftAmp * 0.45)
+        offX: upperT * stepAmp * (r === 1 ? 1.35 : 0.85) + side * legT * stepAmp * 0.65,
+        offY: -upperT * (liftAmp * 0.48)
       };
     });
-
-    ctx.putImageData(outImg, 0, 0);
-    return sheet;
   }
 
-  for (let i = 0; i < 4; i++) {
-    ctx.drawImage(srcCanvas, i * fw + padX, padTop);
-  }
+  ctx.putImageData(outImg, 0, 0);
   return sheet;
 }
 
@@ -1804,7 +1883,7 @@ function loadSingleAsset(key, config) {
           const finalSpriteCanvas = synthesizeFourFrameSheet(cleanCanvas, key);
           processedSprites.set(key, finalSpriteCanvas);
         } else {
-          processedSprites.set(key, img);
+          processedSprites.set(key, synthesizeFourFrameSheet(img, key));
         }
 
         if (key === 'iconos_equipo') {

@@ -48,7 +48,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     safeZone: (mapId === 'aldea' && faction === 'alba') || (mapId === 'aldea_hierro' && faction === 'hierro'),
     villageFaction: isVillageMap ? villageFaction : null,
     darkness: mapId === 'cueva',
-    weather: mapId === 'bosque' ? 'butterflies' : mapId === 'desierto' ? 'ash' : mapId === 'montanas' ? 'snow' : mapId === 'fortaleza' ? 'void_storm' : 'none',
+    weather: mapId === 'bosque' ? 'butterflies' : mapId === 'desierto' || mapId === 'estepas_hierro' || mapId === 'fundicion_hierro' ? 'ash' : mapId === 'montanas' ? 'snow' : mapId === 'fortaleza' ? 'void_storm' : 'none',
     buildings: [],
     npcs: [],
     campfires: [],
@@ -612,56 +612,272 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     base.solids.push({ x: 748, y: 145, w: 104, h: 64 });
   }
 
-  // Portal Mágico Vigilado en el Mapa de Hielo que conecta Villa Alba (Guardia del Alba) con Bastión de Hierro (Clanes de Hierro)
-  if (mapId === 'aldea' || mapId === 'aldea_hierro') {
-    const isAlbaMap = mapId === 'aldea';
-    base.portals.push({
-      id: 'portal_hielo_frontera',
-      x: 250,
-      y: 560,
-      targetMap: 'montanas',
-      targetX: isAlbaMap ? 680 : 920,
-      targetY: 900,
-      label: isAlbaMap ? 'Portal de Hielo → Invadir Bastión de Hierro' : 'Portal de Hielo → Invadir Villa Alba',
-      color: isAlbaMap ? '#38BDF8' : '#EF4444',
-      reqLevel: 1,
-      isGuardedIcePortal: true
-    });
-    base.gems.push(
-      { id: 'res_wood_1', itemId: 'madera_roble', x: 260, y: 390, collected: false, respawnTimer: 0 },
-      { id: 'res_ore_1', itemId: 'mineral_hierro', x: 1295, y: 460, collected: false, respawnTimer: 0 },
-      { id: 'res_stone_1', itemId: 'piedra_runica', x: 1295, y: 580, collected: false, respawnTimer: 0 }
-    );
-  } else if (mapId === 'montanas') {
-    // Dos portales en la frontera del Mapa de Hielo: Occidente (Villa Alba) y Oriente (Bastión de Hierro)
-    base.portals.push(
-      {
-        id: 'portal_cruce_alba',
-        x: 680,
-        y: 830,
-        targetMap: 'aldea',
-        targetX: 250,
-        targetY: 615,
-        label: 'Portal Vigilado → Villa Alba (Guardia del Alba)',
-        color: '#38BDF8',
+    // Portal Mágico Vigilado que conecta Villa Alba con las Montañas Heladas, y Bastión de Hierro con las Estepas de Sangre -> Cañón de la Fundición -> Montañas Heladas
+    if (mapId === 'aldea' || mapId === 'aldea_hierro') {
+      const isAlbaMap = mapId === 'aldea';
+      base.portals.push({
+        id: 'portal_hielo_frontera',
+        x: 250,
+        y: 560,
+        targetMap: isAlbaMap ? 'montanas' : 'estepas_hierro',
+        targetX: isAlbaMap ? 680 : 800,
+        targetY: isAlbaMap ? 900 : 1140,
+        label: isAlbaMap ? 'Portal de Hielo → Frontera Norte' : 'Estepas de Sangre (Ruta al Hielo)',
+        color: isAlbaMap ? '#38BDF8' : '#EF4444',
         reqLevel: 1,
-        guardFaction: 'alba',
         isGuardedIcePortal: true
-      },
-      {
-        id: 'portal_cruce_hierro',
-        x: 920,
-        y: 830,
-        targetMap: 'aldea_hierro',
-        targetX: 250,
-        targetY: 615,
-        label: 'Portal Vigilado → Bastión de Hierro (Clanes de Hierro)',
-        color: '#EF4444',
-        reqLevel: 1,
-        guardFaction: 'hierro',
-        isGuardedIcePortal: true
+      });
+      base.gems.push(
+        { id: 'res_wood_1', itemId: 'madera_roble', x: 260, y: 390, collected: false, respawnTimer: 0 },
+        { id: 'res_ore_1', itemId: 'mineral_hierro', x: 1295, y: 460, collected: false, respawnTimer: 0 },
+        { id: 'res_stone_1', itemId: 'piedra_runica', x: 1295, y: 580, collected: false, respawnTimer: 0 }
+      );
+    } else if (mapId === 'estepas_hierro') {
+      // MAPA INTERMEDIO 1 DE HIERRO: Estepas de Sangre (entre Bastión de Hierro y Cañón de la Fundición)
+      base.campfires.push({ x: 800, y: 720, radius: 85 });
+      base.buildings.push({
+        id: 'taberna',
+        label: 'PUESTO DE GUERRA',
+        x: 420,
+        y: 560,
+        w: 175,
+        h: 112,
+        isHierro: true,
+        wallColor: '#78716C',
+        roofColor: '#9E2A2B',
+        roofHighlight: '#C97A32',
+        chimney: true
+      });
+      base.props.push(
+        { kind: 'banner_hierro', x: 690, y: 1120 },
+        { kind: 'banner_hierro', x: 910, y: 1120 },
+        { kind: 'banner_hierro', x: 690, y: 240 },
+        { kind: 'banner_hierro', x: 910, y: 240 },
+        { kind: 'torch', x: 720, y: 700 },
+        { kind: 'torch', x: 880, y: 700 },
+        { kind: 'craneo_desierto', x: 560, y: 420 },
+        { kind: 'craneo_desierto', x: 1060, y: 440 },
+        { kind: 'rocas_desierto', x: 280, y: 460 },
+        { kind: 'rocas_desierto', x: 1310, y: 760 },
+        { kind: 'arbusto_seco', x: 520, y: 880 },
+        { kind: 'arbusto_seco', x: 1080, y: 860 },
+        { kind: 'costillar_dragon', x: 1160, y: 520 }
+      );
+      base.trees.push(
+        { x: 240, y: 310, style: 'dead' },
+        { x: 1350, y: 320, style: 'dead' },
+        { x: 260, y: 980, style: 'dry_palm' },
+        { x: 1330, y: 990, style: 'dry_palm' }
+      );
+      addTerrainZone('lava', 220, 620, 176, 112, 'trans_arena_lava');
+      addTerrainZone('lava', 1210, 340, 176, 112, 'trans_arena_lava');
+
+      // Guardias Centinelas de Hierro que patrullan las Estepas y atacan a cualquier personaje del Alba que entre sin sigilo/disfraz
+      const estepaGuards = [
+        { id: 'guard_estepa_1', name: 'Centinela de Hierro (Sur)', x: 730, y: 1020 },
+        { id: 'guard_estepa_2', name: 'Centinela de Hierro (Sur)', x: 870, y: 1020 },
+        { id: 'guard_estepa_3', name: 'Desollador del Clan (Centro)', x: 690, y: 650 },
+        { id: 'guard_estepa_4', name: 'Campeón del Bastión (Centro)', x: 920, y: 650 },
+        { id: 'guard_estepa_5', name: 'Centinela de Hierro (Norte)', x: 740, y: 270 },
+        { id: 'guard_estepa_6', name: 'Centinela de Hierro (Norte)', x: 860, y: 270 }
+      ];
+      for (const g of estepaGuards) {
+        base.npcs.push({
+          id: g.id,
+          kind: 'guardia_hierro',
+          name: g.name,
+          faction: 'hierro',
+          isPortalGuard: true,
+          x: g.x,
+          y: g.y,
+          homeX: g.x,
+          homeY: g.y,
+          hp: 480,
+          maxHp: 480,
+          atk: 40,
+          def: 20,
+          speed: 140,
+          radius: 18,
+          emotion: 'neutral',
+          hostile: false
+        });
       }
-    );
+
+      base.enemies.push(
+        spawnEnemy('lobo', 520, 860),
+        spawnEnemy('lobo', 1080, 850),
+        spawnEnemy('escorpion', 540, 480),
+        spawnEnemy('nomada', 1050, 460)
+      );
+
+      base.gems.push(
+        { id: 'est_rubi_1', itemId: 'gema_rubi', x: 360, y: 520, collected: false, respawnTimer: 0 },
+        { id: 'est_esm_1', itemId: 'gema_esmeralda', x: 1240, y: 640, collected: false, respawnTimer: 0 },
+        { id: 'est_ore_1', itemId: 'mineral_hierro', x: 620, y: 780, collected: false, respawnTimer: 0 }
+      );
+
+      base.portals.push(
+        {
+          id: 'back_aldea_hierro_estepa',
+          x: 800,
+          y: 1225,
+          targetMap: 'aldea_hierro',
+          targetX: 250,
+          targetY: 615,
+          label: 'Bastión de Hierro (Capital)',
+          color: '#EF4444',
+          reqLevel: 1
+        },
+        {
+          id: 'to_fundicion_hierro',
+          x: 800,
+          y: 115,
+          targetMap: 'fundicion_hierro',
+          targetX: 800,
+          targetY: 1140,
+          label: 'Cañón de la Fundición (Ruta al Hielo)',
+          color: '#F97316',
+          reqLevel: 1
+        }
+      );
+    } else if (mapId === 'fundicion_hierro') {
+      // MAPA INTERMEDIO 2 DE HIERRO: Cañón de la Fundición (entre Estepas de Sangre y Montañas Heladas)
+      base.bridges.push({ x: 725, y: 640, w: 150, h: 170 });
+      base.solids.push(
+        { x: 30, y: 645, w: 695, h: 160 },
+        { x: 875, y: 645, w: 695, h: 160 }
+      );
+      base.buildings.push({
+        id: 'forja',
+        label: 'GRAN FUNDICIÓN',
+        x: 1020,
+        y: 880,
+        w: 185,
+        h: 118,
+        isHierro: true,
+        wallColor: '#78716C',
+        roofColor: '#7F1D1D',
+        roofHighlight: '#C97A32',
+        chimney: true
+      });
+      base.campfires.push({ x: 540, y: 950, radius: 80 });
+      base.props.push(
+        { kind: 'anvil', x: 980, y: 960 },
+        { kind: 'minecart', x: 460, y: 460 },
+        { kind: 'minecart', x: 1120, y: 460 },
+        { kind: 'banner_hierro', x: 700, y: 625 },
+        { kind: 'banner_hierro', x: 900, y: 625 },
+        { kind: 'banner_hierro', x: 700, y: 220 },
+        { kind: 'banner_hierro', x: 900, y: 220 },
+        { kind: 'torch', x: 710, y: 820 },
+        { kind: 'torch', x: 890, y: 820 },
+        { kind: 'roca_nevada', x: 610, y: 210 },
+        { kind: 'roca_nevada', x: 990, y: 210 },
+        { kind: 'totem_hielo', x: 520, y: 180 },
+        { kind: 'totem_hielo', x: 1080, y: 180 }
+      );
+      addTerrainZone('lava', 190, 880, 188, 116, 'trans_arena_lava');
+      addTerrainZone('lava', 1200, 310, 188, 116, 'trans_nieve_lava');
+
+      // Guardias de Élite de la Fundición de Hierro que atacan de inmediato a jugadores de la Guardia del Alba
+      const fundicionGuards = [
+        { id: 'guard_fund_1', name: 'Forjador de Guerra (Sur)', x: 740, y: 1030 },
+        { id: 'guard_fund_2', name: 'Forjador de Guerra (Sur)', x: 860, y: 1030 },
+        { id: 'guard_fund_3', name: 'Custodio del Puente de Hierro', x: 745, y: 835 },
+        { id: 'guard_fund_4', name: 'Custodio del Puente de Hierro', x: 855, y: 615 },
+        { id: 'guard_fund_5', name: 'Centinela de la Frontera Helada', x: 735, y: 255 },
+        { id: 'guard_fund_6', name: 'Centinela de la Frontera Helada', x: 865, y: 255 }
+      ];
+      for (const g of fundicionGuards) {
+        base.npcs.push({
+          id: g.id,
+          kind: 'guardia_hierro',
+          name: g.name,
+          faction: 'hierro',
+          isPortalGuard: true,
+          x: g.x,
+          y: g.y,
+          homeX: g.x,
+          homeY: g.y,
+          hp: 540,
+          maxHp: 540,
+          atk: 45,
+          def: 23,
+          speed: 142,
+          radius: 18,
+          emotion: 'neutral',
+          hostile: false
+        });
+      }
+
+      base.enemies.push(
+        spawnEnemy('escorpion', 480, 520),
+        spawnEnemy('nomada', 1120, 520),
+        spawnEnemy('lobo_invernal', 580, 330),
+        spawnEnemy('golem_hielo', 1020, 330)
+      );
+
+      base.gems.push(
+        { id: 'fun_zaf_1', itemId: 'gema_zafiro', x: 350, y: 390, collected: false, respawnTimer: 0 },
+        { id: 'fun_rub_1', itemId: 'gema_rubi', x: 1250, y: 520, collected: false, respawnTimer: 0 },
+        { id: 'fun_ore_1', itemId: 'mineral_hierro', x: 460, y: 1050, collected: false, respawnTimer: 0 },
+        { id: 'fun_stone_1', itemId: 'piedra_runica', x: 1180, y: 1060, collected: false, respawnTimer: 0 }
+      );
+
+      base.portals.push(
+        {
+          id: 'back_estepas_hierro',
+          x: 800,
+          y: 1225,
+          targetMap: 'estepas_hierro',
+          targetX: 800,
+          targetY: 200,
+          label: 'Estepas de Sangre',
+          color: '#EF4444',
+          reqLevel: 1
+        },
+        {
+          id: 'to_montanas_desde_fundicion',
+          x: 800,
+          y: 110,
+          targetMap: 'montanas',
+          targetX: 920,
+          targetY: 900,
+          label: 'Montañas Heladas (Frontera de Hielo)',
+          color: '#38BDF8',
+          reqLevel: 1
+        }
+      );
+    } else if (mapId === 'montanas') {
+      // Dos portales en la frontera del Mapa de Hielo: Occidente (Villa Alba) y Oriente (Cañón de la Fundición -> Estepas -> Bastión de Hierro)
+      base.portals.push(
+        {
+          id: 'portal_cruce_alba',
+          x: 680,
+          y: 830,
+          targetMap: 'aldea',
+          targetX: 250,
+          targetY: 615,
+          label: 'Portal Vigilado → Villa Alba (Guardia del Alba)',
+          color: '#38BDF8',
+          reqLevel: 1,
+          guardFaction: 'alba',
+          isGuardedIcePortal: true
+        },
+        {
+          id: 'portal_cruce_hierro',
+          x: 920,
+          y: 830,
+          targetMap: 'fundicion_hierro',
+          targetX: 800,
+          targetY: 200,
+          label: 'Portal Vigilado → Cañón de la Fundición (Territorio Hierro)',
+          color: '#EF4444',
+          reqLevel: 1,
+          guardFaction: 'hierro',
+          isGuardedIcePortal: true
+        }
+      );
     // Guardias permanentes de ambos bandos custodiando su respectivo Portal en el Mapa de Hielo
     base.npcs.push(
       {
@@ -730,6 +946,12 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       guerrero_hierro: { x: 980, y: 610 },
       chamana_hierro: { x: 960, y: 750 }
     },
+    estepas_hierro: {
+      guerrero_hierro: { x: 860, y: 740 }
+    },
+    fundicion_hierro: {
+      chamana_hierro: { x: 880, y: 940 }
+    },
     bosque: {
       explorador_alba: { x: 740, y: 960 },
       paladina_alba: { x: 850, y: 980 }
@@ -794,7 +1016,12 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
   }
 
   // Bandera de control territorial disputado en cada mapa
-  const defaultTerritoryOwner = mapId === 'aldea_hierro' || mapId === 'desierto' ? 'hierro' : mapId === 'aldea' || mapId === 'bosque' ? 'alba' : (faction === 'hierro' ? 'hierro' : 'alba');
+  const defaultTerritoryOwner =
+    mapId === 'aldea_hierro' || mapId === 'estepas_hierro' || mapId === 'fundicion_hierro' || mapId === 'desierto'
+      ? 'hierro'
+      : mapId === 'aldea' || mapId === 'bosque'
+      ? 'alba'
+      : (faction === 'hierro' ? 'hierro' : 'alba');
   const owner = getAiState().territoryOwner?.[mapId] || defaultTerritoryOwner;
   base.territoryFaction = owner;
 
@@ -949,7 +1176,7 @@ export function drawMapGround(ctx, map, faction, time) {
       ctx.fillRect(855, py + 16, 6, 8);
     }
 
-    // Río continuo con orillas de césped y tierra (seamless_tiles_sheet: rio_cesped)
+    // Río continuo: las orillas de césped/tierra permanecen fijas en el mundo y SOLO se mueve la corriente de agua central
     if (getAsset('seamless_tiles_sheet')) {
       ctx.save();
       ctx.beginPath();
@@ -958,10 +1185,21 @@ export function drawMapGround(ctx, map, faction, time) {
       const segW = 360;
       const period = segW * 2;
       const riverShift = Math.floor(time * 24) % period;
-      let segIdx = 0;
+
+      // 1) Corriente de agua animada en el cauce central (y = 802..872)
+      let wIdx = 0;
       for (let rx = 30 - period; rx < 1570 + period; rx += segW) {
-        drawSeamlessTileSprite(ctx, 'rio_cesped', rx + riverShift, 774, segW + 1, 124, segIdx % 2 === 1);
-        segIdx++;
+        drawSeamlessTileSprite(ctx, 'rio_agua_centro', rx + riverShift, 800, segW + 1, 74, wIdx % 2 === 1);
+        wIdx++;
+      }
+
+      // 2) Orilla Norte (y = 774..806) y Orilla Sur (y = 868..898) completamente FIJAS al terreno
+      let bIdx = 0;
+      for (let rx = 30; rx < 1570; rx += segW) {
+        const flip = bIdx % 2 === 1;
+        drawSeamlessTileSprite(ctx, 'rio_orilla_top', rx, 774, segW + 1, 32, flip);
+        drawSeamlessTileSprite(ctx, 'rio_orilla_bot', rx, 868, segW + 1, 30, flip);
+        bIdx++;
       }
       ctx.restore();
     } else {
@@ -1123,13 +1361,53 @@ export function drawMapGround(ctx, map, faction, time) {
     drawWorldUpgradeSprite(ctx, 'arena_vaelor', 665, 195, 270, 162);
     drawPropStructureSprite(ctx, 'grieta_vacio', 420, 448, 140, 32);
     drawPropStructureSprite(ctx, 'grieta_vacio', 1040, 448, 140, 32);
+  } else if (map.id === 'estepas_hierro') {
+    // Estepas de Sangre (Territorio Hierro 1): tierra rojiza apisonada con camino central de guerra hacia el norte
+    ctx.fillStyle = getTexturePattern(ctx, 'dirt_hierro') || '#6B4226';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = getTexturePattern(ctx, 'dirt_road') || '#8C6D49';
+    ctx.fillRect(735, 90, 130, 1130);
+    drawStoneCurbRect(735, 90, 130, 1130, false);
+    ctx.fillStyle = getTexturePattern(ctx, 'dirt_road') || '#8C6D49';
+    ctx.fillRect(580, 580, 440, 260);
+    drawStoneCurbRect(580, 580, 440, 260, false);
+    drawPropStructureSprite(ctx, 'grieta_lava', 340, 820, 180, 32);
+    drawPropStructureSprite(ctx, 'grieta_lava', 1080, 740, 180, 32);
+  } else if (map.id === 'fundicion_hierro') {
+    // Cañón de la Fundición (Territorio Hierro 2): sur volcánico de forja -> abismo de lava con puente -> norte nevado hacia Montañas Heladas
+    ctx.fillStyle = getTexturePattern(ctx, 'ash_sand') || '#44403C';
+    ctx.fillRect(0, 340, W, H - 340);
+    ctx.fillStyle = getTexturePattern(ctx, 'snow_ground') || '#CBD5E1';
+    ctx.fillRect(0, 0, W, 360);
+    const transIce = ctx.createLinearGradient(0, 290, 0, 440);
+    transIce.addColorStop(0, 'rgba(203, 213, 225, 0.92)');
+    transIce.addColorStop(1, 'rgba(68, 64, 60, 0)');
+    ctx.fillStyle = transIce;
+    ctx.fillRect(0, 290, W, 150);
+
+    // Camino central de la Fundición
+    ctx.fillStyle = getTexturePattern(ctx, 'dirt_road') || '#78350F';
+    ctx.fillRect(740, 90, 120, 1130);
+
+    // Foso del Cañón de Lava en el centro (y = 645..805) con puente de obsidiana/hierro
+    ctx.fillStyle = '#1C0D06';
+    ctx.fillRect(30, 645, 1540, 160);
+    for (let ax = 30; ax < 720; ax += 138) drawPropStructureSprite(ctx, 'borde_abismo', ax, 632, 140, 56);
+    for (let ax = 875; ax < 1560; ax += 138) drawPropStructureSprite(ctx, 'borde_abismo', ax, 632, 140, 56);
+    ctx.fillStyle = `rgba(234, 88, 12, ${0.42 + Math.sin(time * 3.5) * 0.14})`;
+    ctx.fillRect(30, 708, 1540, 34);
+    if (!drawWorldUpgradeSprite(ctx, 'puente_obsidiana_v', 716, 628, 168, 198)) {
+      drawPropStructureSprite(ctx, 'puente_obsidiana', 716, 628, 168, 198, true);
+    }
+    drawWorldUpgradeSprite(ctx, 'riel_mina', 395, 442, 235, 36);
+    drawWorldUpgradeSprite(ctx, 'riel_mina', 1030, 442, 235, 36);
   }
 
   // Muros perimetrales / acantilados de 8 piezas (Norte, Sur, Oeste, Este + 4 Esquinas) por bioma (9-Slice)
   const borderBiomeKey =
     map.id === 'montanas'
       ? 'nieve'
-      : map.id === 'desierto'
+      : map.id === 'desierto' || map.id === 'estepas_hierro' || map.id === 'fundicion_hierro'
       ? 'desierto'
       : map.id === 'cueva' || map.id === 'fortaleza'
       ? 'cueva'
@@ -1428,7 +1706,8 @@ export function drawMinimap(mmCanvas, map, player) {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle =
     map.id === 'aldea' ? '#244C26' :
-    map.id === 'aldea_hierro' ? '#451A03' :
+    map.id === 'aldea_hierro' || map.id === 'estepas_hierro' ? '#451A03' :
+    map.id === 'fundicion_hierro' ? '#573625' :
     map.id === 'bosque' ? '#1E3E29' :
     map.id === 'cueva' ? '#1A1326' :
     map.id === 'desierto' ? '#44403C' :
@@ -1440,6 +1719,9 @@ export function drawMinimap(mmCanvas, map, player) {
     ctx.fillStyle = map.id === 'aldea_hierro' ? '#78350F' : '#64748B';
     ctx.fillRect(340 * sx, 420 * sy, 920 * sx, 480 * sy);
     ctx.fillRect(735 * sx, 100 * sy, 130 * sx, 330 * sy);
+  } else if (map.id === 'estepas_hierro' || map.id === 'fundicion_hierro') {
+    ctx.fillStyle = '#8C6D49';
+    ctx.fillRect(735 * sx, 90 * sy, 130 * sx, 1130 * sy);
   } else if (map.id === 'bosque') {
     ctx.fillStyle = '#312E3F';
     ctx.fillRect(0, 0, w, 540 * sy);

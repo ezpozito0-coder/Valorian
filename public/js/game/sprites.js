@@ -202,6 +202,7 @@ export function drawHero(ctx, p, time) {
 export function drawPet(ctx, pet, time) {
   drawPetSprite(ctx, pet.id, pet.x, pet.y, 1.35, time, {
     dirX: pet.dirX,
+    dirY: pet.dirY,
     moving: pet.moving,
     attackTimer: pet.attackAnimTimer || 0,
     atkDirX: pet.atkDirX,
@@ -490,15 +491,43 @@ export function drawNpc(ctx, npc, time) {
 
   const isMoving = Math.hypot(npc.vx || 0, npc.vy || 0) > 8;
   const isWorkingOrAttacking = (npc.workAnimTimer || 0) > 0;
-  const flipLeft = (npc.vx || 0) < -4;
+  if (isMoving) {
+    npc.dirX = npc.vx || 0;
+    npc.dirY = npc.vy || 0;
+  }
+  const ndx = npc.dirX ?? 0;
+  const ndy = npc.dirY ?? 1;
+  let npcDir = 0; // 0 = Sur (frente), 1 = Este (perfil der), 2 = Norte (espalda), 3 = Oeste (perfil izq)
+  if (Math.abs(ndx) > Math.abs(ndy) * 0.92 && Math.abs(ndx) > 2) {
+    npcDir = ndx >= 0 ? 1 : 3;
+  } else if (ndy < -4) {
+    npcDir = 2;
+  } else {
+    npcDir = 0;
+  }
+  const flipLeft = npcDir === 3 || (npcDir !== 1 && ndx < -3);
 
   if (npcImg) {
+    const metrics = getSpriteFrameMetrics(npcImg, 0, 0);
+    let rowIndex = 0;
     let frameIndex = 0;
-    if (isWorkingOrAttacking) frameIndex = 3;
-    else if (isMoving) frameIndex = Math.floor(time * 9) % 4;
+    if (metrics.isGrid3x5) {
+      rowIndex = npcDir === 2 ? 2 : (npcDir === 1 || npcDir === 3) ? 1 : 0;
+      if (isWorkingOrAttacking) {
+        frameIndex = 4;
+      } else if (isMoving) {
+        frameIndex = Math.floor(time * 9 + (x + y) * 0.02) % 2 === 0 ? 1 : 2;
+      } else {
+        frameIndex = 0;
+      }
+    } else {
+      if (isWorkingOrAttacking) frameIndex = 3;
+      else if (isMoving) frameIndex = Math.floor(time * 9) % 4;
+    }
     const breathScaleY = isMoving ? 0.98 + Math.abs(Math.sin(time * 12)) * 0.05 : 1 + Math.sin(time * 3.5 + x * 0.05) * 0.016;
     drawFootAnchoredSprite(ctx, npcImg, x, footY, 52, {
       frameIndex,
+      rowIndex,
       flipX: flipLeft,
       scaleX: 1 - (breathScaleY - 1) * 0.4,
       scaleY: breathScaleY
@@ -609,19 +638,31 @@ export function drawEnemy(ctx, e, time) {
     { isBoss: Boolean(e.isBoss), frameIndex: shadowFrame }
   );
 
+  // Orientación multidireccional 4-direcciones (0=Sur/frente, 1=Este/perfil, 2=Norte/espalda, 3=Oeste/perfil)
+  const edx = e.dirX !== undefined ? e.dirX : (e.facingRight ? 1 : -1);
+  const edy = e.dirY !== undefined ? e.dirY : 0.35;
+  let eDir = 0;
+  if (Math.abs(edx) > Math.abs(edy) * 0.92) {
+    eDir = edx >= 0 ? 1 : 3;
+  } else if (edy < -0.15) {
+    eDir = 2;
+  } else {
+    eDir = 0;
+  }
+  const eRowIndex = eDir === 2 ? 2 : (eDir === 1 || eDir === 3) ? 1 : 0;
+  const eFlipX = eDir === 1 || (eDir !== 3 && Boolean(e.facingRight));
+
   // Si es un enemigo común y su sprite PNG (enemigo_lobo, enemigo_trasgo, enemigo_esqueleto, enemigo_elemental) está cargado:
   const enemyImg = !e.isBoss ? getEnemyAsset(e.kind) : null;
   if (enemyImg) {
     const WALK_FRAMES_4 = [0, 1, 2, 3];
-    const metrics = getSpriteFrameMetrics(enemyImg, 0);
+    const metrics = getSpriteFrameMetrics(enemyImg, 0, 0);
     const stepSin = Math.sin(time * 13 + (e.id || 0));
     const stepWave = isMoving ? Math.abs(stepSin) : 0;
-    const frameIndex = attackAnimTimer > 0.15
-      ? 3
-      : isMoving
-      ? WALK_FRAMES_4[Math.floor(time * 9 + (e.id || 0)) % 4]
-      : 0;
-    const bounceY = isMoving ? -stepWave * (metrics.isFourFrameSheet ? 1.4 : 2.8) : 0;
+    const frameIndex = metrics.isGrid3x5
+      ? (attackAnimTimer > 0.12 ? 4 : isMoving ? (Math.floor(time * 9 + (e.id || 0)) % 2 === 0 ? 1 : 2) : 0)
+      : (attackAnimTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 9 + (e.id || 0)) % 4] : 0);
+    const bounceY = isMoving ? -stepWave * (metrics.isGrid3x5 || metrics.isFourFrameSheet ? 1.4 : 2.8) : 0;
     const idleBreathY = !isMoving ? Math.sin(time * 3.8 + (e.id || 0)) * 0.016 : 0;
     let scaleY = isMoving ? 0.96 + stepWave * 0.08 : 1 + idleBreathY;
     let scaleX = isMoving ? 1.03 - stepWave * 0.05 : 1 - idleBreathY * 0.5;
@@ -631,11 +672,11 @@ export function drawEnemy(ctx, e, time) {
     }
 
     const targetH = e.kind === 'golem_hielo' || e.kind === 'caballero_vacio' ? 54 : 46;
-    const facingRight = Boolean(e.facingRight);
 
     drawFootAnchoredSprite(ctx, enemyImg, x, footY + bounceY, targetH, {
       frameIndex,
-      flipX: facingRight,
+      rowIndex: metrics.isGrid3x5 ? eRowIndex : 0,
+      flipX: eFlipX,
       tiltRad: 0, // CERO rotación lateral tipo "tronquito"
       scaleX,
       scaleY
@@ -735,6 +776,7 @@ export function drawEnemy(ctx, e, time) {
     const bossImg = getBossAsset(e.kind);
     if (bossImg) {
       const WALK_FRAMES_4 = [0, 1, 2, 3];
+      const bMetrics = getSpriteFrameMetrics(bossImg, 0, 0);
       const stepWave = isMoving ? Math.abs(Math.sin(time * 11 + (e.id || 0))) : 0;
       const bounceY = isMoving ? -stepWave * 2.2 : 0;
       const idleBreath = !isMoving ? Math.sin(time * 4.0 + (e.id || 0)) * 0.018 : 0;
@@ -744,9 +786,13 @@ export function drawEnemy(ctx, e, time) {
         scaleX *= atkPhase.scaleX;
         scaleY *= atkPhase.scaleY;
       }
+      const bossFrame = bMetrics.isGrid3x5
+        ? (attackAnimTimer > 0.12 ? 4 : isMoving ? (Math.floor(time * 8) % 2 === 0 ? 1 : 2) : 0)
+        : (attackAnimTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 8) % 4] : 0);
       drawFootAnchoredSprite(ctx, bossImg, x, footY + bounceY, 96, {
-        frameIndex: attackAnimTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 8) % 4] : 0,
-        flipX: Boolean(e.facingRight),
+        frameIndex: bossFrame,
+        rowIndex: bMetrics.isGrid3x5 ? eRowIndex : 0,
+        flipX: eFlipX,
         tiltRad: 0,
         scaleX,
         scaleY

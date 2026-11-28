@@ -1737,7 +1737,18 @@ export function drawPetSprite(ctx, petId, cx, cy, scale, time, opts = {}) {
   const petImg = getPetAsset(petId);
   if (petImg) {
     const WALK_FRAMES_4 = [0, 1, 2, 3];
-    const frameIndex = attackTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 10) % 4] : 0;
+    const pMetrics = getSpriteFrameMetrics(petImg, 0, 0);
+    const pdx = opts.dirX ?? 1;
+    const pdy = opts.dirY ?? 0.35;
+    let pRowIndex = 0;
+    if (pMetrics.isGrid3x5) {
+      if (Math.abs(pdx) > Math.abs(pdy) * 0.92) pRowIndex = 1;
+      else if (pdy < -0.25) pRowIndex = 2;
+      else pRowIndex = 0;
+    }
+    const frameIndex = pMetrics.isGrid3x5
+      ? (attackTimer > 0.12 ? 4 : isMoving ? (Math.floor(time * 10) % 2 === 0 ? 1 : 2) : 0)
+      : (attackTimer > 0.15 ? 3 : isMoving ? WALK_FRAMES_4[Math.floor(time * 10) % 4] : 0);
     let scaleY = isAerial ? 1 : isMoving ? 0.96 + stepBounce * 0.08 : 1 + Math.sin(time * 4) * 0.015;
     let scaleX = isAerial ? 1 : isMoving ? 1.03 - stepBounce * 0.05 : 1;
     if (attackTimer > 0) {
@@ -1746,6 +1757,7 @@ export function drawPetSprite(ctx, petId, cx, cy, scale, time, opts = {}) {
     }
     drawFootAnchoredSprite(ctx, petImg, x, footY + bob + lungeY, 22 * s, {
       frameIndex,
+      rowIndex: pRowIndex,
       flipX: facingLeft,
       tiltRad: 0, // CERO rotación de péndulo al caminar
       scaleX,

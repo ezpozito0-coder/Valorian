@@ -124,31 +124,41 @@ export const MAPS_META = {
   },
   aldea_hierro: {
     id: 'aldea_hierro', order: 2, name: 'Bastión de Hierro', levelRange: 'Territorio Clanes de Hierro', reqLevel: 1,
-    color: '#DC2626', spawnX: 800, spawnY: 700, mapX: 0.84, mapY: 0.44, bossId: null,
-    desc: 'Fortaleza de los Clanes de Hierro al otro lado del Portal de Hielo. Si eres del Alba puedes invadirlo o infiltrarte.'
+    color: '#DC2626', spawnX: 800, spawnY: 700, mapX: 0.88, mapY: 0.56, bossId: null,
+    desc: 'Fortaleza capital de los Clanes de Hierro conectada a las Estepas de Sangre. Si eres del Alba puedes invadirla.'
+  },
+  estepas_hierro: {
+    id: 'estepas_hierro', order: 3, name: 'Estepas de Sangre', levelRange: 'Niveles 1–20 · Territorio Hierro', reqLevel: 1,
+    color: '#B91C1C', spawnX: 800, spawnY: 1140, mapX: 0.82, mapY: 0.44, bossId: null,
+    desc: 'Tierras rojas de caza de los Clanes de Hierro, custodiadas por patrullas y centinelas que atacan a intrusos del Alba.'
+  },
+  fundicion_hierro: {
+    id: 'fundicion_hierro', order: 4, name: 'Cañón de la Fundición', levelRange: 'Niveles 20–45 · Territorio Hierro', reqLevel: 1,
+    color: '#EA580C', spawnX: 800, spawnY: 1140, mapX: 0.76, mapY: 0.36, bossId: null,
+    desc: 'Minas volcánicas y puentes de fundición entre las Estepas de Sangre y las Montañas Heladas, vigiladas por guardias de Hierro.'
   },
   bosque: {
-    id: 'bosque', order: 3, name: 'Bosque de la Fractura', levelRange: 'Niveles 1–15', reqLevel: 1,
+    id: 'bosque', order: 5, name: 'Bosque de la Fractura', levelRange: 'Niveles 1–15', reqLevel: 1,
     color: '#16A34A', spawnX: 800, spawnY: 1140, mapX: 0.34, mapY: 0.38, bossId: null,
     desc: 'Sendero Sur, Río con puente, Ruinas y acceso a la cueva corrupta.'
   },
   cueva: {
-    id: 'cueva', order: 4, name: 'Cueva del Vacío', levelRange: 'Niveles 15–30', reqLevel: 1,
+    id: 'cueva', order: 6, name: 'Cueva del Vacío', levelRange: 'Niveles 15–30', reqLevel: 1,
     color: '#9333EA', spawnX: 800, spawnY: 1140, mapX: 0.49, mapY: 0.72, bossId: 'malakor',
     desc: 'Túneles oscuros, Paso del Abismo y el Altar del jefe Malakor.'
   },
   desierto: {
-    id: 'desierto', order: 5, name: 'Desierto de Ceniza', levelRange: 'Niveles 30–50', reqLevel: 30,
-    color: '#EA580C', spawnX: 800, spawnY: 1140, mapX: 0.71, mapY: 0.66, bossId: 'ignis',
+    id: 'desierto', order: 7, name: 'Desierto de Ceniza', levelRange: 'Niveles 30–50', reqLevel: 30,
+    color: '#EA580C', spawnX: 800, spawnY: 1140, mapX: 0.68, mapY: 0.68, bossId: 'ignis',
     desc: 'Tierras quemadas con ceniza, lava y el Cráter de Ignis.'
   },
   montanas: {
-    id: 'montanas', order: 6, name: 'Montañas Heladas', levelRange: 'Niveles 50–70 · Frontera', reqLevel: 1,
-    color: '#38BDF8', spawnX: 800, spawnY: 1140, mapX: 0.69, mapY: 0.33, bossId: 'boreas',
-    desc: 'Cordilleras nevadas, Portal Mágico Vigilado entre Villa Alba y Bastión de Hierro, y la Cima de Boreas.'
+    id: 'montanas', order: 8, name: 'Montañas Heladas', levelRange: 'Niveles 50–70 · Frontera', reqLevel: 1,
+    color: '#38BDF8', spawnX: 800, spawnY: 1140, mapX: 0.67, mapY: 0.31, bossId: 'boreas',
+    desc: 'Cordilleras nevadas que conectan Villa Alba y el Cañón de la Fundición de Hierro con la Cima de Boreas.'
   },
   fortaleza: {
-    id: 'fortaleza', order: 7, name: 'Fortaleza del Vacío', levelRange: 'Niveles 70–90', reqLevel: 70,
+    id: 'fortaleza', order: 9, name: 'Fortaleza del Vacío', levelRange: 'Niveles 70–90', reqLevel: 70,
     color: '#7E22CE', spawnX: 800, spawnY: 1140, mapX: 0.52, mapY: 0.21, bossId: 'vaelor',
     desc: 'Origen de la Fractura y Salón del Trono de Vaelor.'
   }

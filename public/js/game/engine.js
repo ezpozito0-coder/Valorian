@@ -598,25 +598,17 @@ export class GameEngine {
       if (dp.life <= 0) this.dustParticles.splice(i, 1);
     }
 
-    // Comprobar portales entre mapas (incluyendo el Portal Vigilado del Mapa de Hielo)
+    // Comprobar portales entre mapas (los personajes de cualquier bando pueden recorrer todos los mapas, mientras los guardias de la facción contraria los atacan)
     if (this.portalCooldown <= 0) {
       for (const pt of this.map.portals) {
         if (Math.hypot(p.x - pt.x, p.y - pt.y) < 38) {
           if (pt.isGuardedIcePortal && this.map.id === 'montanas') {
-            const reqFaction = pt.guardFaction || (pt.targetMap === 'aldea_hierro' ? 'hierro' : 'alba');
+            const reqFaction = pt.guardFaction || (pt.targetMap === 'aldea_hierro' || pt.targetMap === 'fundicion_hierro' ? 'hierro' : 'alba');
             const guard = this.map.npcs.find((n) => n.isPortalGuard && !n.fleeing && (!pt.guardFaction || n.faction === reqFaction));
             if (guard && !this.isPlayerAllowedAtFactionPortal(reqFaction)) {
               guard.hostile = true;
               guard.emotion = 'enojo';
               this.callFactionReinforcements(guard);
-              if (this.portalLockMsgCooldown <= 0) {
-                this.portalLockMsgCooldown = 2.8;
-                this.callbacks.onToast?.(
-                  `¡Centinelas de ${reqFaction === 'hierro' ? 'Bastión de Hierro' : 'Villa Alba'} bloquean el Portal! Derrota al centinela, usa Sigilo (Tecla X) o equipa un Disfraz del Bando Contrario.`,
-                  'error'
-                );
-              }
-              continue;
             }
           }
           if (pt.reqLevel && p.level < pt.reqLevel) {
@@ -813,12 +805,14 @@ export class GameEngine {
       pet.x += stepX;
       pet.y += stepY;
       if (Math.abs(dx) > 2) pet.dirX = dx >= 0 ? 1 : -1;
+      pet.dirY = dy / dist;
       pet.moving = Math.hypot(pet.vx, pet.vy) > 16;
     } else {
       pet.vx = 0;
       pet.vy = 0;
       pet.moving = false;
       if (Math.abs(p.dirX) > 0.2) pet.dirX = p.dirX >= 0 ? 1 : -1;
+      pet.dirY = p.dirY || 0.35;
     }
 
     if (targetDropIdx !== -1 && Math.hypot(pet.x - targetX, pet.y - targetY) < 18) {
@@ -1063,17 +1057,20 @@ export class GameEngine {
         continue;
       }
 
-      // B) Guardias permanentes del Portal de Hielo y Aldeas: vigilan intrusos del bando contrario sin permiso, sin disfraz y sin sigilo
-      if (npc.isPortalGuard || (npc.isAiHero && (this.map.id === 'aldea' || this.map.id === 'aldea_hierro'))) {
+      // B) Guardias permanentes del Portal de Hielo, Aldeas y Territorios de Hierro (Estepas de Sangre y Cañón de la Fundición):
+      // vigilan y atacan a intrusos del bando contrario sin permiso, sin disfraz y sin sigilo
+      const isFactionTerritory = ['aldea', 'aldea_hierro', 'estepas_hierro', 'fundicion_hierro'].includes(this.map.id);
+      if (npc.isPortalGuard || (npc.isAiHero && isFactionTerritory)) {
         const distToPlayer = Math.hypot(p.x - npc.x, p.y - npc.y);
-        if (distToPlayer < 145 && npc.faction && npc.faction !== p.faction && !this.isPlayerAllowedAtFactionPortal(npc.faction)) {
+        const aggroRadius = ['estepas_hierro', 'fundicion_hierro', 'aldea_hierro'].includes(this.map.id) ? 245 : 155;
+        if (distToPlayer < aggroRadius && npc.faction && npc.faction !== p.faction && !this.isPlayerAllowedAtFactionPortal(npc.faction)) {
           if (!npc.hostile) {
             npc.hostile = true;
             npc.emotion = 'enojo';
-            this.addFloatingText(npc.x, npc.y - 28, this.map.id === 'montanas' ? '¡Intruso en el Portal!' : '¡Invasor en nuestro territorio!', '#EF4444');
+            this.addFloatingText(npc.x, npc.y - 28, this.map.id === 'montanas' ? '¡Intruso en el Portal!' : '¡Invasor del Alba, al ataque!', '#EF4444');
             this.callFactionReinforcements(npc);
           }
-        } else if (npc.hostile && (distToPlayer > 310 || this.isPlayerAllowedAtFactionPortal(npc.faction))) {
+        } else if (npc.hostile && (distToPlayer > 360 || this.isPlayerAllowedAtFactionPortal(npc.faction))) {
           npc.hostile = false;
           npc.emotion = 'neutral';
         }
@@ -1925,6 +1922,8 @@ export class GameEngine {
         const dy = p.y - e.y;
         const len = distToPlayer || 1;
         if (Math.abs(dx) > 2) e.facingRight = dx > 0;
+        e.dirX = dx / len;
+        e.dirY = dy / len;
 
         if (distToPlayer > e.attackRange - 6 && e.rootTimer <= 0) {
           const spd = e.speed * (e.slowTimer > 0 ? 0.5 : 1);
@@ -1961,6 +1960,8 @@ export class GameEngine {
           const hx = e.homeX - e.x;
           const hy = e.homeY - e.y;
           if (Math.abs(hx) > 2) e.facingRight = hx > 0;
+          e.dirX = hx / hd;
+          e.dirY = hy / hd;
           const prevX = e.x;
           const prevY = e.y;
           this.moveEntityWithCollisions(e, (hx / hd) * e.speed * 0.6 * dt, (hy / hd) * e.speed * 0.6 * dt);
