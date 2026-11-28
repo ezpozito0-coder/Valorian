@@ -221,17 +221,31 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { x: 1380, y: 240 }, { x: 1410, y: 620 }, { x: 1380, y: 990 }, { x: 540, y: 1080 }, { x: 1050, y: 1080 }
     );
 
-    base.portals.push({
-      id: 'to_bosque',
-      x: 800,
-      y: 120,
-      targetMap: 'bosque',
-      targetX: 800,
-      targetY: 1140,
-      label: 'Bosque de la Fractura',
-      color: '#22C55E',
-      reqLevel: 1
-    });
+    if (isAlba) {
+      base.portals.push({
+        id: 'to_bosque',
+        x: 800,
+        y: 120,
+        targetMap: 'bosque',
+        targetX: 800,
+        targetY: 1140,
+        label: 'Bosque de la Fractura',
+        color: '#22C55E',
+        reqLevel: 1
+      });
+    } else {
+      base.portals.push({
+        id: 'to_estepas_hierro',
+        x: 800,
+        y: 120,
+        targetMap: 'estepas_hierro',
+        targetX: 800,
+        targetY: 1140,
+        label: 'Estepas de Sangre (Territorio Hierro)',
+        color: '#EF4444',
+        reqLevel: 1
+      });
+    }
 
     // Pozo techado medieval, farolas de hierro forjado y doodads 16-bit de Guardia del Alba / Aldea
     base.props.push({ kind: 'pozo_aldea', x: 595, y: 538 });
@@ -304,8 +318,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     );
 
     base.portals.push(
-      { id: 'back_aldea', x: 710, y: 1225, targetMap: 'aldea', targetX: 800, targetY: 200, label: 'Villa Alba (Guardia del Alba)', color: '#38BDF8', reqLevel: 1 },
-      { id: 'back_aldea_hierro', x: 890, y: 1225, targetMap: 'aldea_hierro', targetX: 800, targetY: 200, label: 'Bastión de Hierro (Clanes de Hierro)', color: '#EF4444', reqLevel: 1 },
+      { id: 'back_aldea', x: 800, y: 1225, targetMap: 'aldea', targetX: 800, targetY: 200, label: 'Villa Alba (Guardia del Alba)', color: '#38BDF8', reqLevel: 1 },
       { id: 'to_cueva', x: 800, y: 125, targetMap: 'cueva', targetX: 800, targetY: 1140, label: 'Cueva del Vacío', color: '#9333EA', reqLevel: 1 }
     );
 
@@ -612,21 +625,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     base.solids.push({ x: 748, y: 145, w: 104, h: 64 });
   }
 
-    // Portal Mágico Vigilado que conecta Villa Alba con las Montañas Heladas, y Bastión de Hierro con las Estepas de Sangre -> Cañón de la Fundición -> Montañas Heladas
+    // Sin portales de atajo directo desde las aldeas al Mapa de Hielo: cada bando recorre sus propios territorios intermedios
     if (mapId === 'aldea' || mapId === 'aldea_hierro') {
-      const isAlbaMap = mapId === 'aldea';
-      base.portals.push({
-        id: 'portal_hielo_frontera',
-        x: 250,
-        y: 560,
-        targetMap: isAlbaMap ? 'montanas' : 'estepas_hierro',
-        targetX: isAlbaMap ? 680 : 800,
-        targetY: isAlbaMap ? 900 : 1140,
-        label: isAlbaMap ? 'Portal de Hielo → Frontera Norte' : 'Estepas de Sangre (Ruta al Hielo)',
-        color: isAlbaMap ? '#38BDF8' : '#EF4444',
-        reqLevel: 1,
-        isGuardedIcePortal: true
-      });
       base.gems.push(
         { id: 'res_wood_1', itemId: 'madera_roble', x: 260, y: 390, collected: false, respawnTimer: 0 },
         { id: 'res_ore_1', itemId: 'mineral_hierro', x: 1295, y: 460, collected: false, respawnTimer: 0 },
@@ -722,8 +722,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
           x: 800,
           y: 1225,
           targetMap: 'aldea_hierro',
-          targetX: 250,
-          targetY: 615,
+          targetX: 800,
+          targetY: 200,
           label: 'Bastión de Hierro (Capital)',
           color: '#EF4444',
           reqLevel: 1
@@ -849,36 +849,22 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
         }
       );
     } else if (mapId === 'montanas') {
-      // Dos portales en la frontera del Mapa de Hielo: Occidente (Villa Alba) y Oriente (Cañón de la Fundición -> Estepas -> Bastión de Hierro)
-      base.portals.push(
-        {
-          id: 'portal_cruce_alba',
-          x: 680,
-          y: 830,
-          targetMap: 'aldea',
-          targetX: 250,
-          targetY: 615,
-          label: 'Portal Vigilado → Villa Alba (Guardia del Alba)',
-          color: '#38BDF8',
-          reqLevel: 1,
-          guardFaction: 'alba',
-          isGuardedIcePortal: true
-        },
-        {
-          id: 'portal_cruce_hierro',
-          x: 920,
-          y: 830,
-          targetMap: 'fundicion_hierro',
-          targetX: 800,
-          targetY: 200,
-          label: 'Portal Vigilado → Cañón de la Fundición (Territorio Hierro)',
-          color: '#EF4444',
-          reqLevel: 1,
-          guardFaction: 'hierro',
-          isGuardedIcePortal: true
-        }
-      );
-    // Guardias permanentes de ambos bandos custodiando su respectivo Portal en el Mapa de Hielo
+      // En el Mapa de Hielo se eliminó el portal directo hacia Villa Alba; únicamente conecta al sur con el Desierto de Ceniza,
+      // al oriente con el Cañón de la Fundición (ruta hacia las Estepas de Sangre y Bastión de Hierro) y al norte con la Fortaleza del Vacío.
+      base.portals.push({
+        id: 'portal_cruce_hierro',
+        x: 920,
+        y: 830,
+        targetMap: 'fundicion_hierro',
+        targetX: 800,
+        targetY: 200,
+        label: 'Cañón de la Fundición (Territorio Clanes de Hierro)',
+        color: '#EF4444',
+        reqLevel: 1,
+        guardFaction: 'hierro',
+        isGuardedIcePortal: true
+      });
+      // Guardias permanentes de ambos bandos en la frontera del Mapa de Hielo
     base.npcs.push(
       {
         id: 'guard_portal_1',
@@ -1506,6 +1492,88 @@ export function drawMapGround(ctx, map, faction, time) {
   }
   for (const gd of map.groundDetails || []) {
     drawMapSheetSprite(ctx, gd.kind, gd.x - gd.w * 0.5, gd.y - gd.h * 0.5, gd.w, gd.h, time);
+  }
+
+  // Variaciones orgánicas del suelo por bioma (claros de terreno, parches de transición, guijarros, flores, grietas y musgo)
+  // distribuidos determinísticamente para que ninguna región del mapa tenga un piso monótono o repetitivo.
+  let floorSeed = 907;
+  for (let i = 0; i < map.id.length; i++) floorSeed = (floorSeed * 33 + map.id.charCodeAt(i)) >>> 0;
+  const nextFloorRnd = () => {
+    floorSeed = (floorSeed * 1664525 + 1013904223) >>> 0;
+    return (floorSeed & 0xffff) / 0x10000;
+  };
+
+  const isGrassMap = map.id === 'aldea' || map.id === 'bosque';
+  const isHierroOrDesert = map.id === 'aldea_hierro' || map.id === 'estepas_hierro' || map.id === 'fundicion_hierro' || map.id === 'desierto';
+  const isCaveOrVoid = map.id === 'cueva' || map.id === 'fortaleza';
+  const isSnowMap = map.id === 'montanas';
+
+  // 1) Claros de iluminación / variación cromática orgánica sobre el terreno base
+  ctx.save();
+  for (let i = 0; i < 18; i++) {
+    const px = 110 + nextFloorRnd() * (W - 220);
+    const py = 110 + nextFloorRnd() * (H - 220);
+    const rx = 55 + nextFloorRnd() * 75;
+    const ry = 35 + nextFloorRnd() * 48;
+    if (isGrassMap) {
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(74, 222, 128, 0.055)' : 'rgba(20, 83, 45, 0.075)';
+    } else if (isHierroOrDesert) {
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(251, 146, 60, 0.055)' : 'rgba(67, 20, 7, 0.085)';
+    } else if (isSnowMap) {
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.12)' : 'rgba(56, 189, 248, 0.065)';
+    } else {
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(168, 85, 247, 0.06)' : 'rgba(9, 5, 18, 0.14)';
+    }
+    ctx.beginPath();
+    ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 2) Micro-detalles 16-bit de suelo de map_assets_sheet (flores, helechos, guijarros, grietas y cristales)
+  const biomeFloorDoodads = isGrassMap
+    ? [
+        ['doodad_flower_yellow', 24, 30],
+        ['doodad_flower_purple', 26, 30],
+        ['doodad_bush_flower', 32, 30],
+        ['doodad_pebbles', 26, 20]
+      ]
+    : isHierroOrDesert
+    ? [
+        ['doodad_pebbles', 28, 22],
+        ['doodad_dead_root', 30, 36],
+        ['doodad_void_crack', 36, 24]
+      ]
+    : isSnowMap
+    ? [
+        ['doodad_crystal_blue_sm', 24, 25],
+        ['doodad_pebbles', 26, 20]
+      ]
+    : isCaveOrVoid
+    ? [
+        ['doodad_void_crack', 38, 25],
+        ['doodad_pebbles', 28, 22],
+        ['doodad_crystal_purple_sm', 24, 24],
+        ['doodad_mushroom_dark', 28, 30]
+      ]
+    : [];
+
+  if (biomeFloorDoodads.length > 0) {
+    for (let i = 0; i < 24; i++) {
+      const dx = 90 + nextFloorRnd() * (W - 180);
+      const dy = 110 + nextFloorRnd() * (H - 220);
+      // Evitar dibujar encima del río del bosque o del abismo central de cueva/fundición
+      if (map.id === 'bosque' && dy > 750 && dy < 920) continue;
+      if ((map.id === 'cueva' || map.id === 'fundicion_hierro') && dy > 610 && dy < 840) continue;
+      if (map.id === 'fortaleza' && dy > 860) continue;
+      if ((map.id === 'aldea' || map.id === 'aldea_hierro') && dx > 350 && dx < 1250 && dy > 430 && dy < 890) continue;
+
+      let entry = biomeFloorDoodads[i % biomeFloorDoodads.length];
+      if (map.id === 'bosque' && dy < 530) {
+        entry = i % 2 === 0 ? ['doodad_corrupt_fern', 30, 32] : ['doodad_mushroom_dark', 28, 30];
+      }
+      drawMapSheetSprite(ctx, entry[0], dx - entry[1] * 0.5, dy - entry[2] * 0.5, entry[1], entry[2], time);
+    }
   }
 }
 

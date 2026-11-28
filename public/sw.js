@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cronicas-fractura-v63';
+const CACHE_NAME = 'cronicas-fractura-v64';
 const APP_ASSETS = [
   './',
   './index.html',

@@ -99,14 +99,11 @@ export function drawHero(ctx, p, time) {
   }
 
   if (p.speedBuffTimer > 0 || p.mounted) {
-    ctx.save();
-    ctx.strokeStyle = p.mounted ? '#FDE047' : '#38BDF8';
-    ctx.lineWidth = p.mounted ? 3 : 2;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.ellipse(p.x, p.y + 13, p.mounted ? 22 : 18, p.mounted ? 9 : 7, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+    const speedAuraSheet = getAsset('fx_halo_calido');
+    if (speedAuraSheet && p.speedBuffTimer > 0) {
+      const fIdx = Math.floor(time * 9) % 4;
+      drawFootAnchoredSprite(ctx, speedAuraSheet, x, y + 18, 48, { frameIndex: fIdx, alpha: 0.45 });
+    }
   }
 
   if (p.shieldBuffTimer > 0) {
@@ -749,26 +746,19 @@ export function drawEnemy(ctx, e, time) {
         : { aura: 'rgba(147,51,234,0.6)', body: '#2E1065', mid: '#581C87', core: '#C084FC', eye: '#F0ABFC', weapon: '#9333EA' };
 
     ctx.save();
-    // Brillo rojo intenso en Estado de Furia (<30% vida) usando fx_aura_furia de 4 cuadros
+    // Brillo rojo intenso en Estado de Furia (<30% vida) usando exclusivamente fx_aura_furia de 4 cuadros
     if (e.furyActive) {
       const furySheet = getAsset('fx_aura_furia');
       if (furySheet) {
         const fFrame = Math.floor(time * 10) % 4;
-        drawFootAnchoredSprite(ctx, furySheet, x, footY + 12, 92, { frameIndex: fFrame, alpha: 0.88 });
+        drawFootAnchoredSprite(ctx, furySheet, x, footY + 12, 96, { frameIndex: fFrame, alpha: 0.92 });
       }
-      ctx.fillStyle = `rgba(220, 38, 38, ${0.24 + Math.sin(time * 12) * 0.1})`;
-      ctx.beginPath();
-      ctx.arc(x, y - 6, e.radius + 18, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#EF4444';
-      ctx.lineWidth = 4;
-      ctx.stroke();
     } else {
-      ctx.strokeStyle = palette.aura;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(x, y - 4, e.radius + 8 + Math.sin(time * 5) * 3, 0, Math.PI * 2);
-      ctx.stroke();
+      const voidHalo = getAsset(e.kind === 'ignis' ? 'fx_halo_calido' : 'fx_halo_vacio');
+      if (voidHalo) {
+        const hFrame = Math.floor(time * 6) % 4;
+        drawFootAnchoredSprite(ctx, voidHalo, x, footY + 16, 98, { frameIndex: hFrame, alpha: 0.55 });
+      }
     }
     ctx.restore();
 
@@ -839,34 +829,20 @@ export function drawEnemy(ctx, e, time) {
     ctx.textAlign = 'center';
     ctx.fillText('★ ATURDIDO', x, y - (e.isBoss ? 44 : 26));
   } else if (e.rootTimer > 0) {
-    ctx.strokeStyle = '#16A34A';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x - 14, y + 6, 28, 8);
+    const rootSheet = getAsset('fx_trampa_raices');
+    if (rootSheet) {
+      const rFrame = Math.floor(time * 8) % 4;
+      drawFootAnchoredSprite(ctx, rootSheet, x, footY + 4, 38, { frameIndex: rFrame, alpha: 0.92 });
+    }
   } else if (e.slowTimer > 0) {
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
-    ctx.fillRect(x - 12, y - 16, 24, 28);
+    const frostSheet = getAsset('fx_nova_escarcha');
+    if (frostSheet) {
+      const fFrame = Math.floor(time * 7) % 4;
+      drawFootAnchoredSprite(ctx, frostSheet, x, footY + 6, 42, { frameIndex: fFrame, alpha: 0.65 });
+    }
   }
 
-  // Efecto visual de zarpazo / tajo / impacto del enemigo o jefe frente a él durante su ataque
-  if (attackAnimTimer > 0 && atkPhase.progress > 0.18) {
-    const aimAngle = Math.atan2(atkDirY || 0, atkDirX || 1);
-    const reach = (e.isBoss ? 26 : 16);
-    const sx = x + Math.cos(aimAngle) * reach;
-    const sy = y - (e.isBoss ? 12 : 4) + Math.sin(aimAngle) * reach;
-    const p = atkPhase.progress;
-    ctx.save();
-    ctx.strokeStyle = e.isBoss ? '#EF4444' : '#F43F5E';
-    ctx.lineWidth = e.isBoss ? 4.5 : 3;
-    ctx.beginPath();
-    ctx.arc(sx, sy, e.isBoss ? 26 : 15, aimAngle - 0.95 + p * 0.3, aimAngle - 0.6 + p * 1.6);
-    ctx.stroke();
-    ctx.strokeStyle = '#FECDD3';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.arc(sx, sy, e.isBoss ? 22 : 12, aimAngle - 0.8 + p * 0.3, aimAngle - 0.5 + p * 1.5);
-    ctx.stroke();
-    ctx.restore();
-  }
+  // Los efectos de zarpazo / tajo / impacto de enemigos y jefes se dibujan a través de engine.effects con sus spritesheets dedicados (fx_zarpazo_enemigo, fx_golpe_furia, fx_corte_dimensional).
 
   if (e.hitFlash > 0) {
     ctx.save();

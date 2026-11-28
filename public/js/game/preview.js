@@ -15,7 +15,8 @@ import {
   getPetAsset,
   getSkillIconUrl,
   getSpriteFrameMetrics,
-  drawFootAnchoredSprite
+  drawFootAnchoredSprite,
+  drawGridEffectSprite
 } from './assetLoader.js';
 
 function px(ctx, x, y, w, h, color) {
@@ -1125,8 +1126,9 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
       );
     }
 
-    // Efecto visual de ataque contundente y animado frente al personaje ("Probar Ataque" y combate)
-    if (attackTimer > 0) {
+    // Efecto visual de ataque usando exclusivamente los spritesheets 16-bit en el pedestal ("Probar Ataque")
+    // En el mapa de juego (state.inWorld), los efectos se dibujan a través de engine.effects con sus hojas dedicadas.
+    if (attackTimer > 0 && state.showPreviewVfx) {
       const weaponSide = facingLeft ? -1 : 1;
       const p = atkPhase.progress;
       const aimAngle = state.atkDirX !== undefined
@@ -1134,63 +1136,48 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
         : (facingLeft ? Math.PI : 0);
 
       ctx.save();
+      ctx.imageSmoothingEnabled = false;
       if (state.heroClass === 'mago') {
-        // Destello de báculo + orbe arcano con estela y anillo mágico
         const castX = cx + lungeX + Math.cos(aimAngle) * (10 * s);
         const castY = cy - 4 * s + lungeY + Math.sin(aimAngle) * (10 * s);
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
-        ctx.lineWidth = Math.max(2, 2.2 * s);
-        ctx.beginPath();
-        ctx.arc(castX, castY, (6 + p * 8) * s, 0, Math.PI * 2);
-        ctx.stroke();
-
-        const orbDist = p * 32 * s;
+        drawGridEffectSprite(ctx, 'fx_magic_cast', castX, castY, 24 * s, p, 0.92);
+        const orbDist = p * 30 * s;
         const ox = castX + Math.cos(aimAngle) * orbDist;
         const oy = castY + Math.sin(aimAngle) * orbDist;
-        ctx.fillStyle = '#38BDF8';
-        ctx.beginPath();
-        ctx.arc(ox, oy, 5.5 * s, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#E0F2FE';
-        ctx.beginPath();
-        ctx.arc(ox, oy, 2.8 * s, 0, Math.PI * 2);
-        ctx.fill();
+        if (!drawGridEffectSprite(ctx, 'fx_energy_ball', ox, oy, 18 * s, p, 1)) {
+          const orbSheet = getAsset('fx_proyectil_arcano');
+          if (orbSheet) {
+            const m = getSpriteFrameMetrics(orbSheet, Math.min(3, Math.floor(p * 4)));
+            ctx.drawImage(orbSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, ox - 9 * s, oy - 9 * s, 18 * s, 18 * s);
+          }
+        }
       } else if (state.heroClass === 'arquero') {
-        // Cuerda tensándose + flecha veloz con estela dorada
         const bowX = cx + lungeX + Math.cos(aimAngle) * (9 * s);
         const bowY = cy - 3 * s + lungeY + Math.sin(aimAngle) * (9 * s);
-        const arrowDist = Math.max(0, (p - 0.18) / 0.82) * 38 * s;
+        const arrowDist = Math.max(0, (p - 0.12) / 0.88) * 34 * s;
         const ax = bowX + Math.cos(aimAngle) * arrowDist;
         const ay = bowY + Math.sin(aimAngle) * arrowDist;
-
-        ctx.translate(ax, ay);
-        ctx.rotate(aimAngle);
-        // Estela de velocidad
-        ctx.fillStyle = 'rgba(253, 224, 71, 0.45)';
-        ctx.fillRect(Math.round(-16 * s), Math.round(-1.2 * s), Math.round(14 * s), Math.round(2.4 * s));
-        // Cuerpo y punta de la flecha
-        ctx.fillStyle = '#FDE047';
-        ctx.fillRect(Math.round(-5 * s), Math.round(-1.3 * s), Math.round(10 * s), Math.round(2.6 * s));
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(Math.round(4 * s), Math.round(-2 * s), Math.round(3 * s), Math.round(4 * s));
+        const arrowSheet = getAsset('fx_proyectil_flecha');
+        if (arrowSheet) {
+          const m = getSpriteFrameMetrics(arrowSheet, Math.min(3, Math.floor(p * 4)));
+          ctx.translate(ax, ay);
+          ctx.rotate(aimAngle);
+          const sz = 16 * s;
+          ctx.drawImage(arrowSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -sz * 0.5, -sz * 0.5, sz, sz);
+        }
       } else {
-        // Guerrero: Arco de tajo de espada barrido dinámicamente con doble filo brillante
-        const slashCenterX = cx + lungeX + Math.cos(aimAngle) * (8 * s);
-        const slashCenterY = cy - 2 * s + lungeY + Math.sin(aimAngle) * (8 * s);
-        const sweepStart = aimAngle - 1.15 + p * 0.45;
-        const sweepEnd = aimAngle - 0.8 + p * 2.1;
-
-        ctx.strokeStyle = '#FDE047';
-        ctx.lineWidth = Math.max(3, 4.2 * (s / 1.5));
-        ctx.beginPath();
-        ctx.arc(slashCenterX, slashCenterY, 17 * s, sweepStart, sweepEnd);
-        ctx.stroke();
-
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = Math.max(2, 2.2 * (s / 1.5));
-        ctx.beginPath();
-        ctx.arc(slashCenterX, slashCenterY, 14.5 * s, sweepStart + 0.1, sweepEnd);
-        ctx.stroke();
+        const slashCenterX = cx + lungeX + Math.cos(aimAngle) * (9 * s);
+        const slashCenterY = cy - 2 * s + lungeY + Math.sin(aimAngle) * (9 * s);
+        ctx.translate(slashCenterX, slashCenterY);
+        ctx.rotate(aimAngle);
+        if (!drawGridEffectSprite(ctx, 'fx_slash_01', 0, 0, 28 * s, p, 0.95)) {
+          const slashSheet = getAsset('fx_tajo_espada');
+          if (slashSheet) {
+            const m = getSpriteFrameMetrics(slashSheet, Math.min(3, Math.floor(p * 4)));
+            const sz = 26 * s;
+            ctx.drawImage(slashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -sz * 0.5, -sz * 0.5, sz, sz);
+          }
+        }
       }
       ctx.restore();
     }
@@ -1394,7 +1381,7 @@ export function drawCreatorPreviewCanvas(canvas, state, time) {
     const pedX = w * 0.255;
   const pedY = state.faction === 'hierro' ? h * 0.725 : h * 0.675;
 
-    drawDetailedHeroSprite(ctx, pedX - 18, pedY - 62, 4.1, state, time);
+    drawDetailedHeroSprite(ctx, pedX - 18, pedY - 62, 4.1, { ...state, showPreviewVfx: true }, time);
     drawPetSprite(ctx, 'lobo_blanco', pedX + 58, pedY - 12, 2.3, time);
     return;
   }
@@ -1417,7 +1404,7 @@ export function drawCreatorPreviewCanvas(canvas, state, time) {
   ctx.stroke();
 
   // Personaje ampliado sobre el pedestal + Mascota acompañante (Lobo Blanco)
-  drawDetailedHeroSprite(ctx, pedX - 18, pedY - 62, 4.3, state, time);
+  drawDetailedHeroSprite(ctx, pedX - 18, pedY - 62, 4.3, { ...state, showPreviewVfx: true }, time);
   drawPetSprite(ctx, 'lobo_blanco', pedX + 56, pedY - 14, 2.3, time);
 }
 
@@ -1954,9 +1941,9 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
 
   // Posiciones en semicírculo alrededor de la fogata (3 espacios bien distribuidos)
   const spots = [
-    { key: 'slot_1', x: w * 0.23, y: h * 0.63 },
-    { key: 'slot_2', x: w * 0.37, y: h * 0.72 },
-    { key: 'slot_3', x: w * 0.67, y: h * 0.69 }
+    { key: 'slot_1', x: w * 0.23, y: h * 0.63, phase: 0.0 },
+    { key: 'slot_2', x: w * 0.37, y: h * 0.72, phase: 2.3 },
+    { key: 'slot_3', x: w * 0.67, y: h * 0.69, phase: 4.6 }
   ];
 
   const hitboxes = [];
@@ -1968,6 +1955,19 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
     if (rec?.saveData) {
       const s = rec.saveData;
       const heroScale = 3.2;
+
+      // Animación viva en el campamento: siempre mirando de frente (dir: 0), con desplazamiento rítmico,
+      // pasos en su lugar, saltos periódicos y poses de combate para que nunca se vean rígidos ni de perfil
+      const cycle = (time + sp.phase) % 7.0;
+      const isStepping = isSel || (cycle >= 1.2 && cycle < 3.4);
+      const isJumping = cycle >= 3.8 && cycle < 4.35;
+      const isAttacking = cycle >= 5.1 && cycle < 5.75;
+      const jumpProgress = isJumping ? (cycle - 3.8) / 0.55 : 0;
+      const simJumpTimer = isJumping ? (1 - jumpProgress) * 0.42 : 0;
+      const simJumpHeight = isJumping ? Math.sin(jumpProgress * Math.PI) * 14 : 0;
+      const simAttackTimer = isAttacking ? 1 - (cycle - 5.1) / 0.65 : 0;
+      const swayX = Math.sin(time * 1.8 + sp.phase) * (isSel ? 5.5 : 3.2);
+      const drawX = sp.x + swayX;
       const footY = sp.y + 16 * heroScale;
 
       // Aro dorado luminoso exactamente en la base de los pies del personaje seleccionado
@@ -1976,7 +1976,7 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
         ctx.save();
         ctx.fillStyle = `rgba(253, 224, 71, ${0.18 * pulse})`;
         ctx.beginPath();
-        ctx.ellipse(sp.x, footY, 44, 13, 0, 0, Math.PI * 2);
+        ctx.ellipse(drawX, footY, 44, 13, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#FDE047';
         ctx.lineWidth = 3;
@@ -1986,7 +1986,7 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
 
       drawDetailedHeroSprite(
         ctx,
-        sp.x,
+        drawX,
         sp.y,
         heroScale,
         {
@@ -1995,16 +1995,26 @@ export function drawCampScene(canvas, slotsMap, selectedKey, time) {
           race: s.race,
           heroClass: s.heroClass,
           wings: s.gearSlots?.alas || null,
-          dir: sp.x > w * 0.5 ? 3 : 1,
-          attackTimer: 0
+          dir: 0, // SIEMPRE de frente hacia la cámara
+          moving: isStepping,
+          moveSpeedRatio: isSel ? 0.85 : 0.65,
+          jumpTimer: simJumpTimer,
+          jumpHeight: simJumpHeight,
+          attackTimer: simAttackTimer,
+          atkDirX: 0,
+          atkDirY: 1
         },
-        time
+        time + sp.phase
       );
 
       if (s.activePet) {
         const petOffsetX = sp.x > w * 0.5 ? -46 : 44;
-        drawPetSprite(ctx, s.activePet, sp.x + petOffsetX, sp.y + 36, 1.75, time, {
-          dirX: sp.x > w * 0.5 ? -1 : 1
+        const petBounceX = Math.cos(time * 2.2 + sp.phase) * 3.5;
+        drawPetSprite(ctx, s.activePet, drawX + petOffsetX + petBounceX, sp.y + 36, 1.75, time + sp.phase, {
+          dirX: 0,
+          dirY: 1,
+          moving: isStepping || isJumping,
+          attackTimer: simAttackTimer
         });
       }
 

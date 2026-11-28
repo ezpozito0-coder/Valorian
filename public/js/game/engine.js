@@ -2226,20 +2226,20 @@ export class GameEngine {
       drawBossAltar(ctx, this.map.bossAltar, this.elapsed);
     }
 
-    // Áreas telegrafiadas de jefes (fuego / hielo / vacío)
+    // Áreas telegrafiadas de jefes (fuego / hielo / vacío) usando exclusivamente spritesheets 16-bit
     for (const h of this.hazards) {
       const prog = 1 - h.timer / h.maxTimer;
-      ctx.save();
-      ctx.fillStyle = h.color + '38';
-      ctx.beginPath();
-      ctx.arc(h.x, h.y, h.radius * prog, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = h.color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+      const isVoid = h.color === '#9333EA' || h.color === '#A855F7';
+      const isFire = h.color === '#F97316' || h.color === '#EA580C';
+      const teleSheetKey = isVoid ? 'fx_void_vortex' : isFire ? 'fx_fireball' : 'fx_frost';
+      const sz = Math.max(48, h.radius * 2 * (0.45 + prog * 0.55));
+      if (!drawGridEffectSprite(ctx, teleSheetKey, h.x, h.y, sz, prog * 0.65, 0.72)) {
+        const fallbackSheet = getAsset(isVoid ? 'fx_onda_vacio' : isFire ? 'fx_explosion_fuego' : 'fx_nova_escarcha');
+        if (fallbackSheet) {
+          const fIdx = Math.min(3, Math.floor(prog * 4));
+          drawFootAnchoredSprite(ctx, fallbackSheet, h.x, h.y + h.radius * 0.55, sz, { frameIndex: fIdx, alpha: 0.72 });
+        }
+      }
     }
 
     for (const tr of this.traps) {
@@ -2490,11 +2490,12 @@ export class GameEngine {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(dashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -32, -22, 64, 44);
       } else {
-        ctx.strokeStyle = ef.color;
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(ef.x, ef.y, ef.radius * (1.2 - alpha * 0.35), 0, Math.PI * 2);
-        ctx.stroke();
+        // Cualquier otro efecto ('ring', etc.) usa los spritesheets de magia/impacto 16-bit en lugar de círculos en código
+        if (!drawGridEffectSprite(ctx, 'fx_magic_cast', ef.x, ef.y, ef.radius * 2.0, prog, alpha)) {
+          if (getAsset('fx_onda_vacio')) {
+            drawFootAnchoredSprite(ctx, getAsset('fx_onda_vacio'), ef.x, ef.y + ef.radius * 0.55, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+          }
+        }
       }
       ctx.restore();
     }

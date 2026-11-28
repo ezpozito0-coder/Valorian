@@ -13,22 +13,75 @@ onAssetsUpdated(() => {
 });
 
 function makeImageTile(img, size = 128) {
+  // Macro-tile 4x4 (Wang / espejo y rotación alternada con micro-variación de luz y detalles orgánicos)
+  // para eliminar por completo el efecto de cuadrícula repetitiva al recorrer el mapa.
   const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
+  const grid = 4;
+  c.width = size * grid;
+  c.height = size * grid;
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, 0, 0, size, size);
+
+  for (let gy = 0; gy < grid; gy++) {
+    for (let gx = 0; gx < grid; gx++) {
+      const hash = ((gx * 73 + gy * 151 + 19) * 37) & 0xff;
+      const flipX = (hash & 1) === 1;
+      const flipY = (hash & 2) === 2;
+      const rot90 = (hash & 4) === 4;
+      const cx = gx * size + size * 0.5;
+      const cy = gy * size + size * 0.5;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      if (rot90) ctx.rotate(Math.PI * 0.5);
+      ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.drawImage(img, -size * 0.5, -size * 0.5, size, size);
+      ctx.restore();
+
+      // Variación sutil de luminosidad por sub-celda para romper la repetición visual
+      if ((hash & 3) === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.032)';
+        ctx.fillRect(gx * size, gy * size, size, size);
+      } else if ((hash & 3) === 2) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.045)';
+        ctx.fillRect(gx * size, gy * size, size, size);
+      }
+    }
+  }
   return c;
 }
 
-function makeSubImageTile(img, rect, size = 96) {
+function makeSubImageTile(img, rect, size = 96, isDirectional = false) {
   const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
+  const grid = 4;
+  c.width = size * grid;
+  c.height = size * grid;
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, size, size);
+
+  for (let gy = 0; gy < grid; gy++) {
+    for (let gx = 0; gx < grid; gx++) {
+      const hash = ((gx * 97 + gy * 193 + 31) * 43) & 0xff;
+      const flipX = (hash & 1) === 1;
+      const flipY = !isDirectional && (hash & 2) === 2;
+      const cx = gx * size + size * 0.5;
+      const cy = gy * size + size * 0.5;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, -size * 0.5, -size * 0.5, size, size);
+      ctx.restore();
+
+      if ((hash & 3) === 1) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.fillRect(gx * size, gy * size, size, size);
+      } else if ((hash & 3) === 3) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
+        ctx.fillRect(gx * size, gy * size, size, size);
+      }
+    }
+  }
   return c;
 }
 
@@ -85,55 +138,102 @@ const TILE_BUILDERS = {
     }),
 
   cobble_alba: () =>
-    makeTile(64, (ctx) => {
-      // Mortero / grietas suaves
-      px(ctx, 0, 0, 64, 64, '#64748B');
-      const stones = [
-        [2, 2, 28, 14, '#94A3B8', '#CBD5E1'],
-        [32, 2, 30, 14, '#8796AB', '#B6C3D4'],
-        [2, 18, 18, 14, '#8796AB', '#B6C3D4'],
-        [22, 18, 26, 14, '#9AA8BC', '#CBD5E1'],
-        [50, 18, 12, 14, '#7E8DA2', '#A8B6C8'],
-        [2, 34, 30, 14, '#94A3B8', '#CBD5E1'],
-        [34, 34, 28, 14, '#8493A8', '#B6C3D4'],
-        [2, 50, 20, 12, '#8E9DB2', '#C0CDD9'],
-        [24, 50, 22, 12, '#7E8DA2', '#A8B6C8'],
-        [48, 50, 14, 12, '#94A3B8', '#CBD5E1']
+    makeTile(256, (ctx) => {
+      px(ctx, 0, 0, 256, 256, '#56657A');
+      const pal = [
+        ['#94A3B8', '#CBD5E1'],
+        ['#8796AB', '#B6C3D4'],
+        ['#7E8DA2', '#A8B6C8'],
+        ['#9AA8BC', '#E2E8F0']
       ];
-      for (const [x, y, w, h, base, hi] of stones) {
-        px(ctx, x, y, w, h, base);
-        px(ctx, x, y, w, 2, hi);
-        px(ctx, x, y, 2, h, hi);
-        px(ctx, x, y + h - 2, w, 2, '#6E7D91');
+      let seed = 17;
+      const rnd = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return (seed & 0xffff) / 0x10000;
+      };
+      for (let row = 0; row < 16; row++) {
+        const y = row * 16 + 2;
+        const h = 13;
+        let x = (row % 2 === 1) ? -12 : 2;
+        while (x < 254) {
+          const w = 22 + Math.floor(rnd() * 18);
+          const drawX = Math.max(1, x);
+          const drawW = Math.min(255 - drawX, w - (drawX - x));
+          if (drawW > 6) {
+            const [base, hi] = pal[Math.floor(rnd() * pal.length)];
+            px(ctx, drawX, y, drawW, h, base);
+            px(ctx, drawX, y, drawW, 2, hi);
+            px(ctx, drawX, y, 2, h, hi);
+            px(ctx, drawX, y + h - 2, drawW, 2, '#64748B');
+            if (rnd() < 0.22) {
+              px(ctx, drawX + 4, y + 5, Math.min(8, drawW - 6), 1, '#475569');
+            }
+            if (rnd() < 0.14) {
+              // Musgo sutil entre adoquines
+              px(ctx, drawX + 2, y + h - 2, 5, 2, '#3C783E');
+            }
+          }
+          x += w + 2;
+        }
       }
-      // Grieta sutil
-      px(ctx, 12, 8, 6, 1, '#526072');
-      px(ctx, 42, 40, 5, 1, '#526072');
     }),
 
   dirt_hierro: () =>
-    makeTile(64, (ctx) => {
-      px(ctx, 0, 0, 64, 64, '#6B3D26');
-      px(ctx, 6, 6, 20, 12, '#78462C');
-      px(ctx, 34, 24, 22, 14, '#5E3420');
-      px(ctx, 10, 44, 18, 12, '#7A482D');
-      // Piedras y polvo rojizo
-      px(ctx, 16, 18, 5, 4, '#57534E');
-      px(ctx, 17, 18, 3, 2, '#78716C');
-      px(ctx, 48, 12, 4, 3, '#44403C');
-      px(ctx, 38, 50, 6, 4, '#57534E');
-      px(ctx, 26, 34, 3, 2, '#9A5B3A');
+    makeTile(256, (ctx) => {
+      px(ctx, 0, 0, 256, 256, '#6B3D26');
+      let seed = 73;
+      const rnd = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return (seed & 0xffff) / 0x10000;
+      };
+      const patches = ['#78462C', '#5E3420', '#7A482D', '#633822', '#824D31'];
+      for (let i = 0; i < 64; i++) {
+        const x = Math.floor(rnd() * 236);
+        const y = Math.floor(rnd() * 236);
+        const w = 16 + Math.floor(rnd() * 28);
+        const h = 10 + Math.floor(rnd() * 18);
+        px(ctx, x, y, w, h, patches[i % patches.length]);
+      }
+      // Rocas basálticas, gravilla de hierro y grietas secas variadas
+      for (let i = 0; i < 48; i++) {
+        const x = 6 + Math.floor(rnd() * 242);
+        const y = 6 + Math.floor(rnd() * 242);
+        const isDark = rnd() < 0.5;
+        px(ctx, x, y, 5, 4, isDark ? '#44403C' : '#57534E');
+        px(ctx, x + 1, y, 3, 2, isDark ? '#78716C' : '#9A5B3A');
+      }
+      for (let i = 0; i < 26; i++) {
+        const x = 8 + Math.floor(rnd() * 238);
+        const y = 8 + Math.floor(rnd() * 238);
+        px(ctx, x, y, 3, 5, '#4A2818');
+        px(ctx, x + 2, y - 2, 2, 4, '#8C5233');
+      }
     }),
 
   dirt_road: () =>
-    makeTile(64, (ctx) => {
-      px(ctx, 0, 0, 64, 64, '#8C6C47');
-      px(ctx, 4, 8, 18, 10, '#9B7A52');
-      px(ctx, 32, 26, 20, 12, '#7D5F3D');
-      px(ctx, 12, 44, 22, 10, '#9B7A52');
-      px(ctx, 22, 16, 4, 3, '#6B5235');
-      px(ctx, 48, 48, 5, 3, '#A88962');
-      px(ctx, 10, 32, 3, 3, '#6B5235');
+    makeTile(256, (ctx) => {
+      px(ctx, 0, 0, 256, 256, '#8C6C47');
+      let seed = 131;
+      const rnd = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return (seed & 0xffff) / 0x10000;
+      };
+      const tones = ['#9B7A52', '#7D5F3D', '#93724C', '#826340'];
+      for (let i = 0; i < 55; i++) {
+        px(
+          ctx,
+          Math.floor(rnd() * 232),
+          Math.floor(rnd() * 236),
+          16 + Math.floor(rnd() * 26),
+          10 + Math.floor(rnd() * 14),
+          tones[i % tones.length]
+        );
+      }
+      for (let i = 0; i < 42; i++) {
+        const x = 4 + Math.floor(rnd() * 244);
+        const y = 4 + Math.floor(rnd() * 244);
+        px(ctx, x, y, 5, 3, i % 2 === 0 ? '#6B5235' : '#A88962');
+      }
     }),
 
   cave_stone: () =>
