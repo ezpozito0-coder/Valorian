@@ -1111,6 +1111,69 @@ export class GameEngine {
         continue;
       }
 
+      // C.2) Guerra de Facciones: los guardias y héroes IA de La Guardia del Alba y Los Clanes de Hierro se atacan entre sí al verse
+      if (npc.faction) {
+        let nearestRivalNpc = null;
+        let rivalDist = 285;
+        for (const other of this.map.npcs) {
+          if (other === npc || (!other.isPortalGuard && !other.isAiHero) || other.fleeing) continue;
+          if (other.faction && other.faction !== npc.faction) {
+            const d = Math.hypot(other.x - npc.x, other.y - npc.y);
+            if (d < rivalDist) {
+              rivalDist = d;
+              nearestRivalNpc = other;
+            }
+          }
+        }
+
+        if (nearestRivalNpc) {
+          npc.emotion = 'enojo';
+          const dx = nearestRivalNpc.x - npc.x;
+          const dy = nearestRivalNpc.y - npc.y;
+          if (rivalDist > 42) {
+            const spd = (npc.speed || 132) * 1.04;
+            npc.vx = (dx / rivalDist) * spd;
+            npc.vy = (dy / rivalDist) * spd;
+            npc.x += npc.vx * dt;
+            npc.y += npc.vy * dt;
+          } else {
+            npc.vx = 0;
+            npc.vy = 0;
+            if (npc.attackCd <= 0) {
+              npc.attackCd = 1.05;
+              npc.workAnimTimer = 0.35;
+              const rawDmg = npc.atk || 36;
+              const effDmg = Math.max(12, Math.round(rawDmg - (nearestRivalNpc.def || 16) * 0.35));
+              nearestRivalNpc.hp = Math.max(15, (nearestRivalNpc.hp || nearestRivalNpc.maxHp || 420) - effDmg);
+              nearestRivalNpc.hitFlash = 0.22;
+              const hitAng = Math.atan2(dy, dx);
+              this.addEffect(
+                'slash',
+                (npc.x + nearestRivalNpc.x) * 0.5,
+                (npc.y + nearestRivalNpc.y) * 0.5,
+                28,
+                npc.faction === 'hierro' ? '#F97316' : '#38BDF8',
+                0.24,
+                { angle: hitAng }
+              );
+              this.addFloatingText(
+                nearestRivalNpc.x,
+                nearestRivalNpc.y - 26,
+                `-${effDmg}`,
+                npc.faction === 'hierro' ? '#F97316' : '#38BDF8'
+              );
+              if (nearestRivalNpc.hp < (nearestRivalNpc.maxHp || 420) * 0.25) {
+                nearestRivalNpc.fleeing = true;
+                nearestRivalNpc.hostile = false;
+                nearestRivalNpc.emotion = 'ayuda';
+                this.addFloatingText(nearestRivalNpc.x, nearestRivalNpc.y - 34, '¡Retirada táctica!', '#FDE047');
+              }
+            }
+          }
+          continue;
+        }
+      }
+
       // D) Combate contra el jugador si el personaje se volvió hostil (por insulto, amenaza, robo o cruce ilegal del portal)
       if (npc.hostile) {
         const distP = Math.hypot(p.x - npc.x, p.y - npc.y);
@@ -1158,8 +1221,12 @@ export class GameEngine {
 
       // F) Rutina de Trabajo, Clima y Decisiones Grandes con Gemini Flash (cada 2–3 minutos o al terminar tarea)
       if (npc.isPortalGuard) {
-        const dx = npc.homeX - npc.x;
-        const dy = npc.homeY - npc.y;
+        const patrolSwing = this.map.id === 'montanas'
+          ? Math.sin(this.elapsed * 0.8 + (npc.faction === 'alba' ? 0 : Math.PI)) * 55
+          : Math.sin(this.elapsed * 0.7 + (npc.homeX || 0) * 0.02) * 32;
+        const targetHomeX = (npc.homeX || npc.x) + (npc.faction === 'alba' ? Math.max(0, patrolSwing) : Math.min(0, -Math.abs(patrolSwing)));
+        const dx = targetHomeX - npc.x;
+        const dy = (npc.homeY || npc.y) - npc.y;
         const d = Math.hypot(dx, dy);
         if (d > 6) {
           npc.vx = (dx / d) * 90;

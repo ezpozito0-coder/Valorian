@@ -864,47 +864,47 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
         guardFaction: 'hierro',
         isGuardedIcePortal: true
       });
-      // Guardias permanentes de ambos bandos en la frontera del Mapa de Hielo
-    base.npcs.push(
-      {
-        id: 'guard_portal_1',
-        kind: 'guardia_alba',
-        name: 'Centinela del Portal (Alba)',
-        faction: 'alba',
-        isPortalGuard: true,
-        x: 640,
-        y: 845,
-        homeX: 640,
-        homeY: 845,
-        hp: 420,
-        maxHp: 420,
-        atk: 36,
-        def: 18,
-        speed: 132,
-        radius: 18,
-        emotion: 'neutral',
-        hostile: false
-      },
-      {
-        id: 'guard_portal_2',
-        kind: 'guardia_hierro',
-        name: 'Centinela del Portal (Hierro)',
-        faction: 'hierro',
-        isPortalGuard: true,
-        x: 960,
-        y: 845,
-        homeX: 960,
-        homeY: 845,
-        hp: 420,
-        maxHp: 420,
-        atk: 36,
-        def: 18,
-        speed: 132,
-        radius: 18,
-        emotion: 'neutral',
-        hostile: false
-      }
-    );
+      // Guardias permanentes de ambos bandos en la frontera del Mapa de Hielo (patrullando a distancia de choque en x=745 vs x=855)
+      base.npcs.push(
+        {
+          id: 'guard_portal_1',
+          kind: 'guardia_alba',
+          name: 'Centinela del Portal (Alba)',
+          faction: 'alba',
+          isPortalGuard: true,
+          x: 745,
+          y: 845,
+          homeX: 745,
+          homeY: 845,
+          hp: 420,
+          maxHp: 420,
+          atk: 36,
+          def: 18,
+          speed: 132,
+          radius: 18,
+          emotion: 'neutral',
+          hostile: false
+        },
+        {
+          id: 'guard_portal_2',
+          kind: 'guardia_hierro',
+          name: 'Centinela del Portal (Hierro)',
+          faction: 'hierro',
+          isPortalGuard: true,
+          x: 855,
+          y: 845,
+          homeX: 855,
+          homeY: 845,
+          hp: 420,
+          maxHp: 420,
+          atk: 36,
+          def: 18,
+          speed: 132,
+          radius: 18,
+          emotion: 'neutral',
+          hostile: false
+        }
+      );
     base.gems.push(
       { id: 'ice_wood_1', itemId: 'madera_roble', x: 310, y: 900, collected: false, respawnTimer: 0 },
       { id: 'ice_ore_1', itemId: 'mineral_hierro', x: 1240, y: 900, collected: false, respawnTimer: 0 }
@@ -947,10 +947,10 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       chamana_hierro: { x: 840, y: 1045 }
     },
     montanas: {
-      paladina_alba: { x: 650, y: 950 },
-      explorador_alba: { x: 590, y: 1020 },
-      guerrero_hierro: { x: 950, y: 950 },
-      chamana_hierro: { x: 1010, y: 1020 }
+      paladina_alba: { x: 725, y: 945 },
+      explorador_alba: { x: 690, y: 1005 },
+      guerrero_hierro: { x: 875, y: 945 },
+      chamana_hierro: { x: 910, y: 1005 }
     }
   };
 
