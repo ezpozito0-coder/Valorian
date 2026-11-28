@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=33" />
+  <link rel="stylesheet" href="./css/styles.css?v=60" />
 </head>
 <body>
   <!-- Barra superior metálica para pantallas fuera del mapa -->
@@ -190,7 +190,6 @@
             <div class="hud-bars-col">
               <div class="hud-hero-head">
                 <span id="hud-hero-name" class="hud-name">Héroe</span>
-                <span id="hud-gold" class="hud-stat gold">0 Oro</span>
               </div>
               <div class="hud-bar-wrap">
                 <div id="hud-hp-fill" class="hud-bar-fill hp" style="width: 100%"></div>
@@ -241,8 +240,12 @@
           </div>
         </div>
 
-        <!-- Arriba Derecha: Minimapa + Botón Mapa + Pausa y Jefes -->
+        <!-- Arriba Derecha: Hora + Pausa y Jefes + Minimapa -->
         <div class="hud-right">
+          <button type="button" id="hud-clock-badge" class="hud-clock-badge metallic-frame" title="Hora de Valoria (clic para alternar Día / Noche / Auto)" aria-label="Hora de Valoria">
+            <span id="hud-clock-phase" class="hud-clock-phase">☀</span>
+            <span id="hud-clock-text">11:27</span>
+          </button>
           <div class="hud-top-mini-btns">
             <button type="button" id="btn-hud-bosses" class="hud-sq-btn metallic-frame" title="Jefes de Valoria (J)" aria-label="Jefes de Valoria">
               <span id="ico-hud-bosses" class="pixel-ico-wrap"></span>
@@ -306,6 +309,10 @@
             <span class="skill-key">ESP</span><span class="skill-icon" id="ico-skill-0"></span>
             <span class="skill-name">Atacar</span><span class="skill-cd" id="cd-skill-0"></span>
           </button>
+          <button type="button" id="btn-touch-stealth" class="skill-btn" style="min-width:52px;height:44px;font-size:10px;" title="Sigilo / Esconderse (Tecla X)">
+            <span class="skill-key">X</span>
+            <span class="skill-name">Sigilo</span>
+          </button>
         </div>
       </div>
 
@@ -330,19 +337,29 @@
     </section>
   </main>
 
-  <!-- MODAL UNIFICADO DE CARACTERÍSTICAS (EQUIPO 12 RANURAS + MOCHILA 4x4 | HABILIDADES | TALENTOS) -->
-  <div id="modal-character" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card modal-xl metallic-frame">
-      <div class="modal-head">
-        <h3 class="pixel-heading">Características</h3>
+  <!-- VENTANA FLOTANTE IZQUIERDA (C): CARACTERÍSTICAS (EQUIPO 12 RANURAS | HABILIDADES | TALENTOS) -->
+  <div id="modal-character" class="modal floating-side-modal floating-panel-left hidden" role="dialog" aria-modal="false">
+    <div class="modal-card modal-char-compact metallic-frame">
+      <div class="modal-head char-head-tabs-only">
         <div class="tabs-row compact-tabs">
           <button type="button" class="tab-btn active" data-char-tab="equipo">Equipo</button>
           <button type="button" class="tab-btn" data-char-tab="habilidades">Habilidades</button>
           <button type="button" class="tab-btn" data-char-tab="talentos">Talentos</button>
         </div>
-        <button type="button" class="icon-btn modal-close" data-close="modal-character" aria-label="Cerrar">✕</button>
+        <button type="button" class="modal-close subtle-close" data-close="modal-character" aria-label="Cerrar" title="Cerrar (C)">✕</button>
       </div>
       <div id="character-tab-body" class="character-tab-body"></div>
+    </div>
+  </div>
+
+  <!-- VENTANA FLOTANTE DERECHA (B): MOCHILA 4x4 INDEPENDIENTE -->
+  <div id="modal-backpack" class="modal floating-side-modal floating-panel-right hidden" role="dialog" aria-modal="false">
+    <div class="modal-card modal-bag-compact metallic-frame">
+      <div class="modal-head">
+        <h3 id="backpack-modal-title" class="pixel-heading">Mochila (0/16)</h3>
+        <button type="button" class="icon-btn modal-close" data-close="modal-backpack" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="backpack-modal-body" class="backpack-modal-body"></div>
     </div>
   </div>
 
@@ -458,6 +475,14 @@
     <div class="modal-card metallic-frame">
       <div class="modal-head"><h3 class="pixel-heading">Pausa</h3></div>
       <div class="pause-actions">
+        <div class="gemini-config-box" style="width:100%;padding:10px;border-radius:8px;background:rgba(15,23,42,0.85);border:1px solid rgba(251,191,36,0.45);margin-bottom:8px;text-align:left;">
+          <div style="font-size:12px;font-weight:bold;color:#fbbf24;margin-bottom:4px;">IA Gemini Flash (4 Personajes Vivos)</div>
+          <div id="gemini-key-status" style="font-size:11px;color:#94a3b8;margin-bottom:6px;">Sin clave guardada (usando IA Local automática)</div>
+          <div style="display:flex;gap:6px;">
+            <input type="password" id="input-gemini-key" placeholder="Pega tu clave de Gemini API aquí..." style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:12px;" autocomplete="off" />
+            <button type="button" id="btn-save-gemini-key" class="btn btn-gold btn-xs">Guardar Clave</button>
+          </div>
+        </div>
         <button type="button" id="btn-pause-resume" class="btn btn-gold">Reanudar</button>
         <button type="button" id="btn-pause-install" class="btn btn-gold">⬇ Descargar / Instalar App</button>
         <button type="button" id="btn-pause-save" class="btn btn-secondary">Guardar y Sincronizar</button>
@@ -583,27 +608,17 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <script>
-    // Purga automática de cachés antiguas en móvil/PC para garantizar la carga inmediata de la versión v33
+    // Purga automática de cachés antiguas sin provocar doble recarga tras iniciar el juego
     (function () {
-      var CURRENT_VER = 'cronicas-fractura-v40';
+      var CURRENT_VER = 'cronicas-fractura-v60';
       try {
         var storedVer = localStorage.getItem('valoria_app_ver');
         if (storedVer !== CURRENT_VER) {
           localStorage.setItem('valoria_app_ver', CURRENT_VER);
           if ('caches' in window) {
             caches.keys().then(function (keys) {
-              var deletedAny = false;
-              Promise.all(
-                keys.map(function (k) {
-                  if (k !== CURRENT_VER) {
-                    deletedAny = true;
-                    return caches.delete(k);
-                  }
-                })
-              ).then(function () {
-                if (deletedAny && !window.location.search.includes('v=40')) {
-                  window.location.replace(window.location.pathname + '?v=40' + window.location.hash);
-                }
+              keys.forEach(function (k) {
+                if (k !== CURRENT_VER) caches.delete(k);
               });
             });
           }
@@ -611,7 +626,7 @@
       } catch (e) {}
     })();
   </script>
-  <script type="module" src="./js/app.js?v=40"></script>
-  <script src="./js/wow-actionbar.js"></script>
+  <script type="module" src="./js/app.js?v=60"></script>
+  <script src="./js/wow-actionbar.js?v=60"></script>
 </body>
 </html>

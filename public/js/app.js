@@ -7,6 +7,7 @@
 import {
   FACTIONS,
   CLASSES,
+  ITEMS,
   TITLES,
   getRaceLabel,
   getClassLabel,
@@ -14,6 +15,8 @@ import {
   normalizeSave
 } from './game/data.js';
 import { GameEngine } from './game/engine.js';
+import { preloadAllGameAssets } from './game/assetLoader.js';
+import { getGeminiApiKey, setGeminiApiKey, hasGeminiApiKey } from './game/geminiAI.js';
 import {
   drawHomeValoriaBg,
   drawCreatorPreviewCanvas,
@@ -23,6 +26,8 @@ import {
 import {
   updateHudDom,
   renderCharacterModal,
+  renderBackpackModal,
+  hideItemHoverTooltip,
   renderPetsModal,
   renderBossesModal,
   renderUpgradesModal,
@@ -80,8 +85,12 @@ const canvas = document.getElementById('game-canvas');
 const engine = new GameEngine(canvas, {
   onHudUpdate: (snap) => updateHudDom(snap),
   onToast: (msg, type) => showToast(msg, type),
-  onAutoSave: (data) => persistActiveSlot(data, false),
-  onOpenCharacter: () => navigate('caracteristicas'),
+  onAutoSave: (data) => {
+    persistActiveSlot(data, false);
+    refreshOpenFloatingPanels();
+  },
+  onOpenCharacter: () => toggleCharacterPanel(),
+  onOpenBackpack: () => toggleBackpackPanel(),
   onOpenUpgrades: () => navigate('mejoras'),
   onOpenShop: () => navigate('tienda'),
   onOpenWorldMap: () => navigate('mapa'),
@@ -183,6 +192,9 @@ function executeGmCommand(rawText) {
       p.skillPoints = (p.skillPoints || 0) + diff;
       p.talentPoints = (p.talentPoints || 0) + diff;
     }
+    ['aldea', 'bosque', 'cueva', 'desierto', 'montanas', 'fortaleza'].forEach((id) => {
+      if (!p.visitedMaps.includes(id)) p.visitedMaps.push(id);
+    });
     engine.recalcDerivedStats(false);
     p.hp = p.maxHp;
     p.mp = p.maxMp;
@@ -223,6 +235,9 @@ function executeGmCommand(rawText) {
     p.equipment.armor = { tier: 4, plus: 12, quality: 4 };
     p.gearSlots.alas = 'alas_vacio';
     engine.addItemToBackpack('alas_vacio', 1);
+    ['aldea', 'bosque', 'cueva', 'desierto', 'montanas', 'fortaleza'].forEach((id) => {
+      if (!p.visitedMaps.includes(id)) p.visitedMaps.push(id);
+    });
     engine.recalcDerivedStats(true);
     p.hp = p.maxHp;
     p.mp = p.maxMp;
@@ -322,11 +337,14 @@ function applyAudioSettings() {
 
 function applyTouchVisibility() {
   const touchEl = document.getElementById('touch-controls');
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  let show = isTouchDevice;
+  const isCoarseMobile =
+    window.matchMedia('(pointer: coarse) and (hover: none)').matches ||
+    window.innerWidth <= 768;
+  let show = isCoarseMobile;
   if (settings.touchMode === 'on') show = true;
   if (settings.touchMode === 'off') show = false;
   touchEl.classList.toggle('hidden', !show);
+  document.body.classList.toggle('touch-ui-active', show);
 
   const labelMap = { auto: 'Auto', on: 'Siempre visibles', off: 'Ocultos' };
   const btn = document.getElementById('btn-pause-touch');
@@ -554,6 +572,73 @@ function hideAllModals() {
   document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
 }
 
+function renderOpenCharacterPanel() {
+  renderCharacterModal(engine, charTab, {
+    onToast: showToast,
+    onSave: () => persistActiveSlot(engine.exportSave(), false),
+    onOpenUpgrades: () => navigate('mejoras'),
+    onOpenPets: () => navigate('mascotas'),
+    onClose: () => {
+      document.getElementById('modal-character')?.classList.add('hidden');
+      hideItemHoverTooltip();
+    },
+    onRefreshAll: () => {
+      if (!document.getElementById('modal-backpack')?.classList.contains('hidden')) {
+        renderOpenBackpackPanel();
+      }
+    }
+  });
+}
+
+function renderOpenBackpackPanel() {
+  renderBackpackModal(engine, {
+    onToast: showToast,
+    onSave: () => persistActiveSlot(engine.exportSave(), false),
+    onClose: () => {
+      document.getElementById('modal-backpack')?.classList.add('hidden');
+      hideItemHoverTooltip();
+    },
+    onRefreshCharacter: () => {
+      if (!document.getElementById('modal-character')?.classList.contains('hidden')) {
+        renderOpenCharacterPanel();
+      }
+    }
+  });
+}
+
+function refreshOpenFloatingPanels() {
+  if (!document.getElementById('modal-character')?.classList.contains('hidden')) {
+    renderOpenCharacterPanel();
+  }
+  if (!document.getElementById('modal-backpack')?.classList.contains('hidden')) {
+    renderOpenBackpackPanel();
+  }
+}
+
+function toggleCharacterPanel() {
+  const modal = document.getElementById('modal-character');
+  if (!modal) return;
+  hideItemHoverTooltip();
+  if (!modal.classList.contains('hidden')) {
+    modal.classList.add('hidden');
+    return;
+  }
+  renderOpenCharacterPanel();
+  modal.classList.remove('hidden');
+}
+
+function toggleBackpackPanel() {
+  const modal = document.getElementById('modal-backpack');
+  if (!modal) return;
+  hideItemHoverTooltip();
+  if (!modal.classList.contains('hidden')) {
+    modal.classList.add('hidden');
+    return;
+  }
+  renderOpenBackpackPanel();
+  modal.classList.remove('hidden');
+}
+
 function togglePauseRoute() {
   const isPaused = !document.getElementById('modal-pause').classList.contains('hidden');
   if (isPaused) navigate('jugar');
@@ -631,6 +716,7 @@ function handleRoute({ route, param }) {
     return;
   }
 
+  hideItemHoverTooltip();
   homeEl.classList.toggle('hidden', route !== 'inicio');
   slotsEl.classList.toggle('hidden', isGameRoute || route === 'inicio' || route === 'crear');
   createEl.classList.toggle('hidden', route !== 'crear');
@@ -651,14 +737,8 @@ function handleRoute({ route, param }) {
       engine.setPaused(true);
       document.getElementById('modal-pause').classList.remove('hidden');
     } else if (route === 'caracteristicas') {
-      engine.setPaused(true);
-      renderCharacterModal(engine, charTab, {
-        onToast: showToast,
-        onSave: () => persistActiveSlot(engine.exportSave(), false),
-        onOpenUpgrades: () => navigate('mejoras'),
-        onOpenPets: () => navigate('mascotas'),
-        onClose: () => navigate('jugar')
-      });
+      engine.setPaused(false);
+      renderOpenCharacterPanel();
       document.getElementById('modal-character').classList.remove('hidden');
     } else if (route === 'mascotas') {
       engine.setPaused(true);
@@ -759,6 +839,109 @@ function initTouchControls() {
     thumb.style.transform = `translate(${Math.cos(angle) * clamped}px, ${Math.sin(angle) * clamped}px)`;
     engine.setJoystick((Math.cos(angle) * clamped) / maxDist, (Math.sin(angle) * clamped) / maxDist);
   }
+
+  window.__valoriaTriggerSkill = (skillIdx) => {
+    sfx.ensureCtx();
+    engine.triggerAbility(Number(skillIdx));
+  };
+
+  const findBackpackSlotByEntry = (rawName, iconHtml = '') => {
+    const p = engine?.player;
+    if (!p || !Array.isArray(p.backpack)) return { index: -1, slot: null, item: null };
+    const clean = String(rawName || '').split(' (x')[0].split(':')[0].trim().toLowerCase();
+    const rawLower = String(rawName || '').toLowerCase();
+    const icoLower = String(iconHtml || '').toLowerCase();
+
+    for (let i = 0; i < p.backpack.length; i++) {
+      const s = p.backpack[i];
+      const it = s && ITEMS[s.id] ? ITEMS[s.id] : null;
+      if (!it || s.qty <= 0) continue;
+      const itName = it.name.toLowerCase();
+      if (
+        s.id.toLowerCase() === clean ||
+        itName === clean ||
+        (clean.length >= 3 && (itName.includes(clean) || rawLower.includes(itName)))
+      ) {
+        return { index: i, slot: s, item: it };
+      }
+    }
+
+    // Respaldo por icono en caso de nombres genéricos guardados en localStorage
+    const iconFallbackMap = [
+      ['icon_potion_mp', 'pocion_mana'],
+      ['icon_potion_hp_large', 'pocion_grande'],
+      ['icon_potion_hp', 'pocion_vida'],
+      ['icon_potion_speed', 'pocion_velocidad'],
+      ['icon_scroll', 'pergamino_aldea']
+    ];
+    for (const [token, itemId] of iconFallbackMap) {
+      if (icoLower.includes(token)) {
+        const idx = p.backpack.findIndex((s) => s.id === itemId && s.qty > 0);
+        if (idx !== -1) return { index: idx, slot: p.backpack[idx], item: ITEMS[itemId] };
+      }
+    }
+
+    return { index: -1, slot: null, item: null };
+  };
+
+  window.__valoriaGetItemQtyByName = (rawName, iconHtml = '') => {
+    const found = findBackpackSlotByEntry(rawName, iconHtml);
+    return found.slot ? found.slot.qty : 0;
+  };
+
+  window.__valoriaUseItemByName = (rawName, iconHtml = '') => {
+    sfx.ensureCtx();
+    const p = engine?.player;
+    if (!p) return false;
+    const found = findBackpackSlotByEntry(rawName, iconHtml);
+    if (!found.slot || !found.item) {
+      showToast('No te quedan unidades de ese objeto en la mochila.', 'info');
+      return false;
+    }
+    const { index, slot, item: it } = found;
+    if (it.type === 'consumable') {
+      const used = engine.useConsumable(it.id);
+      if (used) {
+        persistActiveSlot(engine.exportSave(), false);
+        if (!document.getElementById('modal-character')?.classList.contains('hidden')) {
+          renderCharacterModal(engine, charTab, {
+            onToast: showToast,
+            onSave: () => persistActiveSlot(engine.exportSave(), false),
+            onOpenUpgrades: () => navigate('mejoras'),
+            onOpenPets: () => navigate('mascotas'),
+            onClose: () => navigate('jugar')
+          });
+        }
+        if (it.teleportVillage && getCurrentRoute() !== 'jugar') {
+          navigate('jugar');
+        }
+        return true;
+      }
+      return false;
+    } else if (it.type === 'equipment') {
+      const targetSlot = it.slot === 'anillo1' && p.gearSlots.anillo1 && !p.gearSlots.anillo2 ? 'anillo2' : it.slot;
+      const prevItem = p.gearSlots[targetSlot];
+      slot.qty -= 1;
+      if (slot.qty <= 0) p.backpack.splice(index, 1);
+      if (prevItem && ITEMS[prevItem]) engine.addItemToBackpack(prevItem, 1);
+      p.gearSlots[targetSlot] = it.id;
+      engine.recalcDerivedStats(true);
+      sfx.playUpgrade();
+      showToast(`¡Equipaste ${it.name}!`, 'success');
+      persistActiveSlot(engine.exportSave(), false);
+      if (!document.getElementById('modal-character')?.classList.contains('hidden')) {
+        renderCharacterModal(engine, charTab, {
+          onToast: showToast,
+          onSave: () => persistActiveSlot(engine.exportSave(), false),
+          onOpenUpgrades: () => navigate('mejoras'),
+          onOpenPets: () => navigate('mascotas'),
+          onClose: () => navigate('jugar')
+        });
+      }
+      return true;
+    }
+    return false;
+  };
 
   document.querySelectorAll('.skill-btn').forEach((btn) => {
     btn.addEventListener('pointerdown', (e) => {
@@ -882,13 +1065,25 @@ function bindEvents() {
   document.getElementById('btn-opt-account').addEventListener('click', () => navigate('cuenta'));
 
   // HUD
-  document.getElementById('btn-hud-char-open').addEventListener('click', () => navigate('caracteristicas'));
+  document.getElementById('btn-hud-char-open').addEventListener('click', () => toggleCharacterPanel());
   document.getElementById('btn-hud-pet').addEventListener('click', () => navigate('mascotas'));
   document.getElementById('btn-hud-bosses').addEventListener('click', () => navigate('jefes'));
+  document.getElementById('hud-clock-badge')?.addEventListener('click', () => {
+    if (engine.lockedTimeOfDay === null) {
+      engine.lockedTimeOfDay = 0.85;
+      showToast('Hora fijada en Noche (00:38).', 'info');
+    } else if (engine.lockedTimeOfDay > 0.72) {
+      engine.lockedTimeOfDay = 0.25;
+      showToast('Hora fijada en Día (11:27).', 'info');
+    } else {
+      engine.lockedTimeOfDay = null;
+      showToast('Ciclo automático Día / Noche activado.', 'info');
+    }
+  });
   document.getElementById('btn-hud-potion').addEventListener('click', () => engine.useBestHealPotion());
   document.getElementById('btn-hud-upgrades').addEventListener('click', () => navigate('mejoras'));
   document.getElementById('btn-hud-shop').addEventListener('click', () => navigate('tienda'));
-  document.getElementById('btn-hud-backpack').addEventListener('click', () => navigate('caracteristicas'));
+  document.getElementById('btn-hud-backpack').addEventListener('click', () => toggleBackpackPanel());
   document.getElementById('btn-hud-worldmap').addEventListener('click', () => navigate('mapa'));
   document.getElementById('btn-hud-pause').addEventListener('click', () => navigate('pausa'));
   document.getElementById('hud-quest-box').addEventListener('click', (e) => {
@@ -905,17 +1100,35 @@ function bindEvents() {
     btn.addEventListener('click', () => {
       charTab = btn.dataset.charTab;
       document.querySelectorAll('[data-char-tab]').forEach((b) => b.classList.toggle('active', b === btn));
-      renderCharacterModal(engine, charTab, {
-        onToast: showToast,
-        onSave: () => persistActiveSlot(engine.exportSave(), false),
-        onOpenUpgrades: () => navigate('mejoras'),
-        onOpenPets: () => navigate('mascotas'),
-        onClose: () => navigate('jugar')
-      });
+      renderOpenCharacterPanel();
     });
   });
 
-  // Pausa
+  // Pausa + Configuración de Gemini Flash en el navegador
+  const refreshGeminiKeyUi = () => {
+    const inp = document.getElementById('input-gemini-key');
+    const st = document.getElementById('gemini-key-status');
+    if (inp && !inp.value && hasGeminiApiKey()) {
+      inp.value = getGeminiApiKey();
+    }
+    if (st) {
+      st.textContent = hasGeminiApiKey()
+        ? '✓ Clave Gemini Flash guardada en este navegador (IA Híbrida Activa)'
+        : 'Sin clave guardada (funcionando normal con IA Local)';
+      st.style.color = hasGeminiApiKey() ? '#4ade80' : '#fbbf24';
+    }
+  };
+  refreshGeminiKeyUi();
+  document.getElementById('btn-save-gemini-key')?.addEventListener('click', () => {
+    const val = document.getElementById('input-gemini-key')?.value || '';
+    setGeminiApiKey(val);
+    refreshGeminiKeyUi();
+    showToast(hasGeminiApiKey() ? 'Clave de Gemini Flash guardada en tu navegador.' : 'Clave eliminada. Usando IA Local.', 'success');
+  });
+  document.getElementById('btn-touch-stealth')?.addEventListener('click', () => {
+    engine.toggleStealth();
+  });
+
   document.getElementById('btn-pause-resume').addEventListener('click', () => navigate('jugar'));
   document.getElementById('btn-pause-save').addEventListener('click', () => persistActiveSlot(engine.exportSave(), true));
   document.getElementById('btn-pause-audio').addEventListener('click', () => {
@@ -952,9 +1165,15 @@ function bindEvents() {
   document.querySelectorAll('.modal-close').forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = btn.dataset.close;
-      if (target === 'modal-dialog') { document.getElementById('modal-dialog').classList.add('hidden'); engine.setPaused(false); }
+      hideItemHoverTooltip();
+      if (target === 'modal-character') {
+        document.getElementById('modal-character')?.classList.add('hidden');
+        if (getCurrentRoute() === 'caracteristicas') navigate('jugar');
+      } else if (target === 'modal-backpack') {
+        document.getElementById('modal-backpack')?.classList.add('hidden');
+      } else if (target === 'modal-dialog') { document.getElementById('modal-dialog').classList.add('hidden'); engine.setPaused(false); }
       else if (target === 'modal-confirm-delete') { pendingDeleteSlot = null; document.getElementById('modal-confirm-delete').classList.add('hidden'); }
-      else if (['modal-character', 'modal-pets', 'modal-bosses', 'modal-upgrades', 'modal-shop', 'modal-worldmap', 'modal-pause'].includes(target)) navigate('jugar');
+      else if (['modal-pets', 'modal-bosses', 'modal-upgrades', 'modal-shop', 'modal-worldmap', 'modal-pause'].includes(target)) navigate('jugar');
       else if (target === 'modal-achievements') navigate(achievementsReturnRoute === 'pausa' ? 'pausa' : 'personajes');
       else navigate('personajes');
     });
@@ -1028,6 +1247,31 @@ function bindEvents() {
     chatToggle.textContent = collapsed ? '▴' : '▾';
   });
 
+  // Al oprimir Enter durante el juego, abrir/activar el chat para escribir; con Escape salir del input
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const gameScreen = document.getElementById('screen-game');
+    if (!gameScreen || gameScreen.classList.contains('hidden')) return;
+    const active = document.activeElement;
+    if (active === chatInput) return; // El submit del formulario procesa el mensaje y hace blur()
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+    if (!chatInput) return;
+    e.preventDefault();
+    if (chatPanel && chatPanel.classList.contains('collapsed')) {
+      chatPanel.classList.remove('collapsed');
+      if (chatToggle) chatToggle.textContent = '▾';
+    }
+    chatInput.focus();
+  });
+
+  chatInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      chatInput.blur();
+    }
+  });
+
   appendChatMessage('Consola GM lista. Escribe /oro 5000, /nivel 50, /gemas, /max o /ayuda.', 'gm', 'GM');
 
   window.addEventListener('online', async () => {
@@ -1071,6 +1315,38 @@ async function bootstrap() {
   bindEvents();
   onRouteChange(handleRoute);
 
+  // Esperar a que terminen de cargarse y procesarse todos los sprites, mapas y mascotas antes de dibujar el primer cuadro
+  await Promise.race([preloadAllGameAssets(), new Promise((r) => setTimeout(r, 3500))]);
+
+  if ('serviceWorker' in navigator) {
+    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (isLocalDev) {
+      // En desarrollo local, desregistrar SW para evitar cachés viejas o recargas dobles
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister().catch(() => {}));
+      }).catch(() => {});
+    } else {
+      navigator.serviceWorker
+        .register('./sw.js?v=60', { updateViaCache: 'none' })
+        .then((reg) => {
+          reg.update().catch(() => {});
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+        })
+        .catch(() => {});
+    }
+  }
+
   // Lógica de inicio obligatoria:
   // Sin personajes -> abrir Creación directamente; con 1+ personajes -> abrir Selección en Semicírculo
   const rawHash = (window.location.hash || '').replace(/^#/, '');
@@ -1082,37 +1358,6 @@ async function bootstrap() {
     }
   }
   initRouter();
-
-  if ('serviceWorker' in navigator) {
-    let refreshingSw = false;
-    const hadController = Boolean(navigator.serviceWorker.controller);
-
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!hadController || refreshingSw) return;
-      refreshingSw = true;
-      showToast('Actualizando a la última versión de Valoria...', 'info');
-      setTimeout(() => window.location.reload(), 450);
-    });
-
-    navigator.serviceWorker
-      .register('./sw.js?v=40', { updateViaCache: 'none' })
-      .then((reg) => {
-        reg.update().catch(() => {});
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              newWorker.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        });
-      })
-      .catch(() => {});
-  }
 
   // Instalación como App nativa (PWA / WebAPK en Android, iOS y PC)
   let deferredInstallPrompt = null;

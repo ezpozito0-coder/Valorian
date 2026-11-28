@@ -3,11 +3,11 @@
  * Cero impacto en FPS: cada patrón se dibuja una sola vez y se reutiliza en Canvas.
  */
 
-import { getAsset, onAssetsUpdated } from './assetLoader.js';
+import { getAsset, onAssetsUpdated, TERRAIN_TILES_ATLAS, PROPS_STRUCTURES_ATLAS, SEAMLESS_TILES_ATLAS } from './assetLoader.js';
 
 const patternCache = new Map();
 
-// Cuando terminen de cargar las imágenes (tile_cesped.png, tile_adoquin.png), limpiar la caché de patrones
+// Cuando terminen de cargar las imágenes (tile_cesped.png, tile_adoquin.png, tiles_terreno_nuevos.png), limpiar la caché de patrones
 onAssetsUpdated(() => {
   patternCache.clear();
 });
@@ -19,6 +19,16 @@ function makeImageTile(img, size = 128) {
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, size, size);
+  return c;
+}
+
+function makeSubImageTile(img, rect, size = 96) {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, size, size);
   return c;
 }
 
@@ -202,10 +212,76 @@ export function getTexturePattern(ctx, name) {
         patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
         return patternCache.get(name);
       }
-  } else if (name === 'obsidian_floor' || name === 'cave_stone') {
+    } else if (name === 'obsidian_floor' || name === 'cave_stone') {
       const caveImg = getAsset('tile_cueva');
       if (caveImg) {
         const tileCanvas = makeImageTile(caveImg, 128);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'snow_ground') {
+      const snowImg = getAsset('tile_nieve');
+      if (snowImg) {
+        const tileCanvas = makeImageTile(snowImg, 128);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+      const terrainSheet = getAsset('tiles_terreno_nuevos');
+      if (terrainSheet && TERRAIN_TILES_ATLAS.terreno_nieve) {
+        const tileCanvas = makeSubImageTile(terrainSheet, TERRAIN_TILES_ATLAS.terreno_nieve, 96);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'ash_sand' || name === 'desert_sand') {
+      const terrainSheet = getAsset('tiles_terreno_nuevos');
+      if (terrainSheet && TERRAIN_TILES_ATLAS.terreno_arena) {
+        const tileCanvas = makeSubImageTile(terrainSheet, TERRAIN_TILES_ATLAS.terreno_arena, 96);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'lava_pool') {
+      const seamlessSheet = getAsset('seamless_tiles_sheet');
+      if (seamlessSheet && SEAMLESS_TILES_ATLAS.lava_crater) {
+        const tileCanvas = makeSubImageTile(seamlessSheet, SEAMLESS_TILES_ATLAS.lava_crater, 160);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+      const terrainSheet = getAsset('tiles_terreno_nuevos');
+      if (terrainSheet && TERRAIN_TILES_ATLAS.terreno_lava) {
+        const tileCanvas = makeSubImageTile(terrainSheet, TERRAIN_TILES_ATLAS.terreno_lava, 96);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'corrupt_lake') {
+      const seamlessSheet = getAsset('seamless_tiles_sheet');
+      if (seamlessSheet && SEAMLESS_TILES_ATLAS.corrupt_pond) {
+        const tileCanvas = makeSubImageTile(seamlessSheet, SEAMLESS_TILES_ATLAS.corrupt_pond, 160);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+      const terrainSheet = getAsset('tiles_terreno_nuevos');
+      if (terrainSheet && TERRAIN_TILES_ATLAS.terreno_lago_corrupto) {
+        const tileCanvas = makeSubImageTile(terrainSheet, TERRAIN_TILES_ATLAS.terreno_lago_corrupto, 96);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'clear_water') {
+      const terrainSheet = getAsset('tiles_terreno_nuevos');
+      if (terrainSheet && TERRAIN_TILES_ATLAS.terreno_agua_clara) {
+        const tileCanvas = makeSubImageTile(terrainSheet, TERRAIN_TILES_ATLAS.terreno_agua_clara, 96);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+    } else if (name === 'ice_lake') {
+      const seamlessSheet = getAsset('seamless_tiles_sheet');
+      if (seamlessSheet && SEAMLESS_TILES_ATLAS.ice_seamless) {
+        const tileCanvas = makeSubImageTile(seamlessSheet, SEAMLESS_TILES_ATLAS.ice_seamless, 190);
+        patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
+        return patternCache.get(name);
+      }
+      const propSheet = getAsset('props_y_estructuras_sheet');
+      if (propSheet && PROPS_STRUCTURES_ATLAS.tile_lago_congelado) {
+        const tileCanvas = makeSubImageTile(propSheet, PROPS_STRUCTURES_ATLAS.tile_lago_congelado, 128);
         patternCache.set(name, ctx.createPattern(tileCanvas, 'repeat'));
         return patternCache.get(name);
       }

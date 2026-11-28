@@ -3,15 +3,19 @@
  * Sombras suaves, animaciones de agua/fuego/gemas, 13 tipos de enemigos/jefes, NPCs y decoraciones.
  */
 
-import { QUALITIES, TITLES } from './data.js';
+import { QUALITIES, TITLES, ITEMS } from './data.js';
 import { drawDetailedHeroSprite, drawPetSprite, computeAttackPhase } from './preview.js';
 import {
   getAsset,
   getBossAsset,
   getNpcAsset,
   getEnemyAsset,
+  getItemIconAsset,
   getSpriteFrameMetrics,
-  drawFootAnchoredSprite
+  drawFootAnchoredSprite,
+  drawPropStructureSprite,
+  drawWorldUpgradeSprite,
+  drawAiSystemIcon
 } from './assetLoader.js';
 
 function px(ctx, x, y, w, h, color) {
@@ -129,10 +133,28 @@ export function drawHero(ctx, p, time) {
   if (Math.abs(p.dirX) > Math.abs(p.dirY)) dir = p.dirX >= 0 ? 1 : 3;
   else dir = p.dirY < 0 ? 2 : 0;
 
+  // Si está en Montura de Guerra, dibujar el Corcel Blindado 16-bit en 4 cuadros y sentar al jinete en la montura
+  const mountSheet = p.mounted ? getAsset('montura_caballo') : null;
+  const riderYOffset = p.mounted ? -14 : -2;
+  if (mountSheet) {
+    const mFrame = p.moving ? Math.floor(time * 11) % 4 : 0;
+    const faceLeft = (p.dirX || 0) < -0.05 || dir === 3;
+    drawShadow(ctx, x, y + 15, 26, 10);
+    drawFootAnchoredSprite(ctx, mountSheet, x, y + 18, 64, {
+      frameIndex: mFrame,
+      flipX: faceLeft
+    });
+  }
+
+  ctx.save();
+  if (p.stealthActive) {
+    ctx.globalAlpha = 0.56;
+  }
+
   drawDetailedHeroSprite(
     ctx,
     x,
-    y - 2,
+    y + riderYOffset,
     1.42,
     {
       faction: p.faction,
@@ -140,14 +162,26 @@ export function drawHero(ctx, p, time) {
       race: p.race,
       heroClass: p.heroClass,
       wings: p.gearSlots?.alas || null,
+      gearSlots: p.gearSlots,
+      equipment: p.equipment,
       dir,
       moving: Boolean(p.moving),
+      moveSpeedRatio: p.moveSpeedRatio || 1,
+      jumpTimer: p.jumpTimer || 0,
+      jumpHeight: p.jumpHeight || 0,
       attackTimer: p.attackAnimTimer || 0,
       atkDirX: p.atkDirX ?? p.dirX ?? 0,
       atkDirY: p.atkDirY ?? p.dirY ?? 1
     },
     time
   );
+  ctx.restore();
+
+  if (p.stealthActive) {
+    drawAiSystemIcon(ctx, 'sigilo', x, y - 48, 20);
+  } else if (p.gearSlots?.pechera === 'disfraz_alba' || p.gearSlots?.pechera === 'disfraz_hierro') {
+    drawAiSystemIcon(ctx, p.gearSlots.pechera, x + 16, y - 46, 17);
+  }
 
   // Nombre y Título dorado activo del personaje en el mapa
   if (p.activeTitle && TITLES[p.activeTitle]) {
@@ -242,7 +276,15 @@ export function drawPortal(ctx, portal, time, playerLevel) {
   const mainColor = locked ? '#64748B' : portal.color || '#38BDF8';
 
   const portalSheet = getAsset('prop_portal');
-  if (portalSheet) {
+  if (drawWorldUpgradeSprite(ctx, 'portal_arco', x - 44, y - 62, 88, 94)) {
+    const pulse = 0.16 + Math.sin(time * 5) * 0.08;
+    ctx.save();
+    ctx.fillStyle = locked ? 'rgba(100,116,139,0.28)' : `rgba(56, 189, 248, ${pulse.toFixed(2)})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 12, 24, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else if (portalSheet) {
     const frameIndex = Math.floor(time * 7) % 4;
     drawFootAnchoredSprite(ctx, portalSheet, x, y + 26, 86, {
       frameIndex,
@@ -281,10 +323,13 @@ export function drawChest(ctx, chest, time) {
   const y = Math.round(chest.y);
   const chestSheet = getAsset('prop_cofre');
   if (chestSheet) {
-    const frameX = chest.opened ? 64 : 0;
+    const fw = Math.floor(chestSheet.width / 2);
+    const fh = chestSheet.height;
+    const frameX = chest.opened ? fw : 0;
+    drawShadow(ctx, x, y + 14, 22, 8);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(chestSheet, frameX, 0, 64, 64, x - 26, y - 32, 52, 52);
+    ctx.drawImage(chestSheet, frameX, 0, fw, fh, x - 28, y - 34, 56, 56);
     ctx.restore();
     return;
   }
@@ -309,22 +354,39 @@ export function drawGemNode(ctx, g, time) {
     gema_zafiro: ['#1E3A8A', '#3B82F6', '#93C5FD']
   };
   const [dark, mid, light] = colors[g.itemId] || colors.gema_rubi;
-  const bob = Math.sin(time * 5 + g.x) * 2;
+  const bob = Math.sin(time * 5 + g.x) * 2.5;
   const x = Math.round(g.x);
   const y = Math.round(g.y + bob);
 
-  drawShadow(ctx, g.x, g.y + 11, 10, 4);
+  drawShadow(ctx, g.x, g.y + 11, 11, 4);
+  // Halo brillante en el suelo del color de la gema
+  ctx.save();
+  ctx.strokeStyle = mid;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(g.x, g.y + 8, 12, 5, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Usar exactamente el mismo icono 16-bit de la gema que aparece en la Mochila, Herrería y Tienda
+  const iconImg = getItemIconAsset(g.itemId);
+  if (iconImg) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(iconImg, x - 14, y - 16, 28, 28);
+    ctx.restore();
+    if (Math.sin(time * 7 + g.x * 0.1) > 0.35) {
+      px(ctx, x + 5, y - 13, 3, 3, '#FFFFFF');
+      px(ctx, x + 6, y - 15, 1, 7, light);
+      px(ctx, x + 3, y - 12, 7, 1, light);
+    }
+    return;
+  }
+
   px(ctx, x - 7, y - 9, 14, 16, '#0D0A14');
   px(ctx, x - 5, y - 7, 10, 12, dark);
   px(ctx, x - 3, y - 6, 6, 9, mid);
   px(ctx, x - 2, y - 5, 3, 4, light);
-
-  // Destello animado de gema
-  if (Math.sin(time * 7 + g.x * 0.1) > 0.35) {
-    px(ctx, x + 5, y - 11, 3, 3, '#FFFFFF');
-    px(ctx, x + 6, y - 13, 1, 7, light);
-    px(ctx, x + 3, y - 10, 7, 1, light);
-  }
 }
 
 export function drawGroundDrop(ctx, drop, time) {
@@ -332,13 +394,65 @@ export function drawGroundDrop(ctx, drop, time) {
   const x = Math.round(drop.x);
   const y = Math.round(drop.y + bob);
 
+  // Parpadeo de aviso cuando quedan menos de 5 segundos en el suelo
+  const isExpiring = drop.life !== undefined && drop.life < 5;
+  const blinkAlpha = isExpiring ? (Math.sin(time * 18) > 0 ? 1 : 0.35) : 1;
+
+  ctx.save();
+  if (blinkAlpha < 1) ctx.globalAlpha = blinkAlpha;
+
   if (drop.kind === 'gold') {
-    px(ctx, x - 5, y - 5, 10, 10, '#0D0A14');
-    px(ctx, x - 4, y - 4, 8, 8, '#EAB308');
-    px(ctx, x - 2, y - 2, 4, 4, '#FEF08A');
+    drawShadow(ctx, x, Math.round(drop.y + 7), 9, 4);
+    const coinImg = getItemIconAsset('coin');
+    if (coinImg) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(coinImg, x - 12, y - 14, 24, 24);
+    } else if (!drawPropStructureSprite(ctx, 'bolsa_botin', x - 14, y - 16, 28, 26)) {
+      px(ctx, x - 5, y - 5, 10, 10, '#0D0A14');
+      px(ctx, x - 4, y - 4, 8, 8, '#EAB308');
+      px(ctx, x - 2, y - 2, 4, 4, '#FEF08A');
+    }
+  } else if (drop.kind === 'item') {
+    const it = ITEMS[drop.itemId];
+    const auraCol = it?.quality === 4 ? '#FDE047' : it?.quality === 3 ? '#C084FC' : it?.gemColor || '#38BDF8';
+    drawShadow(ctx, x, Math.round(drop.y + 7), 10, 4);
+    // Aura circular en el suelo
+    ctx.strokeStyle = auraCol;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(x, Math.round(drop.y + 5), 12, 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Mostrar en el suelo el mismo icono exacto del objeto/gema que aparece en la Mochila y Tienda
+    const itemIconImg = getItemIconAsset(drop.itemId);
+    if (itemIconImg) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(itemIconImg, x - 14, y - 17, 28, 28);
+    } else {
+      const dropKey = it?.type === 'equipment' || it?.type === 'gem' ? 'cofre_botin' : 'bolsa_botin';
+      if (!drawPropStructureSprite(ctx, dropKey, x - 14, y - 17, 28, 28)) {
+        px(ctx, x - 7, y - 7, 14, 13, '#0D0A14');
+        px(ctx, x - 6, y - 5, 12, 10, '#78350F');
+      }
+    }
+
+    // Etiqueta con nombre del objeto y tiempo restante para recogerlo
+    const secs = Math.max(1, Math.ceil(drop.life || 1));
+    const label = `${it?.name || 'Objeto'}${drop.qty > 1 ? ` x${drop.qty}` : ''} (${secs}s)`;
+    ctx.font = 'bold 10px "Pixelify Sans", monospace';
+    ctx.textAlign = 'center';
+    const tw = Math.ceil(ctx.measureText(label).width) + 8;
+    ctx.fillStyle = 'rgba(13, 10, 20, 0.82)';
+    ctx.fillRect(Math.round(x - tw / 2), y - 22, tw, 13);
+    ctx.strokeStyle = auraCol;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(x - tw / 2) + 0.5, y - 21.5, tw - 1, 12);
+    ctx.fillStyle = auraCol;
+    ctx.fillText(label, x, y - 12);
   } else {
     drawGemNode(ctx, { x, y, itemId: drop.itemId, collected: false }, time);
   }
+  ctx.restore();
 }
 
 export function drawNpc(ctx, npc, time) {
@@ -347,7 +461,7 @@ export function drawNpc(ctx, npc, time) {
   const footY = y + 15;
   drawShadow(ctx, x, footY, 13, 6);
 
-  const npcImg = getNpcAsset(npc.kind);
+  const npcImg = (npc.heroAssetKey && getAsset(npc.heroAssetKey)) || getNpcAsset(npc.kind);
 
   if (npc.kind === 'dummy') {
     const wobbleRad = npc.hitFlash > 0 ? Math.sin(time * 48) * 0.18 : 0;
@@ -374,10 +488,18 @@ export function drawNpc(ctx, npc, time) {
     return;
   }
 
+  const isMoving = Math.hypot(npc.vx || 0, npc.vy || 0) > 8;
+  const isWorkingOrAttacking = (npc.workAnimTimer || 0) > 0;
+  const flipLeft = (npc.vx || 0) < -4;
+
   if (npcImg) {
-    const breathScaleY = 1 + Math.sin(time * 3.5 + x * 0.05) * 0.016;
-    drawFootAnchoredSprite(ctx, npcImg, x, footY, 50, {
-      frameIndex: 0,
+    let frameIndex = 0;
+    if (isWorkingOrAttacking) frameIndex = 3;
+    else if (isMoving) frameIndex = Math.floor(time * 9) % 4;
+    const breathScaleY = isMoving ? 0.98 + Math.abs(Math.sin(time * 12)) * 0.05 : 1 + Math.sin(time * 3.5 + x * 0.05) * 0.016;
+    drawFootAnchoredSprite(ctx, npcImg, x, footY, 52, {
+      frameIndex,
+      flipX: flipLeft,
       scaleX: 1 - (breathScaleY - 1) * 0.4,
       scaleY: breathScaleY
     });
@@ -394,18 +516,62 @@ export function drawNpc(ctx, npc, time) {
     px(ctx, x - 6, y - 1, 12, 10, apron);
     px(ctx, x - 7, y - 20, 14, 13, '#0D0A14');
     px(ctx, x - 5, y - 18, 10, 10, npc.kind === 'guardia_hierro' ? '#6D9E51' : '#F2C9A0');
-    if (npc.kind === 'guardia_alba') {
-      px(ctx, x - 6, y - 21, 12, 5, '#E2E8F0');
-      px(ctx, x + 10, y - 16, 3, 26, '#94A3B8');
-    } else if (npc.kind === 'guardia_hierro') {
-      px(ctx, x - 6, y - 21, 12, 4, '#57534E');
-      px(ctx, x + 10, y - 14, 4, 24, '#78350F');
-      px(ctx, x + 11, y - 15, 6, 7, '#CBD5E1');
-    } else {
-      px(ctx, x - 5, y - 11, 10, 4, npc.kind === 'herrero' ? '#334155' : '#92400E');
-    }
     px(ctx, x - 3, y - 15, 2, 2, '#0D0A14');
     px(ctx, x + 2, y - 15, 2, 2, '#0D0A14');
+  }
+
+  // Barra de vida, nombre/objetivo e icono 16-bit de emoción sobre los 4 personajes IA y guardias del portal
+  if (npc.isAiHero || npc.isPortalGuard) {
+    const hpRatio = Math.max(0, Math.min(1, (npc.hp || npc.maxHp || 100) / (npc.maxHp || 100)));
+    const barColor = npc.hostile ? '#DC2626' : npc.faction === 'hierro' ? '#F97316' : '#38BDF8';
+    px(ctx, x - 18, y - 39, 36, 5, '#0D0A14');
+    px(ctx, x - 17, y - 38, Math.round(34 * hpRatio), 3, barColor);
+
+    const goalLabels = {
+      talar: 'Talando',
+      minar: 'Minando',
+      reparar: 'Reparando',
+      descansar: 'Descansando',
+      refugiarse: 'Refugiado',
+      patrullar: 'Patrullando'
+    };
+    const tag = npc.fleeing
+      ? '¡Huyendo!'
+      : npc.hostile
+      ? '¡Hostil!'
+      : npc.isCompanion
+      ? 'Acompañante'
+      : npc.isPortalGuard
+      ? 'Custodio'
+      : (goalLabels[npc.goal] || 'Patrullando');
+    const titleStr = `${npc.shortName || npc.name.split(' ')[0]} · ${tag}`;
+    ctx.font = 'bold 10px "Pixelify Sans", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#0D0A14';
+    ctx.fillText(titleStr, x + 1, y - 42);
+    ctx.fillStyle = npc.hostile ? '#FCA5A5' : npc.isCompanion ? '#4ADE80' : '#FDE047';
+    ctx.fillText(titleStr, x, y - 43);
+
+    // Burbuja de Emoción 16-bit (Nano Banana) sobre la cabeza
+    const emoKey = npc.hostile
+      ? 'enojo'
+      : npc.fleeing
+      ? 'ayuda'
+      : npc.isCompanion
+      ? 'siguiendo'
+      : npc.emotion === 'trabajo'
+      ? (npc.goal === 'talar' ? 'talar' : npc.goal === 'minar' ? 'minar' : 'reparar')
+      : (npc.emotion || 'feliz');
+    const floatY = Math.round(Math.sin(time * 4.5 + x * 0.1) * 2);
+    const bx = x;
+    const by = y - 61 + floatY;
+    // Fondo circular pixel art para el icono de emoción
+    px(ctx, bx - 11, by - 11, 22, 22, '#0D0A14');
+    px(ctx, bx - 10, by - 10, 20, 20, 'rgba(15, 23, 42, 0.92)');
+    if (!drawAiSystemIcon(ctx, emoKey, bx, by, 18)) {
+      px(ctx, bx - 4, by - 4, 8, 8, barColor);
+    }
+    return;
   }
 
   if (npc.marker) {
@@ -703,6 +869,38 @@ export function drawCrystal(ctx, c, time) {
 }
 
 export function drawBuilding(ctx, b, time) {
+  // Si el edificio es de Los Clanes de Hierro, usar su arquitectura tribal/forja del Paquete 3
+  if (b.isHierro && (b.id === 'taberna' || b.id === 'forja')) {
+    if (b.chimney || b.id === 'forja') {
+      const cx = b.x + b.w * 0.52;
+      const cy = b.y - 6;
+      for (let i = 0; i < 3; i++) {
+        const puff = ((time * 18) + i * 10) % 28;
+        ctx.fillStyle = `rgba(226, 232, 240, ${Math.max(0, 0.55 - puff / 50)})`;
+        ctx.beginPath();
+        ctx.arc(cx + Math.sin(time * 2.2 + i) * 5, cy - puff, 5 + puff * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    const hierroKey = b.id === 'forja' ? 'forja_hierro' : 'tienda_hierro';
+    if (drawPropStructureSprite(ctx, hierroKey, b.x - 10, b.y - 14, b.w + 20, b.h + 24)) {
+      ctx.font = 'bold 13px "Pixelify Sans", monospace';
+      ctx.textAlign = 'center';
+      const tw = Math.ceil(ctx.measureText(b.label).width) + 20;
+      const bx = Math.round(b.x + b.w / 2 - tw / 2);
+      const by = b.y - 4;
+      px(ctx, bx - 2, by - 2, tw + 4, 22, '#0D0A14');
+      px(ctx, bx, by, tw, 18, '#3B2314');
+      px(ctx, bx, by, tw, 2, '#F2B63D');
+      px(ctx, bx, by + 16, tw, 2, '#92400E');
+      ctx.fillStyle = '#0D0A14';
+      ctx.fillText(b.label, b.x + b.w / 2 + 1, by + 14);
+      ctx.fillStyle = '#FEF08A';
+      ctx.fillText(b.label, b.x + b.w / 2, by + 13);
+      return;
+    }
+  }
+
   const assetKey =
     b.id === 'forja'
       ? 'edificio_herreria'
@@ -940,6 +1138,17 @@ export function drawProp(ctx, prop, time) {
   const y = Math.round(prop.y);
 
   if (prop.kind === 'fountain') {
+    if (drawWorldUpgradeSprite(ctx, 'fuente_leones', x - 56, y - 54, 112, 95)) {
+      const ripple = 10 + ((time * 16) % 16);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(224, 242, 254, 0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(x, y + 2, ripple, ripple * 0.52, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
     const fountainSheet = getAsset('prop_fuente');
     if (fountainSheet) {
       const frameIndex = Math.floor(time * 7) % 4;
@@ -1137,5 +1346,66 @@ export function drawProp(ctx, prop, time) {
   } else if (prop.kind === 'flower') {
     px(ctx, x - 3, y - 3, 6, 6, prop.color || '#60A5FA');
     px(ctx, x - 1, y - 1, 2, 2, '#FFFFFF');
+  } else if (prop.kind === 'trono_vaelor') {
+    drawShadow(ctx, x, y + 18, 42, 14);
+    drawPropStructureSprite(ctx, 'trono_vaelor', x - 64, y - 140, 128, 165);
+  } else if (prop.kind === 'entrada_cueva') {
+    drawPropStructureSprite(ctx, 'entrada_cueva', x - 95, y - 110, 190, 142);
+  } else if (prop.kind === 'tienda_mercader') {
+    drawShadow(ctx, x, y + 18, 52, 16);
+    drawPropStructureSprite(ctx, 'tienda_mercader', x - 72, y - 92, 144, 122);
+  } else if (prop.kind === 'craneo_desierto') {
+    drawShadow(ctx, x, y + 10, 32, 11);
+    drawPropStructureSprite(ctx, 'craneo_desierto', x - 44, y - 48, 88, 70);
+  } else if (prop.kind === 'roca_nevada') {
+    drawShadow(ctx, x, y + 12, 28, 10);
+    drawPropStructureSprite(ctx, 'roca_nevada', x - 36, y - 48, 72, 72);
+  } else if (prop.kind === 'pino_congelado') {
+    drawShadow(ctx, x, y + 14, 22, 9);
+    drawPropStructureSprite(ctx, 'pino_congelado', x - 34, y - 68, 68, 88);
+  } else if (prop.kind === 'armero_entrenamiento') {
+    drawShadow(ctx, x, y + 12, 42, 12);
+    drawWorldUpgradeSprite(ctx, 'armero_entrenamiento', x - 64, y - 46, 128, 70);
+  } else if (prop.kind === 'rocas_desierto') {
+    drawShadow(ctx, x, y + 14, 34, 12);
+    drawWorldUpgradeSprite(ctx, 'rocas_desierto', x - 44, y - 58, 88, 90);
+  } else if (prop.kind === 'arbusto_seco') {
+    drawShadow(ctx, x, y + 8, 16, 6);
+    drawWorldUpgradeSprite(ctx, 'arbusto_seco', x - 22, y - 28, 44, 42);
+  } else if (prop.kind === 'pozo_aldea') {
+    drawShadow(ctx, x, y + 16, 34, 12);
+    drawWorldUpgradeSprite(ctx, 'pozo_aldea', x - 38, y - 74, 76, 98);
+  } else if (prop.kind === 'farola_aldea') {
+    const glow = 0.22 + Math.sin(time * 6 + x) * 0.06;
+    ctx.save();
+    const gr = ctx.createRadialGradient(x + 10, y - 46, 2, x + 10, y - 46, 38);
+    gr.addColorStop(0, `rgba(253, 224, 71, ${glow})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(x + 10, y - 46, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawShadow(ctx, x, y + 10, 14, 5);
+    drawWorldUpgradeSprite(ctx, 'farola_aldea', x - 22, y - 74, 44, 90);
+  } else if (prop.kind === 'pilar_trono_vacio') {
+    const glow = 0.26 + Math.sin(time * 7 + y) * 0.08;
+    ctx.save();
+    const gr = ctx.createRadialGradient(x, y - 42, 3, x, y - 42, 42);
+    gr.addColorStop(0, `rgba(168, 85, 247, ${glow})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(x, y - 42, 42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawShadow(ctx, x, y + 14, 24, 9);
+    drawWorldUpgradeSprite(ctx, 'pilar_trono_vacio', x - 28, y - 96, 56, 118);
+  } else if (prop.kind === 'totem_hielo') {
+    drawShadow(ctx, x, y + 14, 30, 11);
+    drawWorldUpgradeSprite(ctx, 'totem_hielo', x - 42, y - 82, 84, 102);
+  } else if (prop.kind === 'costillar_dragon') {
+    drawShadow(ctx, x, y + 16, 48, 16);
+    drawWorldUpgradeSprite(ctx, 'costillar_dragon', x - 68, y - 72, 136, 108);
   }
 }

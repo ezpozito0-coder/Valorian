@@ -4,7 +4,8 @@
 
 import { ENEMY_TEMPLATES, MAPS_META, FACTIONS } from './data.js';
 import { getTexturePattern } from './textures.js';
-import { getAsset, getSpriteFrameMetrics, drawFootAnchoredSprite } from './assetLoader.js';
+import { drawMapSheetSprite, drawTerrainTile, drawPropStructureSprite, drawSeamlessTileSprite, drawWorldUpgradeSprite, drawBiomePerimeterFrame, getAsset, getSpriteFrameMetrics, drawFootAnchoredSprite } from './assetLoader.js';
+import { AI_CHARACTERS_DEFS, getCharacterMemory, getAiState } from './geminiAI.js';
 
 export const MAP_WIDTH = 1600;
 export const MAP_HEIGHT = 1300;
@@ -60,7 +61,33 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     portals: [],
     enemies: [],
     safeBoxes: [],
+    cliffs: [],
+    stairs: [],
+    doodads: [],
+    groundDetails: [],
+    animatedLoops: [],
+    terrainZones: [],
     bossAltar: null
+  };
+
+  const addTerrainZone = (kind, x, y, w, h, transitionKey = null) => {
+    base.terrainZones.push({ kind, x, y, w, h, transitionKey });
+  };
+
+  const addCliff = (kind, x, y, w, h, solidPadY = 26) => {
+    base.cliffs.push({ kind, x, y, w, h });
+    base.solids.push({ x: x + 4, y: y + solidPadY, w: Math.max(16, w - 8), h: Math.max(16, h - solidPadY), fromCliff: true });
+  };
+  const addStairs = (kind, x, y, w, h) => {
+    base.stairs.push({ kind, x, y, w, h });
+  };
+  const addDoodad = (kind, x, y, w, h, solid = false) => {
+    if (solid) {
+      base.doodads.push({ kind, x, y, w, h });
+      base.solids.push({ x: x - w * 0.38, y: y - h * 0.28, w: w * 0.76, h: h * 0.42 });
+    } else {
+      base.groundDetails.push({ kind, x, y, w, h });
+    }
   };
 
   // Muros perimetrales externos
@@ -82,6 +109,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
         y: 360,
         w: 185,
         h: 115,
+        isHierro: !isAlba,
         wallColor: isAlba ? '#E2D9C8' : '#78716C',
         roofColor: isAlba ? '#1E4E8C' : '#9E2A2B',
         roofHighlight: isAlba ? '#3B82F6' : '#C97A32',
@@ -94,6 +122,7 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
         y: 360,
         w: 180,
         h: 115,
+        isHierro: !isAlba,
         wallColor: '#94A3B8',
         roofColor: isAlba ? '#475569' : '#7F1D1D',
         roofHighlight: '#C97A32'
@@ -143,7 +172,8 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { kind: 'anvil', x: 1185, y: 535 },
       { kind: 'barrel', x: 345, y: 485 },
       { kind: 'barrel', x: 370, y: 495 },
-      { kind: 'sign', x: 855, y: 235 }
+      { kind: 'sign', x: 855, y: 235 },
+      { kind: 'armero_entrenamiento', x: 1175, y: 762 }
     );
 
     base.trees.push(
@@ -162,6 +192,28 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       color: '#22C55E',
       reqLevel: 1
     });
+
+    // Pozo techado medieval, farolas de hierro forjado y doodads 16-bit de Guardia del Alba / Aldea
+    base.props.push({ kind: 'pozo_aldea', x: 595, y: 538 });
+    base.solids.push({ x: 567, y: 515, w: 56, h: 36 });
+    if (isAlba) {
+      base.props.push(
+        { kind: 'farola_aldea', x: 718, y: 470 },
+        { kind: 'farola_aldea', x: 882, y: 470 }
+      );
+    }
+    addDoodad('doodad_cart', 315, 565, 42, 48, true);
+    addDoodad('doodad_crate_front', 332, 446, 32, 34, true);
+    addDoodad('doodad_crate_angle', 1228, 472, 34, 38, true);
+    addDoodad('doodad_barrel', 1262, 486, 28, 38, true);
+    addDoodad('doodad_lantern_blue', 744, 502, 20, 38, false);
+    addDoodad('doodad_lantern_blue', 856, 502, 20, 38, false);
+    addDoodad('doodad_bush_flower', 505, 650, 38, 36, false);
+    addDoodad('doodad_bush_green', 1075, 655, 38, 34, false);
+    addDoodad('doodad_flower_purple', 540, 690, 28, 34, false);
+    addDoodad('doodad_flower_yellow', 1020, 695, 26, 34, false);
+    addCliff('ruin_wall_md', 210, 120, 102, 77, 28);
+    addCliff('ruin_wall_md', 1280, 120, 102, 77, 28);
   } else if (mapId === 'bosque') {
     // Río horizontal con puente único al centro
     base.waterRects.push({ x: 30, y: 790, w: 1540, h: 90 });
@@ -215,6 +267,23 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { id: 'back_aldea', x: 800, y: 1225, targetMap: 'aldea', targetX: 800, targetY: 200, label: 'Volver a Aldea', color: '#38BDF8', reqLevel: 1 },
       { id: 'to_cueva', x: 800, y: 125, targetMap: 'cueva', targetX: 800, targetY: 1140, label: 'Cueva del Vacío', color: '#9333EA', reqLevel: 1 }
     );
+
+    // Ruinas medievales, boca de cueva rocosa, escalera de acceso, río animado y detalles de Bioma Corrupto / Alba
+    base.props.push({ kind: 'entrada_cueva', x: 800, y: 120 });
+    base.solids.push(
+      { x: 705, y: 50, w: 48, h: 72 },
+      { x: 847, y: 50, w: 48, h: 72 }
+    );
+    addStairs('stairs_stone', 774, 155, 52, 61);
+    addCliff('ruin_wall_arch', 395, 455, 137, 93, 34);
+    addDoodad('doodad_dead_tree_md', 310, 560, 56, 86, true);
+    addDoodad('doodad_corrupt_fern', 540, 595, 34, 37, false);
+    addDoodad('doodad_mushroom_dark', 610, 480, 34, 38, false);
+    addDoodad('doodad_mushroom_red', 1050, 510, 29, 31, false);
+    addDoodad('doodad_dead_root', 1180, 520, 34, 43, false);
+    addDoodad('doodad_bush_flower', 660, 1045, 38, 37, false);
+    addDoodad('doodad_flower_yellow', 920, 1020, 28, 36, false);
+    addTerrainZone('corrupt_water', 180, 240, 176, 112, 'trans_corrupto_agua');
   } else if (mapId === 'cueva') {
     // Paso del Abismo (solo se cruza por el puente central)
     base.bridges.push({ x: 725, y: 660, w: 150, h: 170 });
@@ -268,6 +337,19 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { id: 'back_bosque', x: 800, y: 1225, targetMap: 'bosque', targetX: 800, targetY: 210, label: 'Bosque de la Fractura', color: '#22C55E', reqLevel: 1 },
       { id: 'to_desierto', x: 800, y: 105, targetMap: 'desierto', targetX: 800, targetY: 1140, label: 'Desierto de Ceniza', color: '#EA580C', reqLevel: 30 }
     );
+
+    // Cristales limpios, vetas de mineral y detalles de Cueva/Obsidiana (puente limpio sin escalera encimada)
+    addDoodad('doodad_crystal_purple_lg', 605, 340, 36, 46, true);
+    addDoodad('doodad_crystal_blue_lg', 995, 340, 36, 46, true);
+    addDoodad('doodad_rock_obsidian', 440, 910, 44, 31, true);
+    addDoodad('doodad_ore_gold', 1170, 880, 34, 31, true);
+    addDoodad('doodad_ore_iron', 350, 560, 40, 35, true);
+    addDoodad('doodad_pebbles', 690, 960, 28, 22, false);
+    addDoodad('doodad_void_crack', 895, 965, 38, 25, false);
+    addDoodad('doodad_crystal_purple_sm', 560, 520, 28, 28, false);
+    addDoodad('doodad_crystal_blue_sm', 1050, 525, 26, 27, false);
+    addTerrainZone('corrupt_water', 180, 825, 176, 110, 'trans_lava_corrupto');
+    addTerrainZone('corrupt_water', 1240, 825, 176, 110, 'trans_lava_corrupto');
   } else if (mapId === 'desierto') {
     base.safeBoxes.push({ x: 450, y: 960, w: 700, h: 300 });
     base.campfires.push({ x: 670, y: 1090, radius: 80 });
@@ -318,6 +400,26 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
     base.portals.push(
       { id: 'back_cueva', x: 800, y: 1225, targetMap: 'cueva', targetX: 800, targetY: 190, label: 'Cueva del Vacío', color: '#9333EA', reqLevel: 1 },
       { id: 'to_montanas', x: 800, y: 105, targetMap: 'montanas', targetX: 800, targetY: 1140, label: 'Montañas Heladas', color: '#38BDF8', reqLevel: 50, reqBoss: 'ignis' }
+    );
+    addTerrainZone('lava', 200, 430, 192, 120, 'trans_arena_lava');
+    addTerrainZone('lava', 1200, 430, 192, 120, 'trans_arena_lava');
+    addTerrainZone('shallow_water', 1210, 980, 168, 108, 'trans_arena_agua');
+    // Tienda del Mercader Viajero, Cráneos Gigantes, Rocas de Arenisca y Arbustos Secos del Desierto
+    base.props.push(
+      { kind: 'tienda_mercader', x: 930, y: 1042 },
+      { kind: 'craneo_desierto', x: 610, y: 345 },
+      { kind: 'craneo_desierto', x: 990, y: 345 },
+      { kind: 'rocas_desierto', x: 260, y: 360 },
+      { kind: 'rocas_desierto', x: 1340, y: 780 },
+      { kind: 'arbusto_seco', x: 630, y: 865 },
+      { kind: 'arbusto_seco', x: 1020, y: 500 },
+      { kind: 'arbusto_seco', x: 420, y: 920 },
+      { kind: 'costillar_dragon', x: 350, y: 690 }
+    );
+    base.solids.push(
+      { x: 868, y: 985, w: 124, h: 52 },
+      { x: 576, y: 320, w: 68, h: 36 },
+      { x: 956, y: 320, w: 68, h: 36 }
     );
   } else if (mapId === 'montanas') {
     base.safeBoxes.push({ x: 450, y: 970, w: 700, h: 290 });
@@ -382,6 +484,23 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { id: 'back_desierto', x: 800, y: 1225, targetMap: 'desierto', targetX: 800, targetY: 190, label: 'Desierto de Ceniza', color: '#EA580C', reqLevel: 30 },
       { id: 'to_fortaleza', x: 800, y: 105, targetMap: 'fortaleza', targetX: 800, targetY: 1140, label: 'Fortaleza del Vacío', color: '#A855F7', reqLevel: 70, reqBoss: 'boreas' }
     );
+    addTerrainZone('lava', 1190, 240, 168, 108, 'trans_nieve_lava');
+    addTerrainZone('corrupt_water', 200, 240, 168, 108, 'trans_nieve_corrupto');
+    // Rocas nevadas grandes, pinos congelados y tótems monolito de hielo rúnico
+    base.props.push(
+      { kind: 'roca_nevada', x: 610, y: 335 },
+      { kind: 'roca_nevada', x: 990, y: 335 },
+      { kind: 'pino_congelado', x: 430, y: 370 },
+      { kind: 'pino_congelado', x: 1170, y: 370 },
+      { kind: 'totem_hielo', x: 540, y: 265 },
+      { kind: 'totem_hielo', x: 1060, y: 265 }
+    );
+    base.solids.push(
+      { x: 582, y: 312, w: 56, h: 34 },
+      { x: 962, y: 312, w: 56, h: 34 },
+      { x: 408, y: 348, w: 44, h: 32 },
+      { x: 1148, y: 348, w: 44, h: 32 }
+    );
   } else if (mapId === 'fortaleza') {
     base.safeBoxes.push({ x: 660, y: 980, w: 280, h: 280 });
     // Puente de las Sombras sobre el Vacío (entrada)
@@ -400,6 +519,10 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       { kind: 'torch_void', x: 900, y: 910 },
       { kind: 'dark_statue', x: 540, y: 680 },
       { kind: 'dark_statue', x: 1060, y: 680 },
+      { kind: 'pilar_trono_vacio', x: 685, y: 420 },
+      { kind: 'pilar_trono_vacio', x: 915, y: 420 },
+      { kind: 'pilar_trono_vacio', x: 685, y: 740 },
+      { kind: 'pilar_trono_vacio', x: 915, y: 740 },
       { kind: 'ruin_pillar', x: 310, y: 610 }, // torre caída para Cofre 6
       { kind: 'void_crystal_giant', x: 800, y: 115 }
     );
@@ -441,7 +564,179 @@ export function buildMapInstance(mapId, { faction = 'alba', defeatedBosses = [],
       color: '#38BDF8',
       reqLevel: 50
     });
+    addTerrainZone('lava', 210, 430, 176, 112, 'trans_lava_corrupto');
+    addTerrainZone('corrupt_water', 1210, 430, 176, 112, 'trans_lava_corrupto');
+    // Trono Oscuro de Vaelor al norte de la alfombra imperial (Paquete 3)
+    base.props.push({ kind: 'trono_vaelor', x: 800, y: 205 });
+    base.solids.push({ x: 748, y: 145, w: 104, h: 64 });
   }
+
+  // Portal Mágico Vigilado en el Mapa de Hielo que conecta la Guardia del Alba con los Clanes de Hierro
+  if (mapId === 'aldea') {
+    base.portals.push({
+      id: 'portal_hielo_frontera',
+      x: 250,
+      y: 560,
+      targetMap: 'montanas',
+      targetX: 800,
+      targetY: 900,
+      label: 'Portal al Mapa de Hielo (Frontera Vigilada)',
+      color: '#38BDF8',
+      reqLevel: 1,
+      isGuardedIcePortal: true
+    });
+    base.gems.push(
+      { id: 'res_wood_1', itemId: 'madera_roble', x: 260, y: 390, collected: false, respawnTimer: 0 },
+      { id: 'res_ore_1', itemId: 'mineral_hierro', x: 1295, y: 460, collected: false, respawnTimer: 0 },
+      { id: 'res_stone_1', itemId: 'piedra_runica', x: 1295, y: 580, collected: false, respawnTimer: 0 }
+    );
+  } else if (mapId === 'montanas') {
+    const oppositeFactionName = faction === 'alba' ? 'Campamento Hierro' : 'Villa Alba';
+    base.portals.push({
+      id: 'portal_cruce_bandos',
+      x: 800,
+      y: 830,
+      targetMap: 'aldea',
+      targetX: 250,
+      targetY: 615,
+      label: `Portal Vigilado → Territorio ${oppositeFactionName}`,
+      color: '#38BDF8',
+      reqLevel: 1,
+      isGuardedIcePortal: true
+    });
+    // Guardias permanentes custodiando el Portal de Hielo
+    const guardFaction = faction === 'alba' ? 'hierro' : 'alba';
+    base.npcs.push(
+      {
+        id: 'guard_portal_1',
+        kind: guardFaction === 'alba' ? 'guardia_alba' : 'guardia_hierro',
+        name: guardFaction === 'alba' ? 'Centinela del Portal (Alba)' : 'Centinela del Portal (Hierro)',
+        faction: guardFaction,
+        isPortalGuard: true,
+        x: 735,
+        y: 840,
+        homeX: 735,
+        homeY: 840,
+        hp: 420,
+        maxHp: 420,
+        atk: 36,
+        def: 18,
+        speed: 132,
+        radius: 18,
+        emotion: 'neutral',
+        hostile: false
+      },
+      {
+        id: 'guard_portal_2',
+        kind: guardFaction === 'alba' ? 'guardia_alba' : 'guardia_hierro',
+        name: guardFaction === 'alba' ? 'Custodio Rúnico (Alba)' : 'Custodio Rúnico (Hierro)',
+        faction: guardFaction,
+        isPortalGuard: true,
+        x: 865,
+        y: 840,
+        homeX: 865,
+        homeY: 840,
+        hp: 420,
+        maxHp: 420,
+        atk: 36,
+        def: 18,
+        speed: 132,
+        radius: 18,
+        emotion: 'neutral',
+        hostile: false
+      }
+    );
+    base.gems.push(
+      { id: 'ice_wood_1', itemId: 'madera_roble', x: 310, y: 900, collected: false, respawnTimer: 0 },
+      { id: 'ice_ore_1', itemId: 'mineral_hierro', x: 1240, y: 900, collected: false, respawnTimer: 0 }
+    );
+  } else if (mapId === 'bosque') {
+    base.gems.push(
+      { id: 'for_wood_1', itemId: 'madera_roble', x: 480, y: 820, collected: false, respawnTimer: 0 },
+      { id: 'for_wood_2', itemId: 'madera_roble', x: 1120, y: 780, collected: false, respawnTimer: 0 },
+      { id: 'for_stone_1', itemId: 'piedra_runica', x: 650, y: 420, collected: false, respawnTimer: 0 }
+    );
+  } else if (mapId === 'desierto' || mapId === 'cueva') {
+    base.gems.push(
+      { id: `${mapId}_ore_1`, itemId: 'mineral_hierro', x: 490, y: 720, collected: false, respawnTimer: 0 },
+      { id: `${mapId}_stone_1`, itemId: 'piedra_runica', x: 1110, y: 720, collected: false, respawnTimer: 0 }
+    );
+  }
+
+  // Instanciar a los 4 Personajes Principales con IA Mixta (Gemini Flash + Motor Reactivo Local)
+  const aiPositionsByMap = {
+    aldea: {
+      paladina_alba: { x: 640, y: 590 },
+      explorador_alba: { x: 560, y: 740 },
+      guerrero_hierro: { x: 980, y: 610 },
+      chamana_hierro: { x: 960, y: 750 }
+    },
+    bosque: {
+      explorador_alba: { x: 740, y: 960 },
+      paladina_alba: { x: 850, y: 980 }
+    },
+    desierto: {
+      guerrero_hierro: { x: 760, y: 1030 },
+      chamana_hierro: { x: 840, y: 1045 }
+    },
+    montanas: {
+      paladina_alba: { x: 670, y: 960 },
+      explorador_alba: { x: 610, y: 1030 },
+      guerrero_hierro: { x: 930, y: 960 },
+      chamana_hierro: { x: 990, y: 1030 }
+    }
+  };
+
+  const mapAiCoords = aiPositionsByMap[mapId] || {};
+  const nowMs = Date.now();
+  for (const [aiId, def] of Object.entries(AI_CHARACTERS_DEFS)) {
+    const mem = getCharacterMemory(aiId);
+    const isCompanion = (mem.companionUntil || 0) > nowMs;
+    const pos = mapAiCoords[aiId] || (isCompanion ? { x: 780, y: 740 } : null);
+    if (!pos) continue;
+
+    base.npcs.push({
+      id: aiId,
+      aiId,
+      isAiHero: true,
+      kind: def.spriteKind,
+      heroAssetKey: def.heroAssetKey,
+      name: `${def.name} (${def.title})`,
+      shortName: def.name,
+      title: def.title,
+      faction: def.faction,
+      profession: def.profession,
+      x: pos.x,
+      y: pos.y,
+      homeX: pos.x,
+      homeY: pos.y,
+      targetX: pos.x,
+      targetY: pos.y,
+      vx: 0,
+      vy: 0,
+      hp: def.maxHp,
+      maxHp: def.maxHp,
+      atk: def.atk,
+      def: def.def,
+      speed: def.speed,
+      radius: 18,
+      goal: mem.goal || def.preferredGoals[0],
+      emotion: isCompanion ? 'siguiendo' : (mem.emotion || 'neutral'),
+      hostile: Boolean(mem.hostile),
+      isCompanion,
+      fleeing: false,
+      actionTimer: 0,
+      attackCd: 0,
+      goalTimer: 12 + Math.random() * 10,
+      workAnimTimer: 0,
+      hitFlash: 0,
+      marker: '★'
+    });
+  }
+
+  // Bandera de control territorial disputado en cada mapa
+  const owner = getAiState().territoryOwner?.[mapId] || (faction === 'hierro' ? 'hierro' : 'alba');
+  base.territoryFaction = owner;
 
   return base;
 }
@@ -554,10 +849,16 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillStyle = getTexturePattern(ctx, isAlba ? 'cobble_alba' : 'dirt_road') || '#94A3B8';
     ctx.fillRect(738, 412, 124, 18);
 
-    // Suelo de arena de combate y cerca de postes de madera en la Zona de Entrenamiento
+    // Suelo de arena de combate y cerca de postes de madera en la Zona de Entrenamiento (Paquete 1)
     ctx.fillStyle = 'rgba(120, 83, 48, 0.38)';
     ctx.fillRect(1082, 742, 186, 111);
-    drawWoodenFenceRect(1080, 740, 190, 115);
+    if (!drawPropStructureSprite(ctx, 'cerca_h_larga', 1080, 722, 190, 32)) {
+      drawWoodenFenceRect(1080, 740, 190, 115);
+    } else {
+      drawPropStructureSprite(ctx, 'cerca_h_larga', 1080, 836, 190, 32);
+      drawPropStructureSprite(ctx, 'cerca_v', 1072, 738, 22, 115);
+      drawPropStructureSprite(ctx, 'cerca_v', 1256, 738, 22, 115);
+    }
 
     if (!isAlba) {
       ctx.fillStyle = '#451A03';
@@ -588,22 +889,28 @@ export function drawMapGround(ctx, map, faction, time) {
       ctx.fillRect(855, py + 16, 6, 8);
     }
 
-    // Río animado con orillas de roca y espuma blanca en los bordes
-    ctx.fillStyle = '#334155';
-    ctx.fillRect(30, 780, 1540, 110);
-    ctx.fillStyle = '#64748B';
-    ctx.fillRect(30, 784, 1540, 102);
-    ctx.fillStyle = '#1E40AF';
-    ctx.fillRect(30, 790, 1540, 90);
-    ctx.fillStyle = '#2563EB';
-    ctx.fillRect(30, 796, 1540, 78);
-    ctx.fillStyle = 'rgba(224, 242, 254, 0.55)';
-    ctx.fillRect(30, 790, 1540, 3);
-    ctx.fillRect(30, 877, 1540, 3);
-    const waveShift = (time * 45) % 90;
-    for (let rx = 30; rx < 1540; rx += 90) {
-      ctx.fillRect(rx + waveShift, 815, 36, 4);
-      ctx.fillRect(rx + ((waveShift + 45) % 90), 850, 28, 4);
+    // Río continuo con orillas de césped y tierra (seamless_tiles_sheet: rio_cesped)
+    if (getAsset('seamless_tiles_sheet')) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(30, 774, 1540, 124);
+      ctx.clip();
+      const segW = 360;
+      const period = segW * 2;
+      const riverShift = Math.floor(time * 24) % period;
+      let segIdx = 0;
+      for (let rx = 30 - period; rx < 1570 + period; rx += segW) {
+        drawSeamlessTileSprite(ctx, 'rio_cesped', rx + riverShift, 774, segW + 1, 124, segIdx % 2 === 1);
+        segIdx++;
+      }
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(30, 780, 1540, 110);
+      ctx.fillStyle = '#64748B';
+      ctx.fillRect(30, 784, 1540, 102);
+      ctx.fillStyle = getTexturePattern(ctx, 'clear_water') || '#1E40AF';
+      ctx.fillRect(30, 790, 1540, 90);
     }
     const rippleSheet = getAsset('fx_ondas_agua');
     if (rippleSheet) {
@@ -614,41 +921,40 @@ export function drawMapGround(ctx, map, faction, time) {
       }
     }
 
-    // Puente de madera vieja con tablones, barandillas laterales y postes
+    // Puente de madera vertical nativo en perspectiva 3/4 (barandillas a izquierda/derecha y entradas norte/sur abiertas)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-    ctx.fillRect(724, 788, 164, 102);
-    ctx.fillStyle = '#3B2314';
-    ctx.fillRect(718, 783, 164, 104);
-    ctx.fillStyle = '#78350F';
-    ctx.fillRect(722, 785, 156, 100);
-    ctx.fillStyle = '#92400E';
-    for (let by = 791; by < 880; by += 12) {
-      ctx.fillRect(728, by, 144, 8);
-      ctx.fillStyle = '#B45309';
-      ctx.fillRect(728, by, 144, 2);
+    ctx.fillRect(728, 766, 150, 140);
+    if (!drawWorldUpgradeSprite(ctx, 'puente_madera_v', 722, 758, 156, 152) && !drawPropStructureSprite(ctx, 'puente_madera', 722, 764, 156, 144, true)) {
+      ctx.fillStyle = '#3B2314';
+      ctx.fillRect(718, 783, 164, 104);
+      ctx.fillStyle = '#78350F';
+      ctx.fillRect(722, 785, 156, 100);
       ctx.fillStyle = '#92400E';
-    }
-    // Barandillas y postes del puente
-    ctx.fillStyle = '#3B2314';
-    ctx.fillRect(718, 783, 8, 104);
-    ctx.fillRect(874, 783, 8, 104);
-    for (let py = 785; py <= 875; py += 28) {
-      ctx.fillStyle = '#F2B63D';
-      ctx.fillRect(719, py, 6, 6);
-      ctx.fillRect(875, py, 6, 6);
+      for (let by = 791; by < 880; by += 12) {
+        ctx.fillRect(728, by, 144, 8);
+        ctx.fillStyle = '#B45309';
+        ctx.fillRect(728, by, 144, 2);
+        ctx.fillStyle = '#92400E';
+      }
+      ctx.fillStyle = '#3B2314';
+      ctx.fillRect(718, 783, 8, 104);
+      ctx.fillRect(874, 783, 8, 104);
+      for (let py = 785; py <= 875; py += 28) {
+        ctx.fillStyle = '#F2B63D';
+        ctx.fillRect(719, py, 6, 6);
+        ctx.fillRect(875, py, 6, 6);
+      }
     }
 
-    // Grietas moradas luminosas del Vacío al norte y pared de montaña
-    const voidGlow = 0.55 + Math.sin(time * 4) * 0.25;
-    ctx.fillStyle = `rgba(147, 51, 234, ${voidGlow * 0.45})`;
-    ctx.fillRect(534, 316, 122, 16);
-    ctx.fillRect(974, 276, 132, 16);
-    ctx.fillStyle = '#A855F7';
-    ctx.fillRect(540, 320, 110, 6);
-    ctx.fillRect(980, 280, 120, 6);
-    ctx.fillStyle = '#F0ABFC';
-    ctx.fillRect(550, 322, 90, 2);
-    ctx.fillRect(990, 282, 100, 2);
+    // Grietas moradas luminosas del Vacío al norte (Paquete 1) y pared de montaña
+    if (!drawPropStructureSprite(ctx, 'grieta_vacio', 530, 308, 130, 32)) {
+      const voidGlow = 0.55 + Math.sin(time * 4) * 0.25;
+      ctx.fillStyle = `rgba(147, 51, 234, ${voidGlow * 0.45})`;
+      ctx.fillRect(534, 316, 122, 16);
+      ctx.fillStyle = '#A855F7';
+      ctx.fillRect(540, 320, 110, 6);
+    }
+    drawPropStructureSprite(ctx, 'grieta_vacio', 970, 268, 136, 32);
 
     ctx.fillStyle = getTexturePattern(ctx, 'cave_stone') || '#334155';
     ctx.fillRect(30, 30, 670, 160);
@@ -661,141 +967,389 @@ export function drawMapGround(ctx, map, faction, time) {
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#090512';
     ctx.fillRect(30, 665, 1540, 160);
+    // Bordes de abismo rocosos (Paquete 2)
+    for (let ax = 30; ax < 720; ax += 138) drawPropStructureSprite(ctx, 'borde_abismo', ax, 648, 140, 56);
+    for (let ax = 875; ax < 1560; ax += 138) drawPropStructureSprite(ctx, 'borde_abismo', ax, 648, 140, 56);
     ctx.fillStyle = `rgba(147, 51, 234, ${0.3 + Math.sin(time * 3) * 0.12})`;
     ctx.fillRect(30, 730, 1540, 28);
-    ctx.fillStyle = getTexturePattern(ctx, 'cobble_alba') || '#475569';
-    ctx.fillRect(725, 660, 150, 170);
-    drawStoneCurbRect(725, 660, 150, 170, true);
-    ctx.strokeStyle = '#64748B';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(430, 990, 220, 14);
+    // Arena circular de runas del Vacío bajo el Jefe Malakor
+    drawWorldUpgradeSprite(ctx, 'arena_malakor', 660, 178, 280, 168);
+    // Puente de piedra oscura / obsidiana vertical nativo sobre el abismo
+    if (!drawWorldUpgradeSprite(ctx, 'puente_obsidiana_v', 716, 646, 168, 198) && !drawPropStructureSprite(ctx, 'puente_obsidiana', 716, 646, 168, 198, true)) {
+      ctx.fillStyle = getTexturePattern(ctx, 'cobble_alba') || '#475569';
+      ctx.fillRect(725, 660, 150, 170);
+      drawStoneCurbRect(725, 660, 150, 170, true);
+    }
+    // Rieles de madera y acero bajo las vagonetas de la Cueva
+    if (!drawWorldUpgradeSprite(ctx, 'riel_mina', 405, 1002, 235, 36)) {
+      ctx.strokeStyle = '#64748B';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(430, 990, 220, 14);
+    }
+    drawWorldUpgradeSprite(ctx, 'riel_mina', 1020, 962, 235, 36);
   } else if (map.id === 'desierto') {
     ctx.fillStyle = getTexturePattern(ctx, 'ash_sand') || '#44403C';
     ctx.fillRect(0, 0, W, H);
-    const lavaPulse = 0.65 + Math.sin(time * 4) * 0.25;
-    ctx.fillStyle = `rgba(234, 88, 12, ${lavaPulse})`;
-    ctx.fillRect(340, 840, 180, 12);
-    ctx.fillRect(1090, 790, 210, 12);
-    ctx.fillRect(520, 410, 120, 10);
-    ctx.fillStyle = '#FEF08A';
-    ctx.fillRect(350, 844, 160, 4);
-    ctx.fillRect(1100, 794, 190, 4);
-    ctx.fillRect(530, 413, 100, 3);
+    // Cráter volcánico circular de la arena del Jefe Ignis
+    drawWorldUpgradeSprite(ctx, 'arena_ignis', 655, 172, 290, 174);
+    // Grietas incandescentes de lava (Paquete 1)
+    if (!drawPropStructureSprite(ctx, 'grieta_lava', 340, 830, 180, 32)) {
+      const lavaPulse = 0.65 + Math.sin(time * 4) * 0.25;
+      ctx.fillStyle = `rgba(234, 88, 12, ${lavaPulse})`;
+      ctx.fillRect(340, 840, 180, 12);
+    }
+    drawPropStructureSprite(ctx, 'grieta_lava', 1090, 780, 210, 32);
+    drawPropStructureSprite(ctx, 'grieta_lava', 520, 400, 130, 28);
   } else if (map.id === 'montanas') {
     ctx.fillStyle = getTexturePattern(ctx, 'snow_ground') || '#CBD5E1';
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#38BDF8';
+    // Círculo rúnico congelado de la arena del Jefe Boreas
+    drawWorldUpgradeSprite(ctx, 'arena_boreas', 660, 170, 280, 168);
+    // Lago congelado con grietas y patrón continuo sin costuras (seamless_tiles_sheet)
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(280, 420, 1040, 310, 26);
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = getTexturePattern(ctx, 'ice_lake') || '#7DD3FC';
     ctx.fillRect(280, 420, 1040, 310);
-    ctx.fillStyle = '#7DD3FC';
-    ctx.fillRect(288, 428, 1024, 294);
-    ctx.fillStyle = 'rgba(255,255,255,0.38)';
-    for (let ix = 310; ix < 1280; ix += 140) {
-      ctx.fillRect(ix, 460, 64, 6);
-      ctx.fillRect(ix + 35, 590, 48, 5);
-    }
+    ctx.restore();
     ctx.strokeStyle = '#E0F2FE';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(280, 420, 1040, 310);
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    ctx.strokeStyle = '#7DD3FC';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
   } else if (map.id === 'fortaleza') {
     ctx.fillStyle = getTexturePattern(ctx, 'obsidian_floor') || '#120D1D';
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#06030C';
     ctx.fillRect(30, 895, 650, 375);
     ctx.fillRect(920, 895, 650, 375);
+    for (let ax = 30; ax < 670; ax += 138) drawPropStructureSprite(ctx, 'borde_abismo', ax, 882, 140, 56);
+    for (let ax = 920; ax < 1560; ax += 138) drawPropStructureSprite(ctx, 'borde_abismo', ax, 882, 140, 56);
+    // Puente de obsidiana vertical nativo a la entrada de la Fortaleza
     ctx.fillStyle = getTexturePattern(ctx, 'obsidian_floor') || '#27203A';
     ctx.fillRect(680, 890, 240, 370);
-    // Alfombra imperial púrpura y dorada hacia el Trono de Vaelor
+    if (!drawWorldUpgradeSprite(ctx, 'puente_obsidiana_v', 676, 890, 248, 190)) {
+      drawPropStructureSprite(ctx, 'puente_obsidiana', 676, 890, 248, 190, true);
+    }
+    if (!drawWorldUpgradeSprite(ctx, 'puente_obsidiana_v', 676, 1075, 248, 190)) {
+      drawPropStructureSprite(ctx, 'puente_obsidiana', 676, 1075, 248, 190, true);
+    }
+    // Alfombra imperial púrpura y dorada continua hacia el Trono de Vaelor (seamless_tiles_sheet)
     ctx.fillStyle = '#3B0764';
     ctx.fillRect(746, 275, 108, 960);
-    ctx.fillStyle = '#F2B63D';
-    ctx.fillRect(746, 275, 4, 960);
-    ctx.fillRect(850, 275, 4, 960);
-    ctx.strokeStyle = '#4C1D95';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(680, 890, 240, 370);
-    const vp = 0.5 + Math.sin(time * 5) * 0.25;
-    ctx.fillStyle = `rgba(168, 85, 247, ${vp})`;
-    ctx.fillRect(420, 460, 140, 8);
-    ctx.fillRect(1040, 460, 140, 8);
+    if (getAsset('seamless_tiles_sheet')) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(742, 275, 116, 960);
+      ctx.clip();
+      for (let cy = 275; cy < 1235; cy += 180) {
+        drawSeamlessTileSprite(ctx, 'alfombra_continua', 742, cy, 116, 180);
+      }
+      ctx.restore();
+      // Remate dorado superior e inferior del pasillo real
+      ctx.fillStyle = '#D9A441';
+      ctx.fillRect(744, 275, 112, 4);
+      ctx.fillRect(744, 1231, 112, 4);
+    } else {
+      for (let cy = 275; cy < 1180; cy += 120) {
+        drawPropStructureSprite(ctx, 'tile_alfombra_real', 744, cy, 112, 124);
+      }
+    }
+    // Sello imperial octogonal de la arena del Jefe Vaelor frente al Trono
+    drawWorldUpgradeSprite(ctx, 'arena_vaelor', 665, 195, 270, 162);
+    drawPropStructureSprite(ctx, 'grieta_vacio', 420, 448, 140, 32);
+    drawPropStructureSprite(ctx, 'grieta_vacio', 1040, 448, 140, 32);
   }
 
-  ctx.fillStyle = '#0F172A';
-  ctx.fillRect(0, 0, W, 30);
-  ctx.fillRect(0, H - 30, W, 30);
-  ctx.fillRect(0, 0, 30, H);
-  ctx.fillRect(W - 30, 0, 30, H);
+  // Muros perimetrales / acantilados de 8 piezas (Norte, Sur, Oeste, Este + 4 Esquinas) por bioma (9-Slice)
+  const borderBiomeKey =
+    map.id === 'montanas'
+      ? 'nieve'
+      : map.id === 'desierto'
+      ? 'desierto'
+      : map.id === 'cueva' || map.id === 'fortaleza'
+      ? 'cueva'
+      : 'bosque';
+  if (!drawBiomePerimeterFrame(ctx, borderBiomeKey, W, H)) {
+    ctx.fillStyle = '#0F172A';
+    ctx.fillRect(0, 0, W, 30);
+    ctx.fillRect(0, H - 30, W, 30);
+    ctx.fillRect(0, 0, 30, H);
+    ctx.fillRect(W - 30, 0, 30, H);
+  }
+
+  // Zonas de Terreno (Estanques orgánicos naturales para Lava y Agua Corrupta, y orilla redondeada para Agua Clara)
+  for (const tz of map.terrainZones || []) {
+    const pulse = 0.14 + Math.sin(time * 4.5 + tz.x * 0.02) * 0.07;
+    if (tz.kind === 'lava' && drawWorldUpgradeSprite(ctx, 'lago_lava_organico', tz.x - 14, tz.y - 12, tz.w + 28, tz.h + 24)) {
+      ctx.save();
+      ctx.fillStyle = `rgba(251, 146, 60, ${(pulse * 0.85).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(tz.x + tz.w / 2, tz.y + tz.h / 2, tz.w * 0.42, tz.h * 0.36, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
+    if (tz.kind === 'corrupt_water' && drawWorldUpgradeSprite(ctx, 'lago_corrupto_organico', tz.x - 14, tz.y - 12, tz.w + 28, tz.h + 24)) {
+      ctx.save();
+      ctx.fillStyle = `rgba(168, 85, 247, ${(pulse * 0.85).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(tz.x + tz.w / 2, tz.y + tz.h / 2, tz.w * 0.42, tz.h * 0.36, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
+    if (tz.kind === 'shallow_water' && drawWorldUpgradeSprite(ctx, 'oasis_desierto', tz.x - 16, tz.y - 30, tz.w + 32, tz.h + 42)) {
+      continue;
+    }
+
+    const patName =
+      tz.kind === 'lava'
+        ? 'lava_pool'
+        : tz.kind === 'corrupt_water'
+        ? 'corrupt_lake'
+        : 'clear_water';
+    const fallbackCol =
+      tz.kind === 'lava'
+        ? '#EA580C'
+        : tz.kind === 'corrupt_water'
+        ? '#4C1D95'
+        : '#0284C7';
+    const rimCol =
+      tz.kind === 'lava'
+        ? '#7C2D12'
+        : tz.kind === 'corrupt_water'
+        ? '#3B0764'
+        : '#0369A1';
+    const glowCol =
+      tz.kind === 'lava'
+        ? 'rgba(234, 88, 12, 0.28)'
+        : tz.kind === 'corrupt_water'
+        ? 'rgba(147, 51, 234, 0.26)'
+        : 'rgba(56, 189, 248, 0.22)';
+
+    ctx.save();
+    ctx.fillStyle = glowCol;
+    ctx.beginPath();
+    ctx.roundRect(tz.x - 6, tz.y - 6, tz.w + 12, tz.h + 12, 26);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.roundRect(tz.x, tz.y, tz.w, tz.h, 20);
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = getTexturePattern(ctx, patName) || fallbackCol;
+    ctx.fillRect(tz.x, tz.y, tz.w, tz.h);
+    ctx.fillStyle = `rgba(186, 230, 253, ${(pulse * 0.65).toFixed(2)})`;
+    ctx.fillRect(tz.x, tz.y, tz.w, tz.h);
+    ctx.restore();
+
+    ctx.strokeStyle = rimCol;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Animaciones de agua/río/cascada en bucle + escaleras + detalles de suelo sin colisión (Recurso 2 y 4)
+  for (const al of map.animatedLoops || []) {
+    if (al.kind === 'anim_river_horiz' || al.kind === 'anim_water_wave') {
+      const shift = Math.floor(time * 26) % 24;
+      drawMapSheetSprite(ctx, al.kind, al.x - shift * 0.5, al.y, al.w + 12, al.h, time);
+    } else {
+      drawMapSheetSprite(ctx, al.kind, al.x, al.y, al.w, al.h, time);
+    }
+  }
+  for (const st of map.stairs || []) {
+    drawMapSheetSprite(ctx, st.kind, st.x, st.y, st.w, st.h, time);
+  }
+  for (const gd of map.groundDetails || []) {
+    drawMapSheetSprite(ctx, gd.kind, gd.x - gd.w * 0.5, gd.y - gd.h * 0.5, gd.w, gd.h, time);
+  }
 }
 
-export function drawWeatherOverlay(ctx, map, vw, vh, time) {
+// Simulación física independiente en coordenadas del mundo (1600x1300) para el clima (no se arrastra con la cámara del jugador)
+const weatherWorldState = {
+  mapId: null,
+  lastTime: 0,
+  particles: []
+};
+
+function ensureWeatherParticles(map, time) {
+  if (weatherWorldState.mapId === map.id && weatherWorldState.particles.length > 0) return;
+  weatherWorldState.mapId = map.id;
+  weatherWorldState.lastTime = time;
+  weatherWorldState.particles = [];
+  const count =
+    map.weather === 'snow'
+      ? 95
+      : map.weather === 'ash'
+      ? 75
+      : map.weather === 'void_storm'
+      ? 65
+      : map.weather === 'butterflies'
+      ? 26
+      : 0;
+  for (let i = 0; i < count; i++) {
+    weatherWorldState.particles.push(spawnWeatherParticle(map.weather, true, i));
+  }
+}
+
+function spawnWeatherParticle(kind, randomY = false, seed = 0) {
+  const wx = Math.random() * MAP_WIDTH;
+  const wy = randomY ? Math.random() * MAP_HEIGHT : kind === 'void_storm' ? MAP_HEIGHT + 20 : -20;
+  if (kind === 'snow') {
+    return {
+      wx,
+      wy,
+      vx: -14 + Math.random() * 28,
+      vy: 58 + Math.random() * 44,
+      swayFreq: 1.6 + Math.random() * 1.8,
+      swayAmp: 18 + Math.random() * 22,
+      phase: Math.random() * Math.PI * 2,
+      size: 13 + Math.random() * 6,
+      seed
+    };
+  }
+  if (kind === 'ash') {
+    return {
+      wx,
+      wy,
+      vx: 22 + Math.random() * 26,
+      vy: 38 + Math.random() * 34,
+      swayFreq: 2.0 + Math.random() * 2.0,
+      swayAmp: 15 + Math.random() * 18,
+      phase: Math.random() * Math.PI * 2,
+      size: 13 + Math.random() * 5,
+      seed
+    };
+  }
+  if (kind === 'void_storm') {
+    return {
+      wx,
+      wy,
+      vx: -10 + Math.random() * 20,
+      vy: -(42 + Math.random() * 38),
+      swayFreq: 2.4 + Math.random() * 2.2,
+      swayAmp: 14 + Math.random() * 16,
+      phase: Math.random() * Math.PI * 2,
+      size: 16 + Math.random() * 6,
+      seed
+    };
+  }
+  // Mariposas del Bosque de la Fractura
+  return {
+    wx,
+    wy: 560 + Math.random() * 680,
+    vx: -24 + Math.random() * 48,
+    vy: -14 + Math.random() * 28,
+    swayFreq: 3.2 + Math.random() * 2.5,
+    swayAmp: 22 + Math.random() * 18,
+    phase: Math.random() * Math.PI * 2,
+    size: 18 + Math.random() * 6,
+    seed
+  };
+}
+
+export function drawWeatherOverlay(ctx, map, vw, vh, time, camX = 0, camY = 0) {
+  if (!map.weather) return;
+  ensureWeatherParticles(map, time);
+  const dt = Math.max(0.001, Math.min(0.05, time - weatherWorldState.lastTime));
+  weatherWorldState.lastTime = time;
+
   if (map.weather === 'butterflies') {
-    // Rayos de luz volumétrica (god-rays) animados en los claros del Bosque de la Fractura
+    // Rayos de luz volumétrica (god-rays) anclados en claros reales del Bosque (no pegados a la cámara)
     const sunbeamSheet = getAsset('fx_rayos_luz');
     if (sunbeamSheet) {
       const sbFrame = Math.floor(time * 5) % 4;
       const m = getSpriteFrameMetrics(sunbeamSheet, sbFrame);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
-      ctx.globalAlpha = 0.42;
-      ctx.drawImage(sunbeamSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, Math.round(vw * 0.12), 0, 240, 240);
-      ctx.drawImage(sunbeamSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, Math.round(vw * 0.58), 20, 260, 260);
+      ctx.globalAlpha = 0.38;
+      constSpots: for (const [wx, wy, sz] of [
+        [360, 580, 240],
+        [1080, 620, 260],
+        [480, 960, 240],
+        [1140, 980, 250]
+      ]) {
+        const sx = Math.round(wx - camX);
+        const sy = Math.round(wy - camY);
+        if (sx + sz < 0 || sx > vw || sy + sz < 0 || sy > vh) continue constSpots;
+        ctx.drawImage(sunbeamSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, sx, sy, sz, sz);
+      }
       ctx.restore();
     }
-    const bfSheet = getAsset('fx_clima_mariposas');
-    for (let i = 0; i < 8; i++) {
-      const bx = ((i * 190 + time * 24) % vw);
-      const by = 80 + ((i * 95) % (vh - 140)) + Math.sin(time * 4 + i) * 14;
-      if (bfSheet) {
-        const fIdx = Math.floor(time * 10 + i) % 4;
-        drawFootAnchoredSprite(ctx, bfSheet, bx, by + 10, 22, { frameIndex: fIdx });
-      } else {
-        ctx.fillStyle = '#FEF08A';
-        ctx.fillRect(bx, by, 4, 3);
+  }
+
+  const sheetKey =
+    map.weather === 'butterflies'
+      ? 'fx_clima_mariposas'
+      : map.weather === 'ash'
+      ? 'fx_clima_ceniza'
+      : map.weather === 'snow'
+      ? 'fx_clima_nieve'
+      : 'fx_clima_vacio';
+  const sheet = getAsset(sheetKey);
+
+  for (const p of weatherWorldState.particles) {
+    // Actualizar física real en el mundo (gravedad + viento turbulento)
+    const wind = Math.sin(time * p.swayFreq + p.phase) * p.swayAmp;
+    p.wx += (p.vx + wind) * dt;
+    p.wy += p.vy * dt;
+
+    if (map.weather === 'butterflies') {
+      p.wy += Math.cos(time * 3.5 + p.phase) * 18 * dt;
+      if (p.wx < 40) { p.wx = 40; p.vx = Math.abs(p.vx); }
+      if (p.wx > MAP_WIDTH - 40) { p.wx = MAP_WIDTH - 40; p.vx = -Math.abs(p.vx); }
+      if (p.wy < 540) { p.wy = 540; p.vy = Math.abs(p.vy); }
+      if (p.wy > MAP_HEIGHT - 40) { p.wy = MAP_HEIGHT - 40; p.vy = -Math.abs(p.vy); }
+    } else if (map.weather === 'void_storm') {
+      if (p.wy < -24) {
+        p.wy = MAP_HEIGHT + 16;
+        p.wx = Math.random() * MAP_WIDTH;
       }
-    }
-  } else if (map.weather === 'ash') {
-    const ashSheet = getAsset('fx_clima_ceniza');
-    for (let i = 0; i < 24; i++) {
-      const ax = (i * 97 + time * 18) % vw;
-      const ay = (i * 63 + time * 42) % vh;
-      if (ashSheet) {
-        const fIdx = Math.floor(time * 8 + i) % 4;
-        drawFootAnchoredSprite(ctx, ashSheet, ax, ay + 8, 16, { frameIndex: fIdx, alpha: 0.82 });
-      } else {
-        ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
-        ctx.fillRect(ax, ay, 3, 3);
+      if (p.wx < 0) p.wx += MAP_WIDTH;
+      if (p.wx > MAP_WIDTH) p.wx -= MAP_WIDTH;
+    } else {
+      // Nieve o ceniza cayendo con gravedad real hacia el suelo del mundo
+      if (p.wy > MAP_HEIGHT + 24) {
+        p.wy = -16;
+        p.wx = Math.random() * MAP_WIDTH;
       }
+      if (p.wx < 0) p.wx += MAP_WIDTH;
+      if (p.wx > MAP_WIDTH) p.wx -= MAP_WIDTH;
     }
-  } else if (map.weather === 'snow') {
-    const snowSheet = getAsset('fx_clima_nieve');
-    for (let i = 0; i < 30; i++) {
-      const sx = (i * 83 + Math.sin(time + i) * 20 + vw) % vw;
-      const sy = (i * 59 + time * 68) % vh;
-      if (snowSheet) {
-        const fIdx = Math.floor(time * 7 + i) % 4;
-        drawFootAnchoredSprite(ctx, snowSheet, sx, sy + 8, 16, { frameIndex: fIdx, alpha: 0.88 });
-      } else {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
-        ctx.fillRect(sx, sy, 4, 4);
-      }
+
+    // Convertir de coordenada del mundo a coordenada de cámara visible
+    const sx = p.wx - camX;
+    const sy = p.wy - camY;
+    if (sx < -32 || sx > vw + 32 || sy < -32 || sy > vh + 32) continue;
+
+    if (sheet) {
+      const fIdx = Math.floor(time * 9 + p.seed) % 4;
+      drawFootAnchoredSprite(ctx, sheet, sx, sy + 8, p.size, {
+        frameIndex: fIdx,
+        alpha: map.weather === 'snow' ? 0.88 : 0.82
+      });
+    } else {
+      ctx.fillStyle =
+        map.weather === 'snow'
+          ? 'rgba(255, 255, 255, 0.8)'
+          : map.weather === 'ash'
+          ? 'rgba(251, 146, 60, 0.55)'
+          : map.weather === 'void_storm'
+          ? 'rgba(192, 132, 252, 0.55)'
+          : '#FEF08A';
+      ctx.fillRect(Math.round(sx), Math.round(sy), 4, 4);
     }
-  } else if (map.weather === 'void_storm') {
-    const voidSheet = getAsset('fx_clima_vacio');
-    for (let i = 0; i < 18; i++) {
-      const vx = (i * 113) % vw;
-      const vy = (vh - ((i * 71 + time * 35) % vh));
-      if (voidSheet) {
-        const fIdx = Math.floor(time * 9 + i) % 4;
-        drawFootAnchoredSprite(ctx, voidSheet, vx, vy + 10, 20, { frameIndex: fIdx, alpha: 0.85 });
-      } else {
-        ctx.fillStyle = 'rgba(192, 132, 252, 0.45)';
-        ctx.fillRect(vx, vy, 3, 5);
-      }
-    }
-    // Rayo suave ocasional al fondo
-    if (Math.sin(time * 1.7) > 0.985) {
-      ctx.fillStyle = 'rgba(192, 132, 252, 0.14)';
-      ctx.fillRect(0, 0, vw, vh);
-    }
+  }
+
+  if (map.weather === 'void_storm' && Math.sin(time * 1.7) > 0.985) {
+    ctx.fillStyle = 'rgba(192, 132, 252, 0.14)';
+    ctx.fillRect(0, 0, vw, vh);
   }
 }
 

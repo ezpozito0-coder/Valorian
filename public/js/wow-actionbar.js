@@ -123,15 +123,24 @@
     if (!entry) return;
 
     if (entry.type === 'skill') {
-      const btn = getSkillBtn(entry.skillIndex);
-      if (btn) btn.click();
+      if (typeof window.__valoriaTriggerSkill === 'function') {
+        window.__valoriaTriggerSkill(entry.skillIndex);
+      } else {
+        const btn = getSkillBtn(entry.skillIndex);
+        if (btn) btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      }
     } else if (entry.type === 'item') {
+      if (typeof window.__valoriaUseItemByName === 'function') {
+        window.__valoriaUseItemByName(entry.name, entry.iconHtml);
+        renderBar();
+        return;
+      }
       const bagBtn = findBagSlotByName(entry.name);
       if (bagBtn) {
         bagBtn.click();
         setTimeout(() => {
-          const useBtn = document.querySelector('.backpack-detail .btn-primary, .backpack-detail .btn-gold, .backpack-detail button');
-          if (useBtn && /usar|equipar|beber|consumir/i.test(useBtn.textContent)) {
+          const useBtn = document.getElementById('btn-char-use-equip') || document.querySelector('.bag-footer-bar .btn-gold');
+          if (useBtn && !useBtn.disabled) {
             useBtn.click();
           }
         }, 20);
@@ -166,7 +175,7 @@
         const srcName = btn?.querySelector('.skill-name')?.textContent || `Habilidad ${entry.skillIndex + 1}`;
         const srcCd = btn?.querySelector('.skill-cd')?.textContent || '';
         cell.title = `${srcName} (Tecla ${i + 1})`;
-        if (srcIcon && iconBox.dataset.skillIdx !== String(entry.skillIndex)) {
+        if (srcIcon && (iconBox.dataset.skillIdx !== String(entry.skillIndex) || iconBox.innerHTML !== srcIcon.innerHTML)) {
           iconBox.innerHTML = srcIcon.innerHTML;
           iconBox.dataset.skillIdx = String(entry.skillIndex);
         }
@@ -175,9 +184,16 @@
       } else if (entry.type === 'item') {
         iconBox.dataset.skillIdx = '';
         iconBox.innerHTML = entry.iconHtml || '';
-        cell.title = `${entry.name} (Tecla ${i + 1})`;
-        const bagBtn = findBagSlotByName(entry.name);
-        const qty = bagBtn?.querySelector('.bag-slot-qty')?.textContent || '';
+        const cleanLabel = String(entry.name || 'Objeto').split(' (x')[0].split(':')[0].trim();
+        cell.title = `${cleanLabel} (Tecla ${i + 1})`;
+        let qty = '';
+        if (typeof window.__valoriaGetItemQtyByName === 'function') {
+          const liveQty = window.__valoriaGetItemQtyByName(entry.name, entry.iconHtml);
+          qty = liveQty > 0 ? String(liveQty) : '0';
+        } else {
+          const bagBtn = findBagSlotByName(entry.name);
+          qty = bagBtn?.querySelector('.bag-slot-qty')?.textContent || '';
+        }
         qtyBox.textContent = qty;
         cdBox.textContent = '';
       }
@@ -218,6 +234,20 @@
         try { e.dataTransfer.setData('text/plain', sel); } catch (_) {}
       });
     });
+
+    // Permitir arrastrar habilidades desde Características -> Habilidades ([data-skill-index])
+    document.querySelectorAll('[data-skill-index]').forEach((el) => {
+      if (el.dataset.wowDragReady) return;
+      el.dataset.wowDragReady = '1';
+      el.draggable = true;
+      el.addEventListener('dragstart', (e) => {
+        const skillIndex = Number(el.dataset.skillIndex);
+        if (Number.isNaN(skillIndex)) return;
+        dragPayload = { source: 'external', entry: { type: 'skill', skillIndex } };
+        droppedOnSlot = false;
+        try { e.dataTransfer.setData('text/plain', String(skillIndex)); } catch (_) {}
+      });
+    });
   }
 
 const isPlaying = () =>
@@ -228,8 +258,13 @@ const isPlaying = () =>
   window.addEventListener('keydown', (e) => {
     if (!isPlaying()) return;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-    const num = parseInt(e.key, 10);
+    let num = parseInt(e.key, 10);
+    if ((Number.isNaN(num) || num < 1 || num > TOTAL_SLOTS) && e.code) {
+      const m = e.code.match(/^(?:Digit|Numpad)([1-8])$/);
+      if (m) num = parseInt(m[1], 10);
+    }
     if (num >= 1 && num <= TOTAL_SLOTS) {
+      e.preventDefault();
       triggerSlot(num - 1);
     }
   });

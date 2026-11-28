@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -39,6 +40,60 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/saves', savesRoutes);
+
+// Ayudante local para guardar reportes de los 4 personajes IA directamente en mejoras_npc.md
+const MEJORAS_NPC_FILE = path.resolve(__dirname, '../mejoras_npc.md');
+
+app.post('/api/npc-report', async (req, res) => {
+  try {
+    const {
+      characterName = 'Personaje IA',
+      faction = 'Valoria',
+      role = 'Habitante',
+      category = 'Deseo propio',
+      mapName = 'Valoria',
+      suggestion = '',
+      technicalNote = ''
+    } = req.body || {};
+
+    if (!suggestion || typeof suggestion !== 'string') {
+      return res.status(400).json({ error: 'Sugerencia vacía.' });
+    }
+
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const entry = [
+      `\n## [${now}] ${characterName} (${role} · ${faction})`,
+      `- **Categoría:** ${category}`,
+      `- **Ubicación:** ${mapName}`,
+      `- **Reporte del Personaje:** "${suggestion.trim()}"`,
+      technicalNote ? `- **Nota para Antigravity / Nano Banana:** ${technicalNote.trim()}` : null,
+      ''
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    try {
+      await fs.access(MEJORAS_NPC_FILE);
+    } catch {
+      const header = `# Reportes y Sugerencias de los Personajes IA de Valoria (mejoras_npc.md)\n\nEste archivo es actualizado automáticamente por los 4 personajes principales (**Lyra — Guerrera Paladín**, **Kaelen — Explorador**, **Grommash — Guerrero de Hierro** y **Zul'jinra — Chamana del Clan**) mediante Gemini Flash y el motor local mientras viven en el mundo.\n`;
+      await fs.writeFile(MEJORAS_NPC_FILE, header, 'utf8');
+    }
+
+    await fs.appendFile(MEJORAS_NPC_FILE, entry, 'utf8');
+    res.json({ status: 'saved', file: 'mejoras_npc.md', timestamp: now });
+  } catch (err) {
+    res.status(500).json({ error: 'No se pudo escribir en mejoras_npc.md', details: err?.message });
+  }
+});
+
+app.get('/api/npc-reports', async (_req, res) => {
+  try {
+    const content = await fs.readFile(MEJORAS_NPC_FILE, 'utf8');
+    res.json({ status: 'ok', content });
+  } catch {
+    res.json({ status: 'ok', content: '' });
+  }
+});
 
 // Archivos estáticos con caché inteligente
 app.use(

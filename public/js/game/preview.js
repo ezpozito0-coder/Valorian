@@ -10,6 +10,8 @@ import { drawCanvasPixelBadge } from './pixelArt.js';
 import {
   getAsset,
   getHeroClassAsset,
+  getBaseRace3x5Asset,
+  getGrid3x5CellAnchors,
   getPetAsset,
   getSkillIconUrl,
   getSpriteFrameMetrics,
@@ -468,75 +470,451 @@ function drawDetailedFemaleSprite(ctx, cx, cy, scale, { faction, race, heroClass
   }
 }
 
+/**
+ * Dibuja las Alas equipadas (Alas del Vacío o Alas de Luz) ancladas exactamente a los omóplatos reales
+ * del personaje, moviéndose con su salto, caminata y estocada, y respetando el Z-order (frente/lado vs espalda).
+ */
+function drawAnchoredHeroWings(ctx, wingAnchorX, wingAnchorY, scale, wingsType, time, isSide = false, facingLeft = false) {
+  if (!wingsType) return;
+  const flap = Math.sin(time * 5) * 1.8 * scale;
+  const isVoid = wingsType === 'alas_vacio';
+  const outer = isVoid ? '#4C1D95' : '#94A3B8';
+  const mid = isVoid ? '#9333EA' : '#E2E8F0';
+  const inner = isVoid ? '#C084FC' : '#F8FAFC';
+  const glow = isVoid ? '#F0ABFC' : '#FEF08A';
+
+  ctx.save();
+  if (isVoid) {
+    ctx.fillStyle = 'rgba(147, 51, 234, 0.16)';
+    ctx.beginPath();
+    ctx.ellipse(wingAnchorX, wingAnchorY + 2 * scale, 18 * scale, 13 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const drawWing = (side, scaleMult = 1) => {
+    const lift = flap * 0.55;
+    const feathers = [
+      { len: 18 * scaleMult, ang: -0.98, w: 3.8 },
+      { len: 21 * scaleMult, ang: -0.66, w: 4.2 },
+      { len: 20 * scaleMult, ang: -0.34, w: 4.2 },
+      { len: 16 * scaleMult, ang: -0.04, w: 3.8 },
+      { len: 12 * scaleMult, ang: 0.28, w: 3.2 }
+    ];
+    const ox = wingAnchorX + side * 3.2 * scale * scaleMult;
+    const oy = wingAnchorY;
+    for (let i = feathers.length - 1; i >= 0; i--) {
+      const f = feathers[i];
+      const a = f.ang + (-lift / (18 * scale)) * (1 - i * 0.12);
+      const dx = Math.cos(a) * f.len * scale * side;
+      const dy = Math.sin(a) * f.len * scale;
+      const nx = -Math.sin(a) * f.w * scale * 0.45 * side * -1;
+      const ny = Math.cos(a) * f.w * scale * 0.45;
+      const path = () => {
+        ctx.beginPath();
+        ctx.moveTo(ox + nx, oy + ny);
+        ctx.lineTo(ox + dx + nx * 0.45, oy + dy + ny * 0.45);
+        ctx.lineTo(ox + dx * 1.04, oy + dy * 1.04);
+        ctx.lineTo(ox + dx - nx * 0.45, oy + dy - ny * 0.45);
+        ctx.lineTo(ox - nx, oy - ny);
+        ctx.closePath();
+      };
+      ctx.fillStyle = '#0D0A14';
+      path();
+      ctx.fill();
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(0.84, 0.84);
+      ctx.translate(-ox, -oy);
+      ctx.fillStyle = i === 0 ? inner : i % 2 === 0 ? outer : mid;
+      path();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = glow;
+    ctx.fillRect(Math.round(ox - side * 1.5 * scale - 1), Math.round(oy - 1.5 * scale), Math.max(2, Math.round(2.4 * scale)), Math.max(2, Math.round(2.4 * scale)));
+  };
+
+  if (isSide) {
+    // En vista lateral las alas se proyectan hacia la espalda del personaje
+    const backSide = facingLeft ? 1 : -1;
+    drawWing(backSide, 0.92);
+  } else {
+    drawWing(-1, 1);
+    drawWing(1, 1);
+  }
+  ctx.restore();
+}
+
+/**
+ * Renderiza las capas modulares de armadura y arma sobre el cuerpo base 3x5 sin armadura,
+ * adaptadas exactamente a los puntos de anclaje anatómicos reales (cabeza, cuello, torso, manos, piernas y pies)
+ * de cada raza y cuadro (rowIndex: 0=frente, 1=lado, 2=espalda; colIndex: 0=idle, 1/2=walk, 3=jump, 4=attack)
+ * con estética Pixel Art 16-bit sombreada.
+ */
+function drawHeroEquipmentLayers(ctx, anchorX, anchorY, s, state, { rowIndex, colIndex, flipX, drawW, drawH, anchors }) {
+  const heroClass = state.heroClass || 'guerrero';
+  const isHierro = state.faction === 'hierro';
+  const gear = state.gearSlots || {
+    casco: null, pechera: 'base', guanteletes: null, guantes: null, pierneras: null, botas: null,
+    arma: 'base', alas: null, collar: null
+  };
+  const armorPlus = state.equipment?.armor?.plus || 0;
+  const armorQual = state.equipment?.armor?.quality || 0;
+  const weaponPlus = state.equipment?.weapon?.plus || 0;
+
+  const primary = isHierro ? '#9E2A2B' : '#1E4E8C';
+  const primaryHi = isHierro ? '#EF4444' : '#3B82F6';
+  const primaryDark = isHierro ? '#5F1415' : '#132F57';
+  const trim = armorQual >= 4 ? '#FDE047' : armorQual >= 2 ? '#F2B63D' : isHierro ? '#D97706' : '#CBD5E1';
+  const trimHi = '#FEF08A';
+  const plate = armorPlus >= 9 ? '#E2E8F0' : '#94A3B8';
+  const plateHi = '#F8FAFC';
+  const plateDark = '#475569';
+  const leather = '#78350F';
+  const leatherHi = '#B45309';
+  const leatherDark = '#451A03';
+  const outline = '#0D0A14';
+
+  const effW = drawW || 38 * s;
+  const effH = drawH || 38 * s;
+  const a = anchors || {
+    topY: -0.82, footY: -0.02, charW: 0.42, charH: 0.80,
+    headCx: 0, headTopY: -0.82, headW: 0.18, headH: 0.18,
+    neckCx: 0, neckY: -0.62,
+    torsoCx: 0, torsoTopY: -0.61, torsoW: 0.20, torsoH: 0.24,
+    leftHandX: -0.17, leftHandY: -0.44, rightHandX: 0.17, rightHandY: -0.44,
+    legTopY: -0.32, legH: 0.18, leftLegCx: -0.07, rightLegCx: 0.07, legW: 0.09,
+    footTopY: -0.14, footH: 0.12, leftFootCx: -0.08, rightFootCx: 0.08, footW: 0.10
+  };
+
+  const u = Math.max(0.75, s * 0.52);
+  const pStep = Math.max(1, Math.round(0.6 * u));
+  const isSide = rowIndex === 1;
+  const isBack = rowIndex === 2;
+  const isWalk1 = colIndex === 1;
+  const isWalk2 = colIndex === 2;
+  const isJump = colIndex === 3;
+  const isAttack = colIndex === 4;
+
+  // Balanceo vertical de 1px al caminar para que todas las piezas acompañen el paso
+  const walkBobY = (isWalk1 || isWalk2) ? -0.9 * u : 0;
+
+  ctx.save();
+  ctx.translate(Math.round(anchorX), Math.round(anchorY));
+  if (flipX) ctx.scale(-1, 1);
+
+  const r = (ox, oy, ow, oh, col) => {
+    ctx.fillStyle = col;
+    ctx.fillRect(Math.round(ox), Math.round(oy), Math.max(1, Math.round(ow)), Math.max(1, Math.round(oh)));
+  };
+  const rShaded = (ox, oy, ow, oh, baseCol, hiCol, darkCol) => {
+    const x = Math.round(ox);
+    const y = Math.round(oy);
+    const w = Math.max(2, Math.round(ow));
+    const h = Math.max(2, Math.round(oh));
+    const b = pStep;
+    r(x - b, y - b, w + b * 2, h + b * 2, outline);
+    r(x, y, w, h, baseCol);
+    if (hiCol && h >= 3) r(x, y, w, Math.max(1, Math.round(h * 0.28)), hiCol);
+    if (darkCol && h >= 3) r(x, y + h - Math.max(1, Math.round(h * 0.25)), w, Math.max(1, Math.round(h * 0.25)), darkCol);
+  };
+
+  // Coordenadas anatómicas en píxeles de canvas para este cuadro exacto
+  const headCx = a.headCx * effW;
+  const headTopY = a.headTopY * effH + walkBobY;
+  const headW = Math.max(6 * u, a.headW * effW);
+  const headH = Math.max(6 * u, a.headH * effH);
+
+  const torsoCx = a.torsoCx * effW;
+  const torsoTopY = a.torsoTopY * effH + walkBobY;
+  const torsoW = Math.max(6.5 * u, a.torsoW * effW * (isSide ? 0.72 : 0.86));
+  const torsoH = Math.max(6 * u, a.torsoH * effH * 0.78);
+
+  const legTopY = a.legTopY * effH;
+  const legH = Math.max(3.2 * u, a.legH * effH * 0.72);
+  const legW = Math.max(2.6 * u, a.legW * effW * 0.78);
+  const lLegX = a.leftLegCx * effW;
+  const rLegX = a.rightLegCx * effW;
+
+  const footTopY = a.footTopY * effH;
+  const footH = Math.max(2.4 * u, a.footH * effH * 0.72);
+  const footW = Math.max(2.8 * u, a.footW * effW * 0.80);
+  const lFootX = a.leftFootCx * effW;
+  const rFootX = a.rightFootCx * effW;
+
+  const lHandX = a.leftHandX * effW;
+  const lHandY = a.leftHandY * effH + walkBobY;
+  const rHandX = a.rightHandX * effW;
+  const rHandY = a.rightHandY * effH + walkBobY;
+
+  // Desfase vertical de piernas al caminar (col 1 vs col 2)
+  const lStepY = isWalk1 ? -1.4 * u : isWalk2 ? 0.6 * u : 0;
+  const rStepY = isWalk2 ? -1.4 * u : isWalk1 ? 0.6 * u : 0;
+
+  // 1. Pierneras (Grebas / Musleras) adaptadas a cada pierna
+  if (gear.pierneras) {
+    const legBase = heroClass === 'guerrero' ? plate : heroClass === 'mago' ? primary : leather;
+    const legHi = heroClass === 'guerrero' ? plateHi : heroClass === 'mago' ? primaryHi : leatherHi;
+    const legDk = heroClass === 'guerrero' ? plateDark : heroClass === 'mago' ? primaryDark : leatherDark;
+    if (isSide) {
+      const sideLegX = ((lLegX + rLegX) * 0.5) - legW * 0.55;
+      rShaded(sideLegX, legTopY + lStepY * 0.5, legW * 1.15, legH, legBase, legHi, legDk);
+      r(sideLegX + pStep, legTopY + lStepY * 0.5 + legH * 0.45, legW * 1.15 - pStep * 2, pStep, trim);
+    } else {
+      rShaded(lLegX - legW * 0.5, legTopY + lStepY, legW, legH, legBase, legHi, legDk);
+      rShaded(rLegX - legW * 0.5, legTopY + rStepY, legW, legH, legBase, legHi, legDk);
+      // Rodillera pixel art
+      r(lLegX - legW * 0.3, legTopY + lStepY + pStep, legW * 0.6, pStep, trim);
+      r(rLegX - legW * 0.3, legTopY + rStepY + pStep, legW * 0.6, pStep, trim);
+    }
+  }
+
+  // 2. Botas ancladas a cada pie real
+  if (gear.botas) {
+    const bBase = heroClass === 'guerrero' ? plateDark : leather;
+    const bHi = heroClass === 'guerrero' ? plate : leatherHi;
+    const bDk = heroClass === 'guerrero' ? '#1E293B' : leatherDark;
+    if (isSide) {
+      if (isWalk1 || isWalk2 || isAttack) {
+        rShaded(lFootX - footW * 0.48, footTopY + lStepY, footW * 0.95, footH, bBase, bHi, bDk);
+        rShaded(rFootX - footW * 0.48, footTopY + rStepY, footW * 0.95, footH, bBase, bHi, bDk);
+      } else {
+        const sideFootX = ((lFootX + rFootX) * 0.5) - footW * 0.5;
+        rShaded(sideFootX, footTopY, footW * 1.15, footH, bBase, bHi, bDk);
+        r(sideFootX, footTopY, footW * 0.85, pStep, trim);
+      }
+    } else {
+      rShaded(lFootX - footW * 0.5, footTopY + lStepY, footW, footH, bBase, bHi, bDk);
+      rShaded(rFootX - footW * 0.5, footTopY + rStepY, footW, footH, bBase, bHi, bDk);
+      r(lFootX - footW * 0.4, footTopY + lStepY, footW * 0.8, pStep, trim);
+      r(rFootX - footW * 0.4, footTopY + rStepY, footW * 0.8, pStep, trim);
+    }
+  }
+
+  // 3. Pechera / Coraza / Túnica entallada al torso real (con hombreras y cinturón)
+  if (gear.pechera) {
+    const tx = torsoCx - torsoW * 0.5;
+    const ty = torsoTopY + torsoH * 0.08;
+    const tw = torsoW;
+    const th = torsoH * 0.86;
+    const waistW = tw * 0.82;
+    const waistX = torsoCx - waistW * 0.5;
+
+    if (heroClass === 'guerrero') {
+      // Peto superior y cintura entallada (forma de coraza en V)
+      rShaded(waistX, ty + th * 0.45, waistW, th * 0.55, plateDark, plate, '#1E293B');
+      rShaded(tx, ty, tw, th * 0.58, plate, plateHi, plateDark);
+      // Tabardo central con emblema de facción
+      r(torsoCx - tw * 0.18, ty + pStep, tw * 0.36, th - pStep * 2, primary);
+      r(torsoCx - tw * 0.08, ty + th * 0.22, tw * 0.16, th * 0.32, trim);
+      // Cinturón metálico
+      rShaded(waistX - pStep * 0.5, ty + th - pStep * 2.2, waistW + pStep, pStep * 2.2, leather, trim, leatherDark);
+      r(torsoCx - pStep * 1.2, ty + th - pStep * 2.4, pStep * 2.4, pStep * 2.4, trimHi);
+
+      // Hombreras escalonadas sobre los hombros reales
+      const paulW = Math.max(2.4 * u, tw * 0.34);
+      const paulH = Math.max(2.2 * u, th * 0.38);
+      if (!isSide) {
+        rShaded(tx - paulW * 0.55, ty - pStep, paulW, paulH, plate, plateHi, plateDark);
+        rShaded(tx + tw - paulW * 0.45, ty - pStep, paulW, paulH, plate, plateHi, plateDark);
+        r(tx - paulW * 0.45, ty, paulW * 0.8, pStep, trim);
+        r(tx + tw - paulW * 0.35, ty, paulW * 0.8, pStep, trim);
+      } else {
+        rShaded(torsoCx - paulW * 0.55, ty - pStep, paulW * 1.15, paulH, plate, plateHi, plateDark);
+        r(torsoCx - paulW * 0.4, ty, paulW * 0.85, pStep, trim);
+      }
+    } else if (heroClass === 'mago') {
+      // Túnica arcana entallada con faldón y estola dorada
+      rShaded(waistX - pStep, ty + th * 0.4, waistW + pStep * 2, th * 0.78, primaryDark, primary, '#0F172A');
+      rShaded(tx, ty, tw, th * 0.56, primary, primaryHi, primaryDark);
+      r(torsoCx - tw * 0.16, ty, tw * 0.32, th * 1.12, trim);
+      r(torsoCx - tw * 0.08, ty + pStep, tw * 0.16, th * 1.0, primaryHi);
+      // Hombreras de tela arcana
+      const paulW = Math.max(2.2 * u, tw * 0.32);
+      const paulH = Math.max(1.8 * u, th * 0.30);
+      if (!isSide) {
+        rShaded(tx - paulW * 0.45, ty - pStep * 0.5, paulW, paulH, primaryHi, trim, primaryDark);
+        rShaded(tx + tw - paulW * 0.55, ty - pStep * 0.5, paulW, paulH, primaryHi, trim, primaryDark);
+      } else {
+        rShaded(torsoCx - paulW * 0.5, ty - pStep * 0.5, paulW, paulH, primaryHi, trim, primaryDark);
+      }
+    } else {
+      // Brigantina / Cota de cuero de Arquero con correas cruzadas
+      rShaded(waistX, ty + th * 0.45, waistW, th * 0.55, leatherDark, leather, '#271202');
+      rShaded(tx, ty, tw, th * 0.58, leather, leatherHi, leatherDark);
+      r(tx + pStep, ty + pStep, tw - pStep * 2, th * 0.36, '#15803D');
+      // Correa diagonal y hebilla
+      r(torsoCx - tw * 0.32, ty + pStep, tw * 0.22, pStep * 1.4, trim);
+      r(torsoCx - tw * 0.10, ty + th * 0.28, tw * 0.22, pStep * 1.4, trim);
+      rShaded(waistX, ty + th - pStep * 2, waistW, pStep * 2, leatherDark, leatherHi, '#1C0D02');
+      r(torsoCx - pStep, ty + th - pStep * 2, pStep * 2, pStep * 2, trim);
+    }
+
+    // Si está de espaldas (row 2), dibujar capa corta sobre la espalda
+    if (isBack) {
+      rShaded(tx + pStep * 0.5, ty + pStep, tw - pStep, th * 1.08, primary, primaryHi, primaryDark);
+      r(tx + pStep * 1.5, ty + th * 0.96, tw - pStep * 3, pStep, trim);
+    }
+  }
+
+  // 4. Collar / Amuleto en la base del cuello
+  if (gear.collar && !isBack) {
+    const neckX = (a.neckCx * effW) + (isSide ? 1.0 * u : 0);
+    const neckY = (a.neckY * effH) + walkBobY + 0.8 * u;
+    const isShadow = gear.collar === 'collar_sombras';
+    const gemCol = isShadow ? '#A855F7' : '#38BDF8';
+    const gemHi = isShadow ? '#F0ABFC' : '#E0F2FE';
+    // Cadena dorada + gema central
+    r(neckX - 2.2 * u, neckY - 0.6 * u, 4.4 * u, pStep, trim);
+    rShaded(neckX - 1.2 * u, neckY, 2.4 * u, 2.2 * u, gemCol, gemHi, '#3B0764');
+  }
+
+  // 5. Guanteletes / Guantes anclados directamente a las manos reales de cada cuadro
+  if (gear.guanteletes || gear.guantes) {
+    const gBase = gear.guanteletes ? plate : leather;
+    const gHi = gear.guanteletes ? plateHi : leatherHi;
+    const gDk = gear.guanteletes ? plateDark : leatherDark;
+    const gw = Math.max(2.2 * u, torsoW * 0.24);
+    const gh = Math.max(2.2 * u, torsoH * 0.28);
+    if (isSide) {
+      rShaded(rHandX - gw * 0.65, rHandY - gh * 0.4, gw, gh, gBase, gHi, gDk);
+      r(rHandX - gw * 0.55, rHandY - gh * 0.4, gw * 0.8, pStep, trim);
+    } else {
+      rShaded(lHandX - gw * 0.25, lHandY - gh * 0.45, gw, gh, gBase, gHi, gDk);
+      rShaded(rHandX - gw * 0.75, rHandY - gh * 0.45, gw, gh, gBase, gHi, gDk);
+      r(lHandX - gw * 0.15, lHandY - gh * 0.45, gw * 0.8, pStep, trim);
+      r(rHandX - gw * 0.65, rHandY - gh * 0.45, gw * 0.8, pStep, trim);
+    }
+  }
+
+  // 6. Casco / Corona / Sombrero encajado sobre la frente/coronilla real (sin flotar ni tapar ojos)
+  if (gear.casco) {
+    const isFrostHelm = gear.casco === 'casco_escarcha';
+    const hw = headW * (isSide ? 0.92 : 0.98);
+    const hx = headCx - hw * 0.5;
+    // Se asienta exactamente sobre el tercio superior de la cabeza real (frente/coronilla)
+    const hy = headTopY + headH * 0.04;
+    const hh = Math.max(2.6 * u, headH * 0.36);
+
+    if (heroClass === 'guerrero' || isFrostHelm) {
+      const hBase = isFrostHelm ? '#0284C7' : plate;
+      const hHi = isFrostHelm ? '#7DD3FC' : plateHi;
+      const hDk = isFrostHelm ? '#0369A1' : plateDark;
+      // Cúpula escalonada + banda frontal dorada + protector nasal corto
+      rShaded(hx + hw * 0.12, hy - pStep * 1.2, hw * 0.76, pStep * 1.5, hBase, hHi, hDk);
+      rShaded(hx, hy, hw, hh, hBase, hHi, hDk);
+      r(hx + pStep, hy + hh - pStep * 1.4, hw - pStep * 2, pStep * 1.2, trim);
+      if (!isBack && !isSide) {
+        // Protector nasal fino entre las cejas
+        r(headCx - pStep * 0.8, hy + hh - pStep * 0.5, pStep * 1.6, pStep * 1.8, trim);
+      }
+      if (isFrostHelm) {
+        // Cuernos curvos de escarcha a ambos lados del casco
+        const hornW = Math.max(1.6 * u, hw * 0.18);
+        const hornH = Math.max(2.8 * u, hh * 1.05);
+        if (!isSide) {
+          rShaded(hx - hornW * 0.75, hy - hornH * 0.55, hornW, hornH, '#BAE6FD', '#F0F9FF', '#38BDF8');
+          rShaded(hx + hw - hornW * 0.25, hy - hornH * 0.55, hornW, hornH, '#BAE6FD', '#F0F9FF', '#38BDF8');
+        } else {
+          rShaded(headCx - hornW * 0.6, hy - hornH * 0.6, hornW * 1.1, hornH, '#BAE6FD', '#F0F9FF', '#38BDF8');
+        }
+      } else {
+        // Cimera/cresta del casco
+        rShaded(headCx - pStep * 1.4, hy - pStep * 2.4, pStep * 2.8, pStep * 1.8, primary, primaryHi, primaryDark);
+      }
+    } else if (heroClass === 'mago') {
+      // Sombrero arcano en punta / tiara mística ajustada a la frente
+      rShaded(hx - pStep * 1.8, hy + hh * 0.55, hw + pStep * 3.6, pStep * 2.0, primaryDark, primary, '#0F172A');
+      rShaded(hx + hw * 0.12, hy - hh * 0.5, hw * 0.76, hh * 1.1, primary, primaryHi, primaryDark);
+      rShaded(hx + hw * 0.26, hy - hh * 1.05, hw * 0.48, hh * 0.65, primary, primaryHi, primaryDark);
+      r(hx + hw * 0.12, hy + hh * 0.38, hw * 0.76, pStep * 1.2, trim);
+    } else {
+      // Capucha/diadema de explorador con pluma lateral
+      rShaded(hx, hy + pStep * 0.4, hw, hh * 0.85, '#166534', '#22C55E', '#052E16');
+      r(hx + pStep, hy + hh * 0.65, hw - pStep * 2, pStep * 1.1, trim);
+      rShaded(hx + hw - pStep * 2.2, hy - pStep * 2.2, pStep * 1.8, pStep * 2.8, '#EF4444', '#FCA5A5', '#991B1B');
+    }
+  }
+
+  // 7. Arma y Escudo anclados a las manos reales del personaje (sin tapar el pecho)
+  if (gear.arma) {
+    // En vista frontal/trasera el arma va en la mano derecha del canvas (rHand) hacia afuera, y el escudo en lHand
+    const wx = isSide ? rHandX + 0.8 * u : rHandX + 1.4 * u;
+    const wy = rHandY;
+    const bladeCol = weaponPlus >= 9 ? '#FEF08A' : '#E2E8F0';
+    const bladeHi = '#FFFFFF';
+    const bladeDk = weaponPlus >= 9 ? '#CA8A04' : '#64748B';
+
+    if (heroClass === 'guerrero') {
+      if (isAttack) {
+        // Estocada horizontal hacia adelante
+        rShaded(wx + 1.0 * u, wy - 1.2 * u, 11.5 * u, 2.4 * u, bladeCol, bladeHi, bladeDk);
+        rShaded(wx - 0.6 * u, wy - 2.8 * u, 1.8 * u, 5.4 * u, trim, trimHi, leatherDark);
+        rShaded(wx - 2.4 * u, wy - 0.9 * u, 2.0 * u, 1.8 * u, leather, leatherHi, leatherDark);
+      } else {
+        // Espada sostenida en la mano exterior con pomo, empuñadura, guarda en cruz y hoja biselada
+        const bladeH = 11.0 * u;
+        const bladeW = 2.2 * u;
+        rShaded(wx - bladeW * 0.5, wy - bladeH - 1.0 * u, bladeW, bladeH, bladeCol, bladeHi, bladeDk);
+        // Punta de la espada
+        rShaded(wx - bladeW * 0.35, wy - bladeH - 2.2 * u, bladeW * 0.7, 1.4 * u, bladeHi, bladeHi, bladeCol);
+        // Guarda en cruz dorada
+        rShaded(wx - 2.6 * u, wy - 1.2 * u, 5.2 * u, 1.5 * u, trim, trimHi, leatherDark);
+        // Empuñadura y pomo
+        rShaded(wx - 0.8 * u, wy + 0.2 * u, 1.6 * u, 2.2 * u, leather, leatherHi, leatherDark);
+        r(wx - 1.1 * u, wy + 2.2 * u, 2.2 * u, 1.2 * u, trim);
+      }
+
+      // Escudo heráldico en la mano opuesta (lHand), al costado exterior del brazo sin cubrir el torso
+      if (!isSide) {
+        const sw = Math.max(3.8 * u, torsoW * 0.38);
+        const sh = Math.max(5.6 * u, torsoH * 0.62);
+        const sx = lHandX - sw * 0.75;
+        const sy = lHandY - sh * 0.48;
+        rShaded(sx, sy, sw, sh * 0.75, primary, primaryHi, primaryDark);
+        // Punta inferior del escudo en forma de cometa
+        rShaded(sx + sw * 0.15, sy + sh * 0.70, sw * 0.70, sh * 0.30, primaryDark, primary, '#0F172A');
+        // Borde y cruz heráldica
+        r(sx + sw * 0.38, sy + pStep, sw * 0.24, sh * 0.78, trim);
+        r(sx + pStep, sy + sh * 0.32, sw - pStep * 2, pStep * 1.4, trim);
+      }
+    } else if (heroClass === 'mago') {
+      // Bastón arcano en la mano exterior con orbe cristalino
+      const staffX = wx + (isAttack ? 2.0 * u : 0.4 * u);
+      const staffTopY = wy - 11.5 * u;
+      rShaded(staffX - 0.8 * u, staffTopY, 1.6 * u, 16.5 * u, leather, leatherHi, leatherDark);
+      // Engaste dorado y gema arcana luminosa
+      rShaded(staffX - 2.0 * u, staffTopY - 1.0 * u, 4.0 * u, 1.4 * u, trim, trimHi, leatherDark);
+      rShaded(staffX - 2.2 * u, staffTopY - 4.2 * u, 4.4 * u, 3.4 * u, '#0284C7', '#38BDF8', '#0369A1');
+      r(staffX - 1.0 * u, staffTopY - 3.4 * u, 2.0 * u, 1.8 * u, '#E0F2FE');
+    } else {
+      // Arco recurvo tallado + cuerda tensada
+      const bowX = wx + (isAttack ? 1.8 * u : 0.4 * u);
+      const bowTopY = wy - 7.5 * u;
+      const bowH = 13.0 * u;
+      // Cuerpo curvo del arco en 3 segmentos escalonados
+      rShaded(bowX + 0.4 * u, bowTopY + bowH * 0.2, 1.6 * u, bowH * 0.6, leatherHi, trim, leatherDark);
+      rShaded(bowX - 0.8 * u, bowTopY, 1.6 * u, bowH * 0.24, leather, leatherHi, leatherDark);
+      rShaded(bowX - 0.8 * u, bowTopY + bowH * 0.76, 1.6 * u, bowH * 0.24, leather, leatherHi, leatherDark);
+      // Cuerda del arco
+      r(bowX - 1.0 * u, bowTopY + 1.0 * u, Math.max(1, Math.round(0.7 * u)), bowH - 2.0 * u, '#E2E8F0');
+      if (isAttack) {
+        // Flecha cargada lista para disparar
+        rShaded(bowX - 1.0 * u, wy - 0.7 * u, 7.5 * u, 1.4 * u, '#F8FAFC', '#FEF08A', '#94A3B8');
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
 /* =========================================================
    DIBUJO DETALLADO DEL HÉROE (MASCULINO O FEMENINO)
    ========================================================= */
 export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
-  // Alas equipadas (Alas del Vacío moradas o alas de luz)
-  if (state.wings) {
-    const flap = Math.sin(time * 5) * 2.2 * scale;
-    const isVoid = state.wings === 'alas_vacio';
-    const outer = isVoid ? '#4C1D95' : '#CBD5E1';
-    const mid = isVoid ? '#9333EA' : '#F8FAFC';
-    const glow = isVoid ? '#F0ABFC' : '#FEF08A';
-    ctx.save();
-    if (isVoid) {
-      ctx.fillStyle = 'rgba(147, 51, 234, 0.18)';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy - 2 * scale, 22 * scale, 16 * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Alas emplumadas (izquierda y derecha) con plumas escalonadas, aleteo suave y contorno oscuro
-    const drawWing = (side) => {
-      const lift = flap * 0.6;
-      const feathers = [
-        { len: 24, ang: -1.05, w: 4.6 },
-        { len: 27, ang: -0.72, w: 5.0 },
-        { len: 26, ang: -0.38, w: 5.0 },
-        { len: 22, ang: -0.04, w: 4.6 },
-        { len: 17, ang: 0.3, w: 4.0 }
-      ];
-      const ox = cx + side * 5 * scale;
-      const oy = cy - 7 * scale;
-      for (let i = feathers.length - 1; i >= 0; i--) {
-        const f = feathers[i];
-        const a = f.ang + (-lift / (20 * scale)) * (1 - i * 0.12);
-        const dx = Math.cos(a) * f.len * scale * side;
-        const dy = Math.sin(a) * f.len * scale;
-        const nx = -Math.sin(a) * f.w * scale * 0.5 * side * -1;
-        const ny = Math.cos(a) * f.w * scale * 0.5;
-        const path = () => {
-          ctx.beginPath();
-          ctx.moveTo(ox + nx, oy + ny);
-          ctx.lineTo(ox + dx + nx * 0.5, oy + dy + ny * 0.5);
-          ctx.lineTo(ox + dx * 1.04, oy + dy * 1.04);
-          ctx.lineTo(ox + dx - nx * 0.5, oy + dy - ny * 0.5);
-          ctx.lineTo(ox - nx, oy - ny);
-          ctx.closePath();
-        };
-        ctx.fillStyle = '#0D0A14';
-        path();
-        ctx.fill();
-        ctx.save();
-        ctx.translate(ox, oy);
-        ctx.scale(0.86, 0.86);
-        ctx.translate(-ox, -oy);
-        ctx.fillStyle = i % 2 === 0 ? outer : mid;
-        path();
-        ctx.fill();
-        ctx.restore();
-      }
-      // Brillo en la base del ala
-      ctx.fillStyle = glow;
-      ctx.fillRect(Math.round(ox - side * 2 * scale - 1), Math.round(oy - 2 * scale), 3 * scale, 3 * scale);
-    };
-    drawWing(-1);
-    drawWing(1);
-    ctx.restore();
-  }
-
-  // Si el asset PNG de la clase, sexo, bando y raza está cargado:
-  const heroImg = getHeroClassAsset(
+  // 1) Priorizar la hoja 3x5 sin armadura (3 ángulos × 5 acciones) + capas modulares de armadura y arma
+  const base3x5 = getBaseRace3x5Asset(state.race || 'Humano', state.gender || 'male');
+  const heroImg = base3x5 || getHeroClassAsset(
     state.heroClass || 'guerrero',
     state.gender || 'male',
     state.faction || 'alba',
@@ -544,30 +922,52 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
   );
   if (heroImg) {
     const s = scale * (state.race === 'Enano' ? 0.88 : 1);
-    const facingLeft = state.dir === 3;
+    const dir = state.dir ?? 0;
+    const facingLeft = dir === 3;
     const isMoving = Boolean(state.moving);
     const attackTimer = state.attackTimer || 0;
+    const jumpTimer = state.jumpTimer || 0;
+    const jumpHeight = state.jumpHeight || 0;
+    const speedRatio = state.moveSpeedRatio || 1;
     const footY = cy + 16 * s;
 
-    // Ciclo completo de 4 cuadros de movimiento (0=postura base, 1=paso A, 2=paso B, 3=impulso/ataque)
-    const WALK_FRAMES_4 = [0, 1, 2, 3];
-    const metrics = getSpriteFrameMetrics(heroImg, 0);
+    const metrics = getSpriteFrameMetrics(heroImg, 0, 0);
+    let rowIndex = 0;
     let frameIndex = 0;
-    if (attackTimer > 0.12) {
-      frameIndex = 3;
-    } else if (isMoving) {
-      frameIndex = WALK_FRAMES_4[Math.floor(time * 10) % 4];
+
+    if (metrics.isGrid3x5) {
+      // Filas: 0 = frente, 1 = perfil (con flipX si es izquierda), 2 = espalda
+      rowIndex = dir === 2 ? 2 : (dir === 1 || dir === 3) ? 1 : 0;
+      // Columnas: 0 = idle, 1/2 = walk_1/walk_2, 3 = jump, 4 = attack
+      if (attackTimer > 0.08) {
+        frameIndex = 4;
+      } else if (jumpTimer > 0) {
+        frameIndex = 3;
+      } else if (isMoving) {
+        const walkRate = 7.5 + speedRatio * 3.5;
+        frameIndex = Math.floor(time * walkRate) % 2 === 0 ? 1 : 2;
+      } else {
+        frameIndex = 0;
+      }
+    } else {
+      const WALK_FRAMES_4 = [0, 1, 2, 3];
+      if (attackTimer > 0.12) {
+        frameIndex = 3;
+      } else if (isMoving) {
+        frameIndex = WALK_FRAMES_4[Math.floor(time * 10) % 4];
+      }
     }
 
     // Movimiento al caminar anclado en footY SIN rotación ni bamboleo lateral ("tronquito"):
-    // Rebote vertical corto y rítmico de paso (2-4 px) + squash & stretch vertical sutil (0.96 a 1.04)
-    const stepSin = Math.sin(time * 15);
-    const stepBounce = isMoving ? Math.abs(stepSin) : 0;
-    const stepBounceY = isMoving ? -stepBounce * (metrics.isFourFrameSheet ? 1.4 : 2.8) * s : 0;
-    const idleBreathY = !isMoving ? Math.sin(time * 3.8) * 0.016 : 0;
+    const stepSin = Math.sin(time * (12 + speedRatio * 3));
+    const stepBounce = isMoving && jumpTimer <= 0 ? Math.abs(stepSin) : 0;
+    const stepBounceY = isMoving && jumpTimer <= 0
+      ? -stepBounce * (metrics.isGrid3x5 || metrics.isFourFrameSheet ? 1.5 : 2.8) * s
+      : 0;
+    const idleBreathY = !isMoving && jumpTimer <= 0 ? Math.sin(time * 3.8) * 0.014 : 0;
 
-    let scaleY = isMoving ? 0.96 + stepBounce * 0.08 : 1 + idleBreathY;
-    let scaleX = isMoving ? 1.03 - stepBounce * 0.06 : 1 - idleBreathY * 0.5;
+    let scaleY = isMoving && jumpTimer <= 0 ? 0.97 + stepBounce * 0.06 : 1 + idleBreathY;
+    let scaleX = isMoving && jumpTimer <= 0 ? 1.02 - stepBounce * 0.04 : 1 - idleBreathY * 0.4;
 
     // Animación de ataque en 3 fases (anticipación -> estocada/lunge -> retorno suave)
     const atkPhase = computeAttackPhase(attackTimer);
@@ -581,15 +981,16 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
       scaleY *= atkPhase.scaleY;
     }
 
-    // Sombra ovalada siempre anclada en el suelo bajo los pies (footY) usando fx_sombra_entidad
+    // Sombra ovalada siempre anclada en el suelo bajo los pies (footY), encogiéndose durante el salto
+    const jumpShadowScale = jumpHeight > 0 ? Math.max(0.55, 1 - jumpHeight / 55) : 1;
     const shadowSheet = getAsset('fx_sombra_entidad');
     if (shadowSheet) {
-      const m = getSpriteFrameMetrics(shadowSheet, frameIndex);
-      const sRx = 12 * s * (1 - stepBounce * 0.08);
-      const sRy = 5 * s;
+      const m = getSpriteFrameMetrics(shadowSheet, Math.min(3, frameIndex));
+      const sRx = 12 * s * (1 - stepBounce * 0.08) * jumpShadowScale;
+      const sRy = 5 * s * jumpShadowScale;
       ctx.save();
       ctx.imageSmoothingEnabled = false;
-      ctx.globalAlpha = 0.76;
+      ctx.globalAlpha = 0.76 * jumpShadowScale;
       ctx.drawImage(
         shadowSheet,
         m.sx,
@@ -604,27 +1005,84 @@ export function drawDetailedHeroSprite(ctx, cx, cy, scale, state, time) {
       ctx.restore();
     } else {
       ctx.save();
-      ctx.fillStyle = 'rgba(13, 10, 20, 0.42)';
+      ctx.fillStyle = `rgba(13, 10, 20, ${0.42 * jumpShadowScale})`;
       ctx.beginPath();
-      ctx.ellipse(cx + lungeX * 0.4, footY + lungeY * 0.4, 11 * s * (1 - stepBounce * 0.08), 4.5 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(
+        cx + lungeX * 0.4,
+        footY + lungeY * 0.4,
+        11 * s * (1 - stepBounce * 0.08) * jumpShadowScale,
+        4.5 * s * jumpShadowScale,
+        0,
+        0,
+        Math.PI * 2
+      );
       ctx.fill();
       ctx.restore();
     }
 
-    drawFootAnchoredSprite(
+    const spriteFootX = cx + lungeX;
+    const spriteFootY = footY + stepBounceY + lungeY - jumpHeight * s * 0.65;
+    const cellAnchors = metrics.isGrid3x5 ? getGrid3x5CellAnchors(heroImg, rowIndex, frameIndex) : null;
+    const estDrawH = 38 * s * scaleY;
+    const estDrawW = 38 * s * metrics.aspect * scaleX;
+    const wingOffsetX = cellAnchors ? (facingLeft ? -cellAnchors.torsoCx : cellAnchors.torsoCx) * estDrawW : 0;
+    const wingOffsetY = cellAnchors ? (cellAnchors.torsoTopY + cellAnchors.torsoH * 0.28) * estDrawH : -21 * s;
+
+    // Si está de frente o de perfil (rowIndex !== 2), dibujar las alas DETRÁS del cuerpo base
+    if (state.wings && rowIndex !== 2) {
+      drawAnchoredHeroWings(
+        ctx,
+        spriteFootX + wingOffsetX,
+        spriteFootY + wingOffsetY,
+        s,
+        state.wings,
+        time,
+        rowIndex === 1,
+        facingLeft
+      );
+    }
+
+    const drawnMetrics = drawFootAnchoredSprite(
       ctx,
       heroImg,
-      cx + lungeX,
-      footY + stepBounceY + lungeY,
+      spriteFootX,
+      spriteFootY,
       38 * s,
       {
         frameIndex,
+        rowIndex,
         flipX: facingLeft,
         tiltRad: 0, // CERO bamboleo lateral tipo "tronquito"
         scaleX,
         scaleY
       }
     );
+
+    // Si usamos la hoja base 3x5 sin armadura, renderizar las capas modulares de equipo y arma encima
+    if (metrics.isGrid3x5) {
+      drawHeroEquipmentLayers(ctx, spriteFootX, spriteFootY, s, state, {
+        rowIndex,
+        colIndex: frameIndex,
+        flipX: facingLeft,
+        drawW: drawnMetrics?.drawW || estDrawW,
+        drawH: drawnMetrics?.drawH || estDrawH,
+        anchors: cellAnchors
+      });
+    }
+
+    // Si está de espaldas (rowIndex === 2), dibujar las alas ENCIMA de la espalda/armadura
+    if (state.wings && rowIndex === 2) {
+      drawAnchoredHeroWings(
+        ctx,
+        spriteFootX + wingOffsetX,
+        spriteFootY + wingOffsetY,
+        s,
+        state.wings,
+        time,
+        false,
+        facingLeft
+      );
+    }
 
     // Efecto visual de ataque contundente y animado frente al personaje ("Probar Ataque" y combate)
     if (attackTimer > 0) {
@@ -1128,7 +1586,7 @@ export function getSkillIconSvg(heroClass, slot, size = 40) {
   const cls = heroClass || 'guerrero';
   const skillImgUrl = getSkillIconUrl(cls, slot);
   if (skillImgUrl) {
-    return `<img src="${skillImgUrl}" width="${size}" height="${size}" class="pixel-icon-svg skill-art-img" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
+    return `<img src="${skillImgUrl}" width="${size}" height="${size}" draggable="false" class="pixel-icon-svg skill-art-img" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
   }
 
   const wrap = (inner) =>
@@ -1646,10 +2104,10 @@ export function drawIllustratedWorldMap(canvas, mapsMeta, player, selectedMapId,
   for (const m of ordered) {
     const mx = Math.round(m.mapX * w);
     const my = Math.round(m.mapY * h);
-    const visited = player.visitedMaps.includes(m.id);
+    const locked = player.level < m.reqLevel;
+    const visited = player.visitedMaps.includes(m.id) || !locked;
     const isCurrent = player.currentMap === m.id;
     const isSel = selectedMapId === m.id;
-    const locked = player.level < m.reqLevel;
 
     // Marco cuadrado biselado 16-bit para cada nodo de región
     const r = isSel ? 15 : 12;

@@ -29,6 +29,16 @@ import {
   drawMinimap
 } from './world.js';
 import {
+  AI_CHARACTERS_DEFS,
+  getCharacterMemory,
+  getAiState,
+  saveAiState,
+  decideCharacterNextGoal,
+  spreadFactionGossip,
+  adjustEconomyResources,
+  saveImprovementReportToAntigravity
+} from './geminiAI.js';
+import {
   drawHero,
   drawPet,
   drawBossAltar,
@@ -44,7 +54,7 @@ import {
   drawTree,
   drawProp
 } from './sprites.js';
-import { getAsset, getSpriteFrameMetrics, drawFootAnchoredSprite } from './assetLoader.js';
+import { getAsset, getSpriteFrameMetrics, drawFootAnchoredSprite, drawGridEffectSprite, drawMapSheetSprite } from './assetLoader.js';
 import { sfx } from '../audio.js';
 
 export class GameEngine {
@@ -77,11 +87,15 @@ export class GameEngine {
 
     this.petEntity = { x: 760, y: 720, vx: 0, vy: 0, dirX: 1, moving: false, healTimer: 0, combatTimer: 1.5 };
     this.campfireTick = 0;
+    this.terrainHazardTick = 0;
     this.portalCooldown = 0;
     this.portalLockMsgCooldown = 0;
 
     this.camera = { x: 0, y: 0, shake: 0 };
     this.autoSaveTimer = 0;
+    this.weatherTimer = 55;
+    this.weatherSevere = false;
+    this.voidRaidTimer = 95;
 
     this.player = null;
     this.saveState = null;
@@ -194,7 +208,7 @@ export class GameEngine {
   fastTravelTo(mapId) {
     if (!this.player) return false;
     const meta = MAPS_META[mapId];
-    if (!meta || !this.player.visitedMaps.includes(mapId)) return false;
+    if (!meta || this.player.level < (meta.reqLevel || 1)) return false;
     sfx.playTeleport();
     this.loadMap(mapId, meta.spawnX, meta.spawnY, true);
     this.callbacks.onToast?.(`Viaje rápido a ${this.map.name}.`, 'success');
@@ -374,14 +388,23 @@ export class GameEngine {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     this.keys.add(code);
 
-    if (code === 'Space' || code === 'KeyJ') this.triggerAbility(0);
-    else if (code === 'Digit1' || code === 'KeyK') this.triggerAbility(1);
-    else if (code === 'Digit2' || code === 'KeyL') this.triggerAbility(2);
-    else if (code === 'Digit3' || code === 'KeyU') this.triggerAbility(3);
+    const wowBarVisible = document.getElementById('wow-actionbar')?.classList.contains('is-visible');
+
+    if (code === 'Space' || code === 'KeyV') {
+      if (this.player && !(this.player.jumpTimer > 0)) {
+        this.player.jumpTimer = 0.42;
+      }
+    }
+    else if (!wowBarVisible && code === 'Digit1') this.triggerAbility(0);
+    else if ((!wowBarVisible && code === 'Digit2') || code === 'KeyK') this.triggerAbility(1);
+    else if ((!wowBarVisible && code === 'Digit3') || code === 'KeyL') this.triggerAbility(2);
+    else if ((!wowBarVisible && code === 'Digit4') || code === 'KeyU') this.triggerAbility(3);
     else if (code === 'KeyZ') this.toggleMount();
+    else if (code === 'KeyX' || code === 'KeyH') this.toggleStealth();
     else if (code === 'KeyE') this.interactNearest();
     else if (code === 'KeyQ') this.useBestHealPotion();
-    else if (code === 'KeyI' || code === 'KeyB' || code === 'KeyC') this.callbacks.onOpenCharacter?.();
+    else if (code === 'KeyC') this.callbacks.onOpenCharacter?.();
+    else if (code === 'KeyB' || code === 'KeyI') this.callbacks.onOpenBackpack?.();
     else if (code === 'KeyM') this.callbacks.onOpenUpgrades?.();
     else if (code === 'KeyT') this.callbacks.onOpenShop?.();
     else if (code === 'KeyN') this.callbacks.onOpenWorldMap?.();
@@ -427,6 +450,13 @@ export class GameEngine {
       if (p.cooldowns[i] > 0) p.cooldowns[i] = Math.max(0, p.cooldowns[i] - dt);
     }
     if (p.shieldBuffTimer > 0) p.shieldBuffTimer = Math.max(0, p.shieldBuffTimer - dt);
+    if (p.jumpTimer > 0) {
+      p.jumpTimer = Math.max(0, p.jumpTimer - dt);
+      const jp = 1 - p.jumpTimer / 0.42;
+      p.jumpHeight = Math.sin(jp * Math.PI) * 18;
+    } else {
+      p.jumpHeight = 0;
+    }
     if (p.attackAnimTimer > 0) p.attackAnimTimer = Math.max(0, p.attackAnimTimer - dt * 3.1);
     if (this.petEntity.attackAnimTimer > 0) {
       this.petEntity.attackAnimTimer = Math.max(0, this.petEntity.attackAnimTimer - dt * 3.1);
@@ -478,8 +508,36 @@ export class GameEngine {
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) mx += 1;
 
     const len = Math.hypot(mx, my);
+    // Detectar terreno especial bajo los pies (Lava, Lago Corrupto, Agua Clara, Nieve o Arena)
+    const activeZone = (this.map.terrainZones || []).find(
+      (tz) => p.x >= tz.x && p.x <= tz.x + tz.w && p.y >= tz.y && p.y <= tz.y + tz.h
+    );
+    let terrainSpeedMult = 1;
+    if (activeZone) {
+      if (activeZone.kind === 'lava') terrainSpeedMult = 0.74;
+      else if (activeZone.kind === 'corrupt_water') terrainSpeedMult = 0.62;
+      else if (activeZone.kind === 'shallow_water') terrainSpeedMult = 0.72;
+      this.terrainHazardTick += dt;
+      if (activeZone.kind === 'lava' && this.terrainHazardTick >= 0.5) {
+        this.terrainHazardTick = 0;
+        this.damagePlayer(9, p.x, p.y);
+        this.addFloatingText(p.x, p.y - 28, '-9 🔥 Lava', '#F97316');
+        this.addEffect('fire_explosion', p.x, p.y + 6, 26, '#F97316', 0.28);
+      } else if (activeZone.kind === 'corrupt_water' && this.terrainHazardTick >= 0.6) {
+        this.terrainHazardTick = 0;
+        this.damagePlayer(6, p.x, p.y);
+        this.addFloatingText(p.x, p.y - 28, '-6 ☠ Corrupción', '#C084FC');
+        this.addEffect('magic_hit', p.x, p.y + 6, 24, '#A855F7', 0.28);
+      }
+    } else {
+      this.terrainHazardTick = 0;
+      if (!p.mounted && (this.map.id === 'desierto' || this.map.id === 'montanas') && !this.isInSafeArea(p.x, p.y)) {
+        terrainSpeedMult = 0.94; // Ligera resistencia natural en nieve profunda o dunas de arena
+      }
+    }
+
     const mountMult = p.mounted ? 1.65 : 1;
-    const spd = p.speed * mountMult * (p.speedBuffTimer > 0 ? 1.45 : 1) * (p.slowedTimer > 0 ? 0.55 : 1);
+    const spd = p.speed * mountMult * terrainSpeedMult * (p.speedBuffTimer > 0 ? 1.45 : 1) * (p.slowedTimer > 0 ? 0.55 : 1);
     const onIce = this.isOnIce(p.x, p.y);
 
     // Avance suave del Ciclo Día / Noche (ciclo completo cada 180s salvo que GM lo fije)
@@ -540,19 +598,30 @@ export class GameEngine {
       if (dp.life <= 0) this.dustParticles.splice(i, 1);
     }
 
-    // Comprobar portales entre mapas
+    // Comprobar portales entre mapas (incluyendo el Portal Vigilado del Mapa de Hielo)
     if (this.portalCooldown <= 0) {
       for (const pt of this.map.portals) {
-        if (Math.hypot(p.x - pt.x, p.y - pt.y) < 34) {
+        if (Math.hypot(p.x - pt.x, p.y - pt.y) < 38) {
+          if (pt.isGuardedIcePortal && this.map.id === 'montanas') {
+            const guard = this.map.npcs.find((n) => n.isPortalGuard && !n.fleeing);
+            if (guard && !this.isPlayerAllowedAtFactionPortal(guard.faction)) {
+              guard.hostile = true;
+              guard.emotion = 'enojo';
+              this.callFactionReinforcements(guard);
+              if (this.portalLockMsgCooldown <= 0) {
+                this.portalLockMsgCooldown = 2.8;
+                this.callbacks.onToast?.(
+                  '¡Guardias del Portal te bloquean el paso! Usa Sigilo (Tecla X), viste un Disfraz de Bando o sube tu reputación.',
+                  'error'
+                );
+              }
+              continue;
+            }
+          }
           if (pt.reqLevel && p.level < pt.reqLevel) {
             if (this.portalLockMsgCooldown <= 0) {
               this.portalLockMsgCooldown = 2.5;
               this.callbacks.onToast?.(`Necesitas Nivel ${pt.reqLevel} para entrar a ${pt.label}.`, 'error');
-            }
-          } else if (pt.reqBoss && !p.defeatedBosses.includes(pt.reqBoss)) {
-            if (this.portalLockMsgCooldown <= 0) {
-              this.portalLockMsgCooldown = 2.5;
-              this.callbacks.onToast?.(`Debes derrotar al jefe de esta zona para abrir el portal a ${pt.label}.`, 'error');
             }
           } else {
             sfx.playPortal();
@@ -581,14 +650,20 @@ export class GameEngine {
     for (let i = this.groundDrops.length - 1; i >= 0; i--) {
       const d = this.groundDrops[i];
       d.life -= dt;
+      if (d.pickupDelay > 0) {
+        d.pickupDelay = Math.max(0, d.pickupDelay - dt);
+      }
       if (d.life <= 0) {
         this.groundDrops.splice(i, 1);
         continue;
       }
-      if (Math.hypot(p.x - d.x, p.y - d.y) < 34) this.collectGroundDrop(i);
+      if (!(d.pickupDelay > 0) && Math.hypot(p.x - d.x, p.y - d.y) < 34) {
+        this.collectGroundDrop(i);
+      }
     }
 
     this.updatePet(dt);
+    this.updateAiCharactersAndWorld(dt);
     this.updateHazards(dt);
 
     // Trampas de Arquero
@@ -604,7 +679,7 @@ export class GameEngine {
         if (Math.hypot(e.x - tr.x, e.y - tr.y) < e.radius + 22) {
           e.rootTimer = 2.5;
           this.damageEnemy(e, Math.round(this.getTotalAtk() * 0.7), '#4ADE80');
-          this.addEffect('ring', tr.x, tr.y, 30, '#16A34A', 0.3);
+          this.addEffect('trap_snap', tr.x, tr.y, 44, '#16A34A', 0.45);
           this.traps.splice(i, 1);
           break;
         }
@@ -697,6 +772,7 @@ export class GameEngine {
 
     for (let i = 0; i < this.groundDrops.length; i++) {
       const d = this.groundDrops[i];
+      if (d.droppedByPlayer || d.pickupDelay > 0) continue;
       const canGrab = (d.kind === 'gold' && petDef.collectGold) || (d.kind === 'gem' && petDef.collectGems);
       if (!canGrab) continue;
       const dist = Math.hypot(d.x - p.x, d.y - p.y);
@@ -846,6 +922,333 @@ export class GameEngine {
     }
   }
 
+  toggleStealth() {
+    if (!this.player) return false;
+    this.player.stealthActive = !this.player.stealthActive;
+    if (this.player.stealthActive && this.player.mounted) {
+      this.player.mounted = false;
+    }
+    const label = this.player.stealthActive ? 'Sigilo Activado (X)' : 'Sigilo Desactivado';
+    this.addFloatingText(this.player.x, this.player.y - 28, label, '#94A3B8');
+    this.callbacks.onToast?.(
+      this.player.stealthActive
+        ? 'Modo Sigilo activo: caminas agachado para cruzar el Portal Vigilado sin ser detectado.'
+        : 'Modo Sigilo desactivado.',
+      'info'
+    );
+    return this.player.stealthActive;
+  }
+
+  isPlayerAllowedAtFactionPortal(guardFaction) {
+    const p = this.player;
+    if (!p) return true;
+    if (p.faction === guardFaction) return true;
+    if (p.stealthActive) return true;
+    const armorId = p.gearSlots?.pechera;
+    if (guardFaction === 'alba' && armorId === 'disfraz_alba') return true;
+    if (guardFaction === 'hierro' && armorId === 'disfraz_hierro') return true;
+    const rep = getAiState().factionReputation?.[guardFaction] || 0;
+    return rep >= 25;
+  }
+
+  callFactionReinforcements(sourceNpc) {
+    if (!this.map || !sourceNpc) return;
+    let count = 0;
+    for (const ally of this.map.npcs) {
+      if (ally === sourceNpc || ally.kind === 'dummy') continue;
+      if (ally.faction && ally.faction === sourceNpc.faction && !ally.fleeing) {
+        const dist = Math.hypot(ally.x - sourceNpc.x, ally.y - sourceNpc.y);
+        if (dist < 520) {
+          ally.targetX = sourceNpc.x + (Math.random() - 0.5) * 45;
+          ally.targetY = sourceNpc.y + (Math.random() - 0.5) * 45;
+          if (sourceNpc.hostile) {
+            ally.hostile = true;
+            ally.emotion = 'enojo';
+          }
+          count++;
+        }
+      }
+    }
+    if (count > 0) {
+      this.addFloatingText(sourceNpc.x, sourceNpc.y - 32, '¡Refuerzos a mí!', '#F97316');
+    }
+  }
+
+  triggerVoidSurpriseRaid() {
+    if (!this.map || !this.player) return;
+    const p = this.player;
+    const spawnPoints = [
+      { x: Math.max(120, Math.min(1480, p.x - 240)), y: Math.max(140, Math.min(1140, p.y - 160)) },
+      { x: Math.max(120, Math.min(1480, p.x + 240)), y: Math.max(140, Math.min(1140, p.y - 150)) }
+    ];
+    for (const sp of spawnPoints) {
+      const raider = spawnEnemy(this.map.id === 'montanas' ? 'lobo_invernal' : 'trasgo', sp.x, sp.y);
+      raider.name = 'Invasor del Vacío';
+      raider.isVoidRaider = true;
+      this.map.enemies.push(raider);
+    }
+    adjustEconomyResources({ voidAttack: 1 });
+    this.callbacks.onToast?.('¡Ataque sorpresa del Vacío! Los héroes de Valoria corren a defender la zona.', 'error');
+    this.addFloatingText(p.x, p.y - 38, '¡Incursión del Vacío!', '#C084FC');
+  }
+
+  updateAiCharactersAndWorld(dt) {
+    if (!this.map || !this.player) return;
+    const p = this.player;
+    const nowMs = Date.now();
+
+    // 1. Clima dinámico: tormentas periódicas que obligan a los trabajadores a refugiarse
+    this.weatherTimer -= dt;
+    if (this.weatherTimer <= 0) {
+      this.weatherTimer = 50 + Math.random() * 35;
+      this.weatherSevere = !this.weatherSevere;
+      if (this.weatherSevere) {
+        const wMap = { aldea: 'rain', bosque: 'rain', desierto: 'ash', montanas: 'snow', cueva: 'void_storm', fortaleza: 'void_storm' };
+        this.map.weather = wMap[this.map.id] || 'rain';
+        this.callbacks.onToast?.('El clima empeoró: los trabajadores buscan refugio en la taberna y fogatas.', 'info');
+      } else {
+        this.map.weather = this.map.id === 'bosque' ? 'butterflies' : this.map.id === 'montanas' ? 'snow' : this.map.id === 'desierto' ? 'ash' : 'none';
+      }
+    }
+
+    // 2. Ataques sorpresa del Vacío cada ~105 segundos
+    this.voidRaidTimer -= dt;
+    if (this.voidRaidTimer <= 0) {
+      this.voidRaidTimer = 105 + Math.random() * 35;
+      this.triggerVoidSurpriseRaid();
+    }
+
+    // 3. Actualizar los 4 Personajes Principales IA y Guardias del Portal
+    for (const npc of this.map.npcs) {
+      if (!npc.isAiHero && !npc.isPortalGuard) continue;
+
+      if (npc.workAnimTimer > 0) npc.workAnimTimer = Math.max(0, npc.workAnimTimer - dt);
+      if (npc.attackCd > 0) npc.attackCd = Math.max(0, npc.attackCd - dt);
+
+      const mem = npc.aiId ? getCharacterMemory(npc.aiId) : null;
+      if (mem) {
+        mem.hunger = Math.min(100, (mem.hunger || 15) + dt * 0.18);
+        mem.energy = Math.max(5, (mem.energy || 85) - dt * (npc.goal === 'descansar' ? -2.8 : 0.22));
+        npc.isCompanion = (mem.companionUntil || 0) > nowMs && !npc.hostile;
+      }
+
+      // A) Huida si la vida baja de 25%
+      if ((npc.hp || npc.maxHp) < (npc.maxHp || 400) * 0.25) {
+        npc.fleeing = true;
+        npc.hostile = false;
+        npc.emotion = 'ayuda';
+      }
+      if (npc.fleeing) {
+        const fire = this.map.campfires?.[0] || { x: npc.homeX || 800, y: npc.homeY || 690 };
+        const dx = fire.x - npc.x;
+        const dy = fire.y - npc.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 36) {
+          const spd = (npc.speed || 130) * 1.25;
+          npc.vx = (dx / dist) * spd;
+          npc.vy = (dy / dist) * spd;
+          npc.x += npc.vx * dt;
+          npc.y += npc.vy * dt;
+        } else {
+          npc.vx = 0;
+          npc.vy = 0;
+          npc.hp = Math.min(npc.maxHp, (npc.hp || 100) + 28 * dt);
+          if (npc.hp >= npc.maxHp * 0.7) {
+            npc.fleeing = false;
+            npc.emotion = 'feliz';
+            if (mem) mem.energy = Math.min(100, mem.energy + 35);
+          }
+        }
+        continue;
+      }
+
+      // B) Guardias permanentes del Portal de Hielo: vigilan intrusos sin permiso, sin disfraz y sin sigilo
+      if (npc.isPortalGuard) {
+        const distToPlayer = Math.hypot(p.x - npc.x, p.y - npc.y);
+        if (distToPlayer < 120 && !this.isPlayerAllowedAtFactionPortal(npc.faction)) {
+          if (!npc.hostile) {
+            npc.hostile = true;
+            npc.emotion = 'enojo';
+            this.addFloatingText(npc.x, npc.y - 28, '¡Intruso en el Portal!', '#EF4444');
+            this.callFactionReinforcements(npc);
+          }
+        } else if (npc.hostile && (distToPlayer > 280 || this.isPlayerAllowedAtFactionPortal(npc.faction))) {
+          npc.hostile = false;
+          npc.emotion = 'neutral';
+        }
+      }
+
+      // C) Ataque por reflejo contra monstruos cercanos o invasores del Vacío
+      let nearestMonster = null;
+      let monsterDist = 235;
+      for (const e of this.map.enemies) {
+        if (!e.alive) continue;
+        const d = Math.hypot(e.x - npc.x, e.y - npc.y);
+        if (d < monsterDist) {
+          monsterDist = d;
+          nearestMonster = e;
+        }
+      }
+
+      if (nearestMonster) {
+        npc.emotion = 'enojo';
+        const dx = nearestMonster.x - npc.x;
+        const dy = nearestMonster.y - npc.y;
+        if (monsterDist > 42) {
+          const spd = npc.speed || 130;
+          npc.vx = (dx / monsterDist) * spd;
+          npc.vy = (dy / monsterDist) * spd;
+          npc.x += npc.vx * dt;
+          npc.y += npc.vy * dt;
+        } else {
+          npc.vx = 0;
+          npc.vy = 0;
+          if (npc.attackCd <= 0) {
+            npc.attackCd = 1.05;
+            npc.workAnimTimer = 0.35;
+            if (npc.hp < npc.maxHp * 0.6) this.callFactionReinforcements(npc);
+            this.damageEnemy(nearestMonster, npc.atk || 34, npc.faction === 'hierro' ? '#F97316' : '#38BDF8');
+          }
+        }
+        continue;
+      }
+
+      // D) Combate contra el jugador si el personaje se volvió hostil (por insulto, amenaza, robo o cruce ilegal del portal)
+      if (npc.hostile) {
+        const distP = Math.hypot(p.x - npc.x, p.y - npc.y);
+        if (p.stealthActive && distP > 44) {
+          npc.vx = 0;
+          npc.vy = 0;
+          continue;
+        }
+        if (distP > 38 && distP < 340) {
+          const spd = (npc.speed || 130) * 1.05;
+          npc.vx = ((p.x - npc.x) / distP) * spd;
+          npc.vy = ((p.y - npc.y) / distP) * spd;
+          npc.x += npc.vx * dt;
+          npc.y += npc.vy * dt;
+        } else if (distP <= 38) {
+          npc.vx = 0;
+          npc.vy = 0;
+          if (npc.attackCd <= 0) {
+            npc.attackCd = 1.25;
+            npc.workAnimTimer = 0.35;
+            this.damagePlayer(Math.max(6, Math.round((npc.atk || 32) * 0.38)), npc.x, npc.y);
+          }
+        }
+        continue;
+      }
+
+      // E) Modo Acompañante: seguir al jugador y ayudarlo a explorar/pelear
+      if (npc.isCompanion) {
+        npc.emotion = 'siguiendo';
+        const dx = p.x + (npc.faction === 'hierro' ? 38 : -38) - npc.x;
+        const dy = p.y + 18 - npc.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 28) {
+          const spd = Math.min(210, (p.speed || 195) * 0.98);
+          npc.vx = (dx / dist) * spd;
+          npc.vy = (dy / dist) * spd;
+          npc.x += npc.vx * dt;
+          npc.y += npc.vy * dt;
+        } else {
+          npc.vx = 0;
+          npc.vy = 0;
+        }
+        continue;
+      }
+
+      // F) Rutina de Trabajo, Clima y Decisiones Grandes con Gemini Flash (cada 2–3 minutos o al terminar tarea)
+      if (npc.isPortalGuard) {
+        const dx = npc.homeX - npc.x;
+        const dy = npc.homeY - npc.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 6) {
+          npc.vx = (dx / d) * 90;
+          npc.vy = (dy / d) * 90;
+          npc.x += npc.vx * dt;
+          npc.y += npc.vy * dt;
+        } else {
+          npc.vx = 0;
+          npc.vy = 0;
+        }
+        continue;
+      }
+
+      if (this.weatherSevere && npc.goal !== 'refugiarse') {
+        npc.goal = 'refugiarse';
+        npc.emotion = 'sueno';
+      }
+
+      npc.goalTimer = (npc.goalTimer ?? 15) - dt;
+      if (npc.goalTimer <= 0) {
+        npc.goalTimer = 22 + Math.random() * 14;
+        if (mem) {
+          mem.tasksCompleted = (mem.tasksCompleted || 0) + 1;
+          if (npc.goal === 'talar') {
+            mem.inventory.madera = (mem.inventory.madera || 0) + 1;
+            adjustEconomyResources({ wood: 1 });
+          } else if (npc.goal === 'minar') {
+            mem.inventory.mineral = (mem.inventory.mineral || 0) + 1;
+            adjustEconomyResources({ ore: 1 });
+          } else if (npc.goal === 'descansar') {
+            mem.energy = Math.min(100, (mem.energy || 60) + 25);
+            mem.hunger = Math.max(0, (mem.hunger || 30) - 20);
+          }
+        }
+        decideCharacterNextGoal(npc, {
+          weather: this.map.weather,
+          severeWeather: this.weatherSevere,
+          mapName: this.map.name
+        }).then((nextGoal) => {
+          npc.goal = nextGoal;
+          npc.emotion = nextGoal === 'descansar' || nextGoal === 'refugiarse' ? 'sueno' : 'trabajo';
+        }).catch(() => {});
+
+        // Asignar punto de destino según el objetivo elegido
+        if (npc.goal === 'talar' && this.map.trees?.length) {
+          const tr = this.map.trees[Math.floor(Math.random() * this.map.trees.length)];
+          npc.targetX = tr.x + 24;
+          npc.targetY = tr.y + 18;
+        } else if (npc.goal === 'minar' && this.map.gems?.length) {
+          const gm = this.map.gems[Math.floor(Math.random() * this.map.gems.length)];
+          npc.targetX = gm.x + 20;
+          npc.targetY = gm.y + 12;
+        } else if ((npc.goal === 'reparar' || npc.goal === 'refugiarse') && this.map.buildings?.length) {
+          const b = this.map.buildings[0];
+          npc.targetX = b.x + b.w * 0.5;
+          npc.targetY = b.y + b.h + 26;
+        } else if (npc.goal === 'descansar' && this.map.campfires?.length) {
+          const cf = this.map.campfires[0];
+          npc.targetX = cf.x + (npc.faction === 'hierro' ? 42 : -42);
+          npc.targetY = cf.y + 18;
+        } else {
+          npc.targetX = (npc.homeX || 800) + (Math.random() - 0.5) * 140;
+          npc.targetY = (npc.homeY || 680) + (Math.random() - 0.5) * 110;
+        }
+      }
+
+      const tx = npc.targetX ?? npc.homeX ?? npc.x;
+      const ty = npc.targetY ?? npc.homeY ?? npc.y;
+      const dx = tx - npc.x;
+      const dy = ty - npc.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 14) {
+        const spd = (npc.speed || 125) * 0.72;
+        npc.vx = (dx / dist) * spd;
+        npc.vy = (dy / dist) * spd;
+        npc.x += npc.vx * dt;
+        npc.y += npc.vy * dt;
+      } else {
+        npc.vx = 0;
+        npc.vy = 0;
+        if (['talar', 'minar', 'reparar'].includes(npc.goal) && Math.random() < dt * 0.85) {
+          npc.workAnimTimer = 0.35;
+        }
+      }
+    }
+  }
+
   collectMapGem(g) {
     if (g.collected) return;
     if (this.addItemToBackpack(g.itemId, 1)) {
@@ -861,22 +1264,63 @@ export class GameEngine {
 
   collectGroundDrop(index) {
     const d = this.groundDrops[index];
-    if (!d) return;
+    if (!d || d.pickupDelay > 0) return;
     if (d.kind === 'gold') {
       this.player.gold += d.amount;
       sfx.playCoin();
       this.addFloatingText(d.x, d.y - 12, `+${d.amount} Oro`, '#EAB308');
       this.callbacks.onToast?.(`+${d.amount} Oro recogido.`, 'loot');
       this.groundDrops.splice(index, 1);
-    } else if (d.kind === 'gem') {
-      if (this.addItemToBackpack(d.itemId, 1)) {
+    } else if (d.kind === 'gem' || d.kind === 'item') {
+      const qty = d.qty || 1;
+      if (this.addItemToBackpack(d.itemId, qty)) {
         const item = ITEMS[d.itemId];
         sfx.playGem();
-        this.addFloatingText(d.x, d.y - 12, `+1 ${item.name}`, item.gemColor || '#38BDF8');
-        this.callbacks.onToast?.(`Recogiste +1 ${item.name}.`, 'loot');
+        const color = item?.gemColor || (item?.quality === 4 ? '#FDE047' : item?.quality === 3 ? '#C084FC' : '#38BDF8');
+        this.addFloatingText(d.x, d.y - 12, `+${qty} ${item?.name || d.itemId}`, color);
+        this.callbacks.onToast?.(`Recogiste +${qty} ${item?.name || d.itemId}.`, 'loot');
         this.groundDrops.splice(index, 1);
+        this.callbacks.onAutoSave?.(this.exportSave());
       }
     }
+  }
+
+  dropBackpackItem(bagIndex, qty = 1) {
+    const p = this.player;
+    if (!p || !Array.isArray(p.backpack)) return null;
+    const slot = p.backpack[bagIndex];
+    if (!slot || !ITEMS[slot.id]) return null;
+    const item = ITEMS[slot.id];
+    const dropQty = Math.max(1, Math.min(slot.qty, qty));
+
+    slot.qty -= dropQty;
+    if (slot.qty <= 0) {
+      p.backpack.splice(bagIndex, 1);
+    }
+
+    // Colocar el objeto en el suelo a corta distancia frente/alrededor del jugador por 22 segundos
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 26 + Math.random() * 12;
+    const dropX = Math.max(48, Math.min((this.map?.width || 1600) - 48, p.x + Math.cos(angle) * dist));
+    const dropY = Math.max(48, Math.min((this.map?.height || 1200) - 48, p.y + Math.sin(angle) * dist));
+
+    this.groundDrops.push({
+      kind: 'item',
+      itemId: item.id,
+      qty: dropQty,
+      x: dropX,
+      y: dropY,
+      life: 22,
+      maxLife: 22,
+      pickupDelay: 2.0,
+      droppedByPlayer: true
+    });
+
+    sfx.playCoin();
+    this.addFloatingText(dropX, dropY - 14, `Botaste ${item.name}`, '#F97316');
+    this.callbacks.onToast?.(`Botaste ${item.name} (x${dropQty}) al suelo. Puedes recogerlo durante 22s.`, 'info');
+    this.callbacks.onAutoSave?.(this.exportSave());
+    return item;
   }
 
   gainXp(amount) {
@@ -949,10 +1393,14 @@ export class GameEngine {
   }
 
   collidesWorld(x, y, r) {
+    const onStairs = (this.map.stairs || []).some(
+      (st) => x >= st.x && x <= st.x + st.w && y >= st.y && y <= st.y + st.h
+    );
     for (const b of this.map.buildings) {
       if (x + r > b.x && x - r < b.x + b.w && y + r > b.y + 24 && y - r < b.y + b.h) return true;
     }
     for (const s of this.map.solids) {
+      if (onStairs && s.fromCliff) continue;
       if (x + r > s.x && x - r < s.x + s.w && y + r > s.y && y - r < s.y + s.h) return true;
     }
     for (const t of this.map.trees) {
@@ -1006,7 +1454,7 @@ export class GameEngine {
       if (cls.basicType === 'melee') {
         this.performMeleeArc(p.x, p.y, aim.x, aim.y, cls.basicRange, atk, enchantColor || '#FDE047');
       } else if (cls.basicType === 'ranged_arcane') {
-        this.addEffect('ring', p.x + aim.x * 16, p.y + aim.y * 16, 20, enchantColor || '#38BDF8', 0.2);
+        this.addEffect('magic_cast', p.x + aim.x * 16, p.y + aim.y * 16, 36, enchantColor || '#38BDF8', 0.32);
         this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 380, aim.y * 380, atk, 8, enchantColor || '#38BDF8', 0.85, { style: 'orb' });
       } else {
         this.spawnProjectile('player', p.x + aim.x * 14, p.y + aim.y * 14, aim.x * 470, aim.y * 470, atk, 6, enchantColor || '#FDE047', 0.78, { style: 'arrow' });
@@ -1114,16 +1562,50 @@ export class GameEngine {
   }
 
   checkDummyHit(x, y, radius, dmg) {
+    const hasNearbyMonster = this.map.enemies.some((e) => e.alive && Math.hypot(e.x - x, e.y - y) <= radius + 45);
     for (const dummy of this.map.npcs) {
-      if (dummy.kind !== 'dummy') continue;
-      if (Math.hypot(dummy.x - x, dummy.y - y) <= radius + dummy.radius) {
-        dummy.hitFlash = 0.25;
-        sfx.playHit();
-        this.addFloatingText(dummy.x, dummy.y - 26, `-${dmg}`, '#FACC15');
-        const q = this.player.quest;
-        if (q.currentId === 2 && q.talkedBlacksmith && q.dummyHits < 3) {
-          q.dummyHits += 1;
-          if (q.dummyHits >= 3) this.completeQuest(2);
+      if (dummy.kind === 'dummy') {
+        if (Math.hypot(dummy.x - x, dummy.y - y) <= radius + dummy.radius) {
+          dummy.hitFlash = 0.25;
+          sfx.playHit();
+          this.addFloatingText(dummy.x, dummy.y - 26, `-${dmg}`, '#FACC15');
+          const q = this.player.quest;
+          if (q.currentId === 2 && q.talkedBlacksmith && q.dummyHits < 3) {
+            q.dummyHits += 1;
+            if (q.dummyHits >= 3) this.completeQuest(2);
+          }
+        }
+      } else if ((dummy.isAiHero || dummy.isPortalGuard) && !dummy.isCompanion && !dummy.fleeing && (!hasNearbyMonster || dummy.hostile)) {
+        if (Math.hypot(dummy.x - x, dummy.y - y) <= radius + (dummy.radius || 18)) {
+          const effDmg = Math.max(8, Math.round(dmg * 0.42));
+          dummy.hp = Math.max(15, (dummy.hp || dummy.maxHp || 400) - effDmg);
+          dummy.hitFlash = 0.25;
+          sfx.playHit();
+          this.addFloatingText(dummy.x, dummy.y - 26, `-${effDmg}`, '#F87171');
+          if (!dummy.hostile) {
+            dummy.hostile = true;
+            dummy.emotion = 'enojo';
+            this.callFactionReinforcements(dummy);
+            if (dummy.aiId) {
+              spreadFactionGossip(dummy.aiId, dummy.faction, `${this.player.name} atacó a ${dummy.shortName || dummy.name}.`, -15);
+            }
+          }
+          if (dummy.hp < (dummy.maxHp || 400) * 0.25) {
+            dummy.fleeing = true;
+            dummy.hostile = false;
+            dummy.emotion = 'ayuda';
+            this.addFloatingText(dummy.x, dummy.y - 34, '¡Me retiro a curarme!', '#FDE047');
+            // Disputa de territorio: si el jugador vence al defensor del bando contrario, disputa la bandera de la zona
+            if (dummy.faction && dummy.faction !== this.player.faction) {
+              const st = getAiState();
+              if (st.territoryOwner) {
+                st.territoryOwner[this.map.id] = this.player.faction;
+                this.map.territoryFaction = this.player.faction;
+                saveAiState();
+                this.callbacks.onToast?.(`¡Tu bando ha tomado el control territorial de ${this.map.name}!`, 'success');
+              }
+            }
+          }
         }
       }
     }
@@ -1333,9 +1815,13 @@ export class GameEngine {
           if (!e.alive) continue;
           if (Math.hypot(e.x - pr.x, e.y - pr.y) < e.radius + pr.radius) {
             if (pr.aoeRadius) {
-              this.addEffect('fire_explosion', pr.x, pr.y, pr.aoeRadius, '#F97316', 0.36);
+              this.addEffect('fire_explosion', pr.x, pr.y, pr.aoeRadius, '#F97316', 0.44);
               this.hitEnemiesInRadius(pr.x, pr.y, pr.aoeRadius, pr.dmg);
             } else {
+              if (pr.style === 'orb') {
+                const isIce = pr.color === '#7DD3FC' || pr.color === '#BAE6FD';
+                this.addEffect(isIce ? 'ice_burst' : 'magic_hit', pr.x, pr.y, 38, pr.color || '#38BDF8', 0.34);
+              }
               this.damageEnemy(e, pr.dmg);
             }
             hit = true;
@@ -1513,9 +1999,9 @@ export class GameEngine {
   getNearestInteractable() {
     const p = this.player;
     for (const npc of this.map.npcs) {
-      if (npc.kind === 'dummy' || npc.kind.startsWith('guardia')) continue;
+      if (npc.kind === 'dummy' || (npc.kind.startsWith('guardia') && !npc.isAiHero && !npc.isPortalGuard)) continue;
       if (Math.hypot(npc.x - p.x, npc.y - p.y) < 74) {
-        return { type: 'npc', target: npc, label: `Hablar con ${npc.name} (E)` };
+        return { type: 'npc', target: npc, label: `Hablar con ${npc.shortName || npc.name} (E)` };
       }
     }
     for (const ch of this.map.chests) {
@@ -1712,6 +2198,7 @@ export class GameEngine {
       petXp: petProg?.xp || 0,
       petXpNeeded: petXpNeeded(petProg?.level || 1),
       cooldowns: p.cooldowns,
+      timeOfDay: this.timeOfDay,
       interactable: this.getNearestInteractable(),
       boss: bossVisible ? { name: `${boss.name} · Nv.${boss.level || 30}`, hp: Math.ceil(boss.hp), maxHp: boss.maxHp, fury: Boolean(boss.furyActive) } : null
     };
@@ -1786,6 +2273,18 @@ export class GameEngine {
     // Ordenar entidades por eje Y para profundidad 2.5D
     const renderables = [];
     for (const b of this.map.buildings) renderables.push({ y: b.y + b.h, draw: () => drawBuilding(ctx, b, this.elapsed) });
+    for (const cl of this.map.cliffs || []) {
+      renderables.push({
+        y: cl.y + cl.h,
+        draw: () => drawMapSheetSprite(ctx, cl.kind, cl.x, cl.y, cl.w, cl.h, this.elapsed)
+      });
+    }
+    for (const dd of this.map.doodads || []) {
+      renderables.push({
+        y: dd.y + dd.h * 0.35,
+        draw: () => drawMapSheetSprite(ctx, dd.kind, dd.x - dd.w * 0.5, dd.y - dd.h * 0.65, dd.w, dd.h, this.elapsed)
+      });
+    }
     for (const t of this.map.trees) renderables.push({ y: t.y + 18, draw: () => drawTree(ctx, t) });
     for (const pr of this.map.props) renderables.push({ y: pr.y, draw: () => drawProp(ctx, pr, this.elapsed) });
     for (const ch of this.map.chests) renderables.push({ y: ch.y, draw: () => drawChest(ctx, ch, this.elapsed) });
@@ -1835,7 +2334,15 @@ export class GameEngine {
       ctx.save();
       ctx.translate(pr.x, pr.y);
       ctx.rotate(ang);
-      if (projSheet) {
+      const isIceProj = pr.color === '#7DD3FC' || pr.color === '#BAE6FD';
+      const isEnergyOrb = pr.style === 'orb' && !isIceProj && pr.owner === 'player';
+      if (isIceProj && getAsset('fx_ice_ball')) {
+        const loopProg = (this.elapsed * 2.5) % 1;
+        drawGridEffectSprite(ctx, 'fx_ice_ball', 0, 0, Math.max(30, pr.radius * 3.6), loopProg, 1);
+      } else if (isEnergyOrb && getAsset('fx_energy_ball')) {
+        const loopProg = (this.elapsed * 3.2) % 1;
+        drawGridEffectSprite(ctx, 'fx_energy_ball', 0, 0, Math.max(34, pr.radius * 4.0), loopProg, 1);
+      } else if (projSheet) {
         ctx.imageSmoothingEnabled = false;
         const fIdx = Math.floor(this.elapsed * 14) % 4;
         const m = getSpriteFrameMetrics(projSheet, fIdx);
@@ -1872,54 +2379,104 @@ export class GameEngine {
       ctx.save();
       ctx.globalAlpha = alpha;
       if (ef.kind === 'slash' || ef.kind === 'heavy_slash' || ef.kind === 'dimensional_slash' || ef.kind === 'claw_swipe') {
-        const sheetKey =
-          ef.kind === 'heavy_slash'
-            ? 'fx_golpe_furia'
-            : ef.kind === 'dimensional_slash'
-            ? 'fx_corte_dimensional'
-            : ef.kind === 'claw_swipe'
-            ? 'fx_zarpazo_enemigo'
-            : 'fx_tajo_espada';
-        const slashSheet = getAsset(sheetKey) || getAsset('fx_tajo_espada');
         const baseAng = ef.angle !== undefined ? ef.angle : 0;
-        if (slashSheet) {
-          const m = getSpriteFrameMetrics(slashSheet, fIdx);
-          const sz = Math.max(48, ef.radius * (ef.kind === 'heavy_slash' || ef.kind === 'dimensional_slash' ? 2.15 : 1.9));
+        const smearKey = ef.kind === 'heavy_slash' ? 'fx_slash_heavy' : ef.kind === 'slash' ? 'fx_slash_01' : null;
+        if (smearKey && getAsset(smearKey)) {
+          const sz = Math.max(54, ef.radius * (ef.kind === 'heavy_slash' ? 2.2 : 1.95));
           ctx.translate(ef.x, ef.y);
           ctx.rotate(baseAng);
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(slashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -sz * 0.45, -sz * 0.5, sz, sz);
+          drawGridEffectSprite(ctx, smearKey, 0, 0, sz, prog, alpha);
         } else {
-          const startA = baseAng - 1.15 + prog * 0.4;
-          const endA = baseAng - 0.55 + prog * 1.95;
-          const rad = ef.radius * (0.85 + prog * 0.35);
+          const sheetKey =
+            ef.kind === 'heavy_slash'
+              ? 'fx_golpe_furia'
+              : ef.kind === 'dimensional_slash'
+              ? 'fx_corte_dimensional'
+              : ef.kind === 'claw_swipe'
+              ? 'fx_zarpazo_enemigo'
+              : 'fx_tajo_espada';
+          const slashSheet = getAsset(sheetKey) || getAsset('fx_tajo_espada');
+          if (slashSheet) {
+            const m = getSpriteFrameMetrics(slashSheet, fIdx);
+            const sz = Math.max(48, ef.radius * (ef.kind === 'heavy_slash' || ef.kind === 'dimensional_slash' ? 2.15 : 1.9));
+            ctx.translate(ef.x, ef.y);
+            ctx.rotate(baseAng);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(slashSheet, m.sx, m.sy, m.frameWidth, m.frameHeight, -sz * 0.45, -sz * 0.5, sz, sz);
+          } else {
+            const startA = baseAng - 1.15 + prog * 0.4;
+            const endA = baseAng - 0.55 + prog * 1.95;
+            const rad = ef.radius * (0.85 + prog * 0.35);
+            ctx.strokeStyle = ef.color;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(ef.x, ef.y, rad, startA, endA);
+            ctx.stroke();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(ef.x, ef.y, rad * 0.88, startA + 0.08, endA - 0.05);
+            ctx.stroke();
+          }
+        }
+      } else if (ef.kind === 'void_wave') {
+        if (!drawGridEffectSprite(ctx, 'fx_void_vortex', ef.x, ef.y, ef.radius * 2.0, prog, alpha)) {
+          if (getAsset('fx_onda_vacio')) drawFootAnchoredSprite(ctx, getAsset('fx_onda_vacio'), ef.x, ef.y + ef.radius * 0.55, ef.radius * 1.65, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'shield_bulwark') {
+        if (!drawGridEffectSprite(ctx, 'fx_shield', ef.x, ef.y - 4, 88, prog, alpha)) {
+          if (getAsset('fx_escudo_baluarte')) drawFootAnchoredSprite(ctx, getAsset('fx_escudo_baluarte'), ef.x, ef.y + 18, 74, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'arcane_blink') {
+        if (!drawGridEffectSprite(ctx, 'fx_bluefire', ef.x, ef.y - 4, 82, prog, alpha)) {
+          if (getAsset('fx_destello_arcano')) drawFootAnchoredSprite(ctx, getAsset('fx_destello_arcano'), ef.x, ef.y + 18, 68, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'celestial_blessing') {
+        if (!drawGridEffectSprite(ctx, 'fx_magic_cast', ef.x, ef.y - 6, 86, prog, alpha)) {
+          if (getAsset('fx_bendicion_celestial')) drawFootAnchoredSprite(ctx, getAsset('fx_bendicion_celestial'), ef.x, ef.y + 18, 72, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'magic_cast') {
+        if (!drawGridEffectSprite(ctx, 'fx_magic_cast', ef.x, ef.y, ef.radius * 1.8, prog, alpha)) {
           ctx.strokeStyle = ef.color;
-          ctx.lineWidth = 6;
+          ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(ef.x, ef.y, rad, startA, endA);
-          ctx.stroke();
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.arc(ef.x, ef.y, rad * 0.88, startA + 0.08, endA - 0.05);
+          ctx.arc(ef.x, ef.y, ef.radius * (1.1 - alpha * 0.3), 0, Math.PI * 2);
           ctx.stroke();
         }
-      } else if (ef.kind === 'void_wave' && getAsset('fx_onda_vacio')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_onda_vacio'), ef.x, ef.y + ef.radius * 0.55, ef.radius * 1.65, { frameIndex: fIdx, alpha });
-      } else if (ef.kind === 'shield_bulwark' && getAsset('fx_escudo_baluarte')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_escudo_baluarte'), ef.x, ef.y + 18, 74, { frameIndex: fIdx, alpha });
-      } else if (ef.kind === 'arcane_blink' && getAsset('fx_destello_arcano')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_destello_arcano'), ef.x, ef.y + 18, 68, { frameIndex: fIdx, alpha });
-      } else if (ef.kind === 'celestial_blessing' && getAsset('fx_bendicion_celestial')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_bendicion_celestial'), ef.x, ef.y + 18, 72, { frameIndex: fIdx, alpha });
-      } else if (ef.kind === 'fire_explosion' && getAsset('fx_explosion_fuego')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_explosion_fuego'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.65, { frameIndex: fIdx, alpha });
-      } else if (ef.kind === 'frost_nova' && getAsset('fx_nova_escarcha')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_nova_escarcha'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'fire_explosion') {
+        if (!drawGridEffectSprite(ctx, 'fx_fireball', ef.x, ef.y, ef.radius * 2.15, prog, alpha)) {
+          if (getAsset('fx_explosion_fuego')) drawFootAnchoredSprite(ctx, getAsset('fx_explosion_fuego'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.65, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'frost_nova') {
+        if (!drawGridEffectSprite(ctx, 'fx_frost', ef.x, ef.y, ef.radius * 2.1, prog, alpha)) {
+          if (getAsset('fx_nova_escarcha')) drawFootAnchoredSprite(ctx, getAsset('fx_nova_escarcha'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'trap_snap') {
+        if (!drawGridEffectSprite(ctx, 'fx_nature_trap', ef.x, ef.y, ef.radius * 2.0, prog, alpha)) {
+          ctx.strokeStyle = ef.color;
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.arc(ef.x, ef.y, ef.radius * (1.2 - alpha * 0.35), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (ef.kind === 'magic_hit') {
+        if (!drawGridEffectSprite(ctx, 'fx_energy_impact', ef.x, ef.y, ef.radius * 2.2, prog, alpha) &&
+            !drawGridEffectSprite(ctx, 'fx_magic_hit', ef.x, ef.y, ef.radius * 2.1, prog, alpha)) {
+          if (getAsset('fx_impacto_golpe')) drawFootAnchoredSprite(ctx, getAsset('fx_impacto_golpe'), ef.x, ef.y + ef.radius * 0.75, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+        }
+      } else if (ef.kind === 'ice_burst') {
+        if (!drawGridEffectSprite(ctx, 'fx_ice_burst', ef.x, ef.y, ef.radius * 2.2, prog, alpha) &&
+            !drawGridEffectSprite(ctx, 'fx_frost', ef.x, ef.y, ef.radius * 2.1, prog, alpha)) {
+          if (getAsset('fx_nova_escarcha')) drawFootAnchoredSprite(ctx, getAsset('fx_nova_escarcha'), ef.x, ef.y + ef.radius * 0.65, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+        }
       } else if (ef.kind === 'arrow_rain' && getAsset('fx_lluvia_flechas')) {
         drawFootAnchoredSprite(ctx, getAsset('fx_lluvia_flechas'), ef.x, ef.y + ef.radius * 0.55, ef.radius * 1.5, { frameIndex: fIdx, alpha });
-      } else if (ef.kind === 'hit_spark' && getAsset('fx_impacto_golpe')) {
-        drawFootAnchoredSprite(ctx, getAsset('fx_impacto_golpe'), ef.x, ef.y + ef.radius * 0.75, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+      } else if (ef.kind === 'hit_spark') {
+        const hitKey = (ef.color === '#FDE047' || ef.color === '#F97316') ? 'fx_hit_01' : 'fx_hit_blue';
+        if (!drawGridEffectSprite(ctx, hitKey, ef.x, ef.y, Math.max(48, ef.radius * 2.2), prog, alpha) &&
+            !drawGridEffectSprite(ctx, 'fx_weapon_hit', ef.x, ef.y, Math.max(46, ef.radius * 2.1), prog, alpha)) {
+          if (getAsset('fx_impacto_golpe')) drawFootAnchoredSprite(ctx, getAsset('fx_impacto_golpe'), ef.x, ef.y + ef.radius * 0.75, ef.radius * 1.6, { frameIndex: fIdx, alpha });
+        }
       } else if (ef.kind === 'level_up' && getAsset('fx_level_up')) {
         drawFootAnchoredSprite(ctx, getAsset('fx_level_up'), ef.x, ef.y + 22, 108, { frameIndex: fIdx, alpha });
       } else if (ef.kind === 'dash_trail' && getAsset('fx_estela_dash')) {
@@ -1970,11 +2527,12 @@ export class GameEngine {
       const py = this.player.y - this.camera.y;
       const isNight = this.timeOfDay > 0.72;
       const intensity = isNight
-        ? Math.min(0.46, (this.timeOfDay - 0.72) * 2.2)
-        : Math.min(0.22, (this.timeOfDay - 0.55) * 1.3);
-      const tint = isNight ? `rgba(10, 15, 36, ${intensity.toFixed(2)})` : `rgba(124, 45, 18, ${intensity.toFixed(2)})`;
-      const grad = ctx.createRadialGradient(px, py, 75, px, py, 380);
-      grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        ? Math.min(0.64, 0.34 + (this.timeOfDay - 0.72) * 1.45)
+        : Math.min(0.26, (this.timeOfDay - 0.55) * 1.5);
+      const innerTint = isNight ? 'rgba(8, 12, 32, 0.16)' : 'rgba(0, 0, 0, 0)';
+      const tint = isNight ? `rgba(8, 12, 32, ${intensity.toFixed(2)})` : `rgba(124, 45, 18, ${intensity.toFixed(2)})`;
+      const grad = ctx.createRadialGradient(px, py, 70, px, py, 360);
+      grad.addColorStop(0, innerTint);
       grad.addColorStop(1, tint);
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, vw, vh);
@@ -1982,11 +2540,11 @@ export class GameEngine {
         const lanternSheet = getAsset('fx_halo_jugador');
         if (lanternSheet) {
           const lFrame = Math.floor(this.elapsed * 6) % 4;
-          drawFootAnchoredSprite(ctx, lanternSheet, px, py + 72, 148, { frameIndex: lFrame, alpha: 0.34 });
+          drawFootAnchoredSprite(ctx, lanternSheet, px, py + 72, 160, { frameIndex: lFrame, alpha: 0.42 });
         }
       }
     }
 
-    drawWeatherOverlay(ctx, this.map, vw, vh, this.elapsed);
+    drawWeatherOverlay(ctx, this.map, vw, vh, this.elapsed, this.camera.x, this.camera.y);
   }
 }

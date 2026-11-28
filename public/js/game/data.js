@@ -265,6 +265,20 @@ export const ITEMS = {
   gema_esmeralda: { id: 'gema_esmeralda', name: 'Esmeralda', icon: '💚', type: 'gem', gemColor: '#22C55E', price: 120, desc: 'Refuerza el equipo de +1 a +12 (brillo desde +9).' },
   gema_zafiro: { id: 'gema_zafiro', name: 'Zafiro', icon: '💎', type: 'gem', gemColor: '#3B82F6', price: 180, desc: 'Sube la calidad del equipo hasta Legendario.' },
   esencia_hierro: { id: 'esencia_hierro', name: 'Esencia de Hierro', icon: '⚒️', type: 'material', price: 35, desc: 'Material de forja de Valoria.' },
+  madera_roble: { id: 'madera_roble', name: 'Madera de Roble', icon: '🪵', type: 'material', gemColor: '#A16207', price: 20, desc: 'Tronco resistente obtenido al talar. Se usa en la Herrería para fabricar armas y reparar defensas.' },
+  piedra_runica: { id: 'piedra_runica', name: 'Piedra Rúnica', icon: '🪨', type: 'material', gemColor: '#94A3B8', price: 25, desc: 'Roca tallada para reforzar escudos, murallas y elixires.' },
+  mineral_hierro: { id: 'mineral_hierro', name: 'Mineral de Hierro', icon: '⛏️', type: 'material', gemColor: '#38BDF8', price: 30, desc: 'Veta pura extraída de las minas para forjar mejores armas y pociones en la Herrería.' },
+  elixir_forja: { id: 'elixir_forja', name: 'Elixir Maestro de Forja', icon: '🍷', type: 'consumable', heal: 420, mana: 140, price: 95, desc: 'Poción artesanal creada en la Herrería con madera y mineral. Restaura 420 PV y 140 PM.' },
+  disfraz_alba: {
+    id: 'disfraz_alba', name: 'Tabardo Disfraz del Alba', icon: '🛡️', type: 'equipment', slot: 'pechera',
+    disguiseFaction: 'alba', quality: 2, def: 15, hp: 95, price: 140,
+    desc: 'Armadura oficial de la Guardia del Alba. Equípala para cruzar el Portal Vigilado del Mapa de Hielo sin ser atacado.'
+  },
+  disfraz_hierro: {
+    id: 'disfraz_hierro', name: 'Coraza Disfraz de Hierro', icon: '🛡️', type: 'equipment', slot: 'pechera',
+    disguiseFaction: 'hierro', quality: 2, def: 15, hp: 95, price: 140,
+    desc: 'Armadura oficial de los Clanes de Hierro. Equípala para cruzar el Portal Vigilado del Mapa de Hielo sin ser atacado.'
+  },
   cristal_morado: { id: 'cristal_morado', name: 'Cristal Morado', icon: '🔮', type: 'quest_material', price: 0, desc: 'Fragmento del Vacío recogido en la Cueva.' },
   fragmento_vacio: { id: 'fragmento_vacio', name: 'Fragmento del Vacío', icon: '✨', type: 'material', price: 50, desc: 'Energía oscura condensada.' },
   // Equipo Exclusivo de los 4 Jefes (equipable en las 12 ranuras)

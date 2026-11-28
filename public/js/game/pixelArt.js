@@ -4,7 +4,7 @@
  * y dibuja retratos escénicos 16-bit para las 4 Mascotas y los 4 Jefes de Valoria.
  */
 
-import { getEquipIconUrl, getBossAsset } from './assetLoader.js';
+import { getEquipIconUrl, getBossAsset, drawUiBackdrop } from './assetLoader.js';
 
 function px(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -401,7 +401,7 @@ export function pixelIcon(keyOrEmoji, size = 18) {
   const key = PIXEL_ICON_DEFS[keyOrEmoji] ? keyOrEmoji : (EMOJI_TO_KEY[keyOrEmoji] || keyOrEmoji || 'coin');
   const croppedUrl = getEquipIconUrl(key);
   if (croppedUrl) {
-    return `<img src="${croppedUrl}" width="${size}" height="${size}" class="pixel-icon-svg" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
+    return `<img src="${croppedUrl}" width="${size}" height="${size}" draggable="false" class="pixel-icon-svg" style="image-rendering:pixelated;object-fit:contain" alt="" aria-hidden="true" />`;
   }
   const inner = PIXEL_ICON_DEFS[key] || PIXEL_ICON_DEFS.coin;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="${size}" height="${size}" shape-rendering="crispEdges" class="pixel-icon-svg" aria-hidden="true">${inner}</svg>`;
@@ -450,49 +450,45 @@ export function drawBossPortraitCard(canvas, bossId, time = 0) {
 
   const bossImg = getBossAsset(bossId);
   if (bossImg) {
-    // Pintar escenario temático detrás del sprite transparente del jefe (Flood-Fill)
-    if (bossId === 'malakor') {
-      const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#121E18');
-      g.addColorStop(0.65, '#1F3327');
-      g.addColorStop(1, '#0F1A14');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      p(10, 0, 16, h, '#0B130E');
-      p(w - 24, 0, 16, h, '#0B130E');
-      p(cx - 42, h - 18, 84, 10, '#080D0A');
-    } else if (bossId === 'ignis') {
-      const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#1C0D0A');
-      g.addColorStop(0.6, '#45140B');
-      g.addColorStop(1, '#7C2D12');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      p(0, h - 34, w, 34, '#291512');
-      p(12, h - 24, w - 24, 8, '#EA580C');
-      p(24, h - 22, w - 48, 4, '#FEF08A');
-    } else if (bossId === 'boreas') {
-      const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#7DD3FC');
-      g.addColorStop(0.55, '#BAE6FD');
-      g.addColorStop(1, '#E2E8F0');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      [14, 34, 118, 138].forEach((ix, i) => {
-        p(ix, 0, 10, 22 + (i % 2) * 10, '#38BDF8');
-        p(ix + 2, 0, 5, 18 + (i % 2) * 8, '#E0F2FE');
-      });
-      p(10, h - 85, 55, 55, '#94A3B8');
-      p(22, h - 95, 32, 20, '#F8FAFC');
-    } else {
-      const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#130722');
-      g.addColorStop(0.6, '#260E45');
-      g.addColorStop(1, '#120824');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      p(16, 12, 18, h - 24, '#1B0C33');
-      p(w - 34, 12, 18, h - 24, '#1B0C33');
+    // Pintar escenario temático 16-bit ilustrado (ui_backdrops_sheet) detrás del sprite transparente del jefe
+    const backdropKey =
+      bossId === 'malakor'
+        ? 'boss_malakor'
+        : bossId === 'ignis'
+        ? 'boss_ignis'
+        : bossId === 'boreas'
+        ? 'boss_boreas'
+        : 'boss_vaelor';
+    if (!drawUiBackdrop(ctx, backdropKey, 0, 0, w, h)) {
+      if (bossId === 'malakor') {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#121E18');
+        g.addColorStop(0.65, '#1F3327');
+        g.addColorStop(1, '#0F1A14');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      } else if (bossId === 'ignis') {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#1C0D0A');
+        g.addColorStop(0.6, '#45140B');
+        g.addColorStop(1, '#7C2D12');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      } else if (bossId === 'boreas') {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#7DD3FC');
+        g.addColorStop(0.55, '#BAE6FD');
+        g.addColorStop(1, '#E2E8F0');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#130722');
+        g.addColorStop(0.6, '#260E45');
+        g.addColorStop(1, '#120824');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      }
     }
 
     const pad = 12;
@@ -693,6 +689,18 @@ export function drawBossPortraitCard(canvas, bossId, time = 0) {
    ESCENARIOS DE RETRATO DE LAS 4 MASCOTAS DE VALORIA
    ========================================================= */
 export function drawPetPortraitBackdrop(ctx, w, h, petId) {
+  const backdropKey =
+    petId === 'montura_caballo'
+      ? 'stage_establo'
+      : petId === 'lobo_blanco'
+      ? 'pet_lobo_blanco'
+      : petId === 'fantasma_hoz'
+      ? 'pet_fantasma_hoz'
+      : petId === 'gato_volador'
+      ? 'pet_gato_volador'
+      : 'pet_dragon_negro';
+  if (drawUiBackdrop(ctx, backdropKey, 0, 0, w, h)) return;
+
   const p = (x, y, pw, ph, col) => px(ctx, x, y, pw, ph, col);
   if (petId === 'lobo_blanco') {
     const g = ctx.createLinearGradient(0, 0, 0, h);
