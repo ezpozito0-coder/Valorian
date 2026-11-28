@@ -651,12 +651,23 @@ function drawHeroEquipmentLayers(ctx, anchorX, anchorY, s, state, { rowIndex, co
   const lStepY = isWalk1 ? -1.4 * u : isWalk2 ? 0.6 * u : 0;
   const rStepY = isWalk2 ? -1.4 * u : isWalk1 ? 0.6 * u : 0;
 
-  // 1. Pierneras (Grebas / Musleras) adaptadas a cada pierna
+  const isFemale = state.gender === 'female';
+
+  // 1. Pierneras (Grebas / Musleras): en heroínas femeninas solo dibujar ligas/musleras finas dejando muslos y piernas descubiertos
   if (gear.pierneras) {
     const legBase = heroClass === 'guerrero' ? plate : heroClass === 'mago' ? primary : leather;
     const legHi = heroClass === 'guerrero' ? plateHi : heroClass === 'mago' ? primaryHi : leatherHi;
     const legDk = heroClass === 'guerrero' ? plateDark : heroClass === 'mago' ? primaryDark : leatherDark;
-    if (isSide) {
+    if (isFemale) {
+      const bandH = Math.max(1.5 * u, pStep * 1.6);
+      if (isSide) {
+        const sideLegX = ((lLegX + rLegX) * 0.5) - legW * 0.52;
+        r(sideLegX, legTopY + legH * 0.35 + lStepY * 0.5, legW * 1.05, bandH, trim);
+      } else {
+        r(lLegX - legW * 0.45, legTopY + legH * 0.35 + lStepY, legW * 0.9, bandH, trim);
+        r(rLegX - legW * 0.45, legTopY + legH * 0.35 + rStepY, legW * 0.9, bandH, trim);
+      }
+    } else if (isSide) {
       const sideLegX = ((lLegX + rLegX) * 0.5) - legW * 0.55;
       rShaded(sideLegX, legTopY + lStepY * 0.5, legW * 1.15, legH, legBase, legHi, legDk);
       r(sideLegX + pStep, legTopY + lStepY * 0.5 + legH * 0.45, legW * 1.15 - pStep * 2, pStep, trim);
@@ -691,7 +702,7 @@ function drawHeroEquipmentLayers(ctx, anchorX, anchorY, s, state, { rowIndex, co
     }
   }
 
-  // 3. Pechera / Coraza / Túnica entallada al torso real (con hombreras y cinturón)
+  // 3. Pechera / Coraza / Túnica: en heroínas femeninas usar bikini-armor mínimo que deja abdomen, cintura, escote y caderas al descubierto
   if (gear.pechera) {
     const tx = torsoCx - torsoW * 0.5;
     const ty = torsoTopY + torsoH * 0.08;
@@ -700,7 +711,36 @@ function drawHeroEquipmentLayers(ctx, anchorX, anchorY, s, state, { rowIndex, co
     const waistW = tw * 0.82;
     const waistX = torsoCx - waistW * 0.5;
 
-    if (heroClass === 'guerrero') {
+    if (isFemale) {
+      const braBase = heroClass === 'guerrero' ? primary : heroClass === 'mago' ? primaryHi : leather;
+      const braTrim = trim;
+      const cupW = Math.max(2.2 * u, tw * 0.34);
+      const cupH = Math.max(1.8 * u, th * 0.26);
+      const cupY = ty + th * 0.14;
+      if (isBack) {
+        // De espaldas: solo un tirante fino horizontal dejando espalda, cintura y glúteos descubiertos
+        r(tx + tw * 0.14, cupY + cupH * 0.35, tw * 0.72, pStep, braTrim);
+      } else if (isSide) {
+        // De perfil: copa del bikini-armor realzando el busto hacia adelante y cinturón fino en cadera
+        r(torsoCx - cupW * 0.25, cupY, cupW * 0.95, cupH, braBase);
+        r(torsoCx - cupW * 0.25, cupY, cupW * 0.95, pStep, braTrim);
+      } else {
+        // De frente: dos copas separadas dejando escote central y todo el abdomen/cintura descubiertos
+        r(torsoCx - cupW - pStep * 0.6, cupY, cupW, cupH, braBase);
+        r(torsoCx + pStep * 0.6, cupY, cupW, cupH, braBase);
+        r(torsoCx - cupW - pStep * 0.6, cupY, cupW, pStep, braTrim);
+        r(torsoCx + pStep * 0.6, cupY, cupW, pStep, braTrim);
+      }
+      // Hombreras pequeñas minimalistas solo si es Guerrera
+      if (heroClass === 'guerrero' && !isSide) {
+        const pW = Math.max(1.8 * u, tw * 0.24);
+        const pH = Math.max(1.5 * u, th * 0.22);
+        r(tx - pW * 0.35, ty, pW, pH, plate);
+        r(tx + tw - pW * 0.65, ty, pW, pH, plate);
+        r(tx - pW * 0.35, ty, pW, pStep, braTrim);
+        r(tx + tw - pW * 0.65, ty, pW, pStep, braTrim);
+      }
+    } else if (heroClass === 'guerrero') {
       // Peto superior y cintura entallada (forma de coraza en V)
       rShaded(waistX, ty + th * 0.45, waistW, th * 0.55, plateDark, plate, '#1E293B');
       rShaded(tx, ty, tw, th * 0.58, plate, plateHi, plateDark);
