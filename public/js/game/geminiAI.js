@@ -406,6 +406,27 @@ async function callGeminiFlashJson(systemInstruction, userPrompt, timeoutMs = 65
 /* =========================================================
    GUARDADO DE REPORTES DIRECTO EN mejoras_npc.md + RESPALDO LOCAL
    ========================================================= */
+export async function syncPendingReportsToServer() {
+  try {
+    const existing = JSON.parse(localStorage.getItem(REPORTS_BACKUP_STORAGE) || '[]');
+    if (!Array.isArray(existing) || existing.length === 0) return;
+    const unsynced = existing.filter((r) => !r.syncedToServer);
+    if (unsynced.length === 0) return;
+    for (const item of unsynced) {
+      const res = await fetch('./api/npc-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+      if (res.ok) item.syncedToServer = true;
+    }
+    localStorage.setItem(REPORTS_BACKUP_STORAGE, JSON.stringify(existing));
+  } catch {
+    // ignore
+  }
+}
+setTimeout(() => syncPendingReportsToServer(), 1500);
+
 export async function saveImprovementReportToAntigravity({
   characterName,
   faction,
@@ -444,6 +465,14 @@ export async function saveImprovementReportToAntigravity({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    if (res.ok) {
+      payload.syncedToServer = true;
+      const existing = JSON.parse(localStorage.getItem(REPORTS_BACKUP_STORAGE) || '[]');
+      if (existing.length > 0) {
+        existing[existing.length - 1].syncedToServer = true;
+        localStorage.setItem(REPORTS_BACKUP_STORAGE, JSON.stringify(existing));
+      }
+    }
     return res.ok;
   } catch {
     return false;
@@ -830,7 +859,7 @@ Devuelve SOLO JSON:
   return mem.goal;
 }
 
-function autoGeneratePeriodicObservation(def, mem, worldContext) {
+export function autoGeneratePeriodicObservation(def, mem, worldContext = {}) {
   let category = 'Deseos propios';
   let suggestion = '';
 
@@ -858,4 +887,55 @@ function autoGeneratePeriodicObservation(def, mem, worldContext) {
     mapName: worldContext.mapName || 'Valoria',
     suggestion
   });
+}
+
+export async function generateImmediateNpcReport(npcEntity, worldContext = {}) {
+  const def = AI_CHARACTERS_DEFS[npcEntity?.aiId || npcEntity?.id] || AI_CHARACTERS_DEFS.paladina_alba;
+  const mem = getCharacterMemory(def.id);
+  mem.lastReportTime = Date.now();
+
+  if (hasGeminiApiKey()) {
+    const sysPrompt = `Eres ${def.name} (${def.title}, ${def.profession}) del bando ${def.factionLabel} en el RPG 2D Valoria.
+Observa el mundo y redacta una sugerencia concreta para mejoras_npc.md sobre uno de estos temas:
+- "Problemas del juego" (escasez, equilibrio, enemigos o caminos)
+- "Aburrimiento" (nuevas actividades o trabajos)
+- "Deseos propios" (aprender un oficio nuevo, construir un lugar especial, organizar un evento o usar un objeto distinto)
+- "Fallos visuales del mapa" (algo visual que mejorar en la zona)
+Devuelve SOLO JSON:
+{
+  "category": "Problemas del juego"|"Aburrimiento"|"Deseos propios"|"Fallos visuales del mapa",
+  "suggestion": "Tu sugerencia concreta en primera persona (1 o 2 oraciones)",
+  "technicalNote": "Qué sprite o sistema de 16 bits sobre fondo magenta #FF00FF debería crear Antigravity / Nano Banana"
+}`;
+    const gRes = await callGeminiFlashJson(
+      sysPrompt,
+      JSON.stringify({
+        ubicacion: worldContext.mapName || 'Valoria',
+        clima: worldContext.weather || 'normal',
+        vida: `${Math.round(npcEntity?.hp || def.maxHp)}/${def.maxHp}`,
+        hambre: Math.round(mem.hunger),
+        energia: Math.round(mem.energy),
+        mochila: mem.inventory,
+        economia: aiState.economy
+      }),
+      6000
+    );
+    if (gRes?.suggestion) {
+      await saveImprovementReportToAntigravity({
+        characterName: `${def.name} (${def.title})`,
+        faction: def.factionLabel,
+        role: def.profession,
+        category: gRes.category || 'Deseos propios',
+        mapName: worldContext.mapName || 'Valoria',
+        suggestion: gRes.suggestion,
+        technicalNote: gRes.technicalNote || ''
+      });
+      saveAiState();
+      return gRes.suggestion;
+    }
+  }
+
+  autoGeneratePeriodicObservation(def, mem, worldContext);
+  saveAiState();
+  return 'Reporte guardado en mejoras_npc.md.';
 }

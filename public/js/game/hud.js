@@ -46,6 +46,7 @@ import {
   getAiState,
   chatWithAiCharacter,
   decideCharacterNextGoal,
+  generateImmediateNpcReport,
   getDynamicPriceMultiplier,
   hasGeminiApiKey
 } from './geminiAI.js';
@@ -1874,12 +1875,12 @@ export function buildNpcDialog(npc, engine, { onClose, onOpenUpgrades, onSave })
     reportBtn.textContent = 'Guardar Reporte en mejoras_npc.md';
     reportBtn.addEventListener('click', async () => {
       replyBox.textContent = 'Observando el mundo y guardando sugerencia en mejoras_npc.md...';
-      await decideCharacterNextGoal(npc, {
+      const repText = await generateImmediateNpcReport(npc, {
         weather: engine.map?.weather,
         severeWeather: engine.weatherSevere,
         mapName: engine.map?.name
       });
-      replyBox.textContent = '"He anotado mis observaciones y deseos de mejora en mejoras_npc.md para Antigravity."';
+      replyBox.textContent = `"${repText}" (Guardado en mejoras_npc.md)`;
     });
     actionsEl.appendChild(reportBtn);
   }
